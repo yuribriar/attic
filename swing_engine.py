@@ -3067,6 +3067,7 @@ class SignalResult:
         "ob_zone_label",
         "grade",
         "confluence_factors",
+        "_bos_level",
     )
 
     def __init__(self):
@@ -3104,6 +3105,7 @@ class SignalResult:
         self.ob_zone_label: str = ""
         self.grade: str = "C"                          # I10: A / B / C
         self.confluence_factors: list[str] = []        # I9: active factors
+        self._bos_level: float | None = None           # I3: BOS structural price level
 
 
 # ═══════════════════════════════════════════════════════════════════
