@@ -282,7 +282,7 @@ TP1_MULT_CONT       = 1.6    # was 1.5 — R:R 1.5 buffer above MIN_RR_RATIO
 TP2_MULT_CONT       = 3.0
 SL_MULT_CONT        = 1.0
 
-TP1_MULT_PULL       = 1.3    # was 1.2 — keeps "tighter than CONT" intent, adds buffer
+TP1_MULT_PULL       = 1.6    # was 1.3
 TP2_MULT_PULL       = 2.5
 SL_MULT_PULL        = 0.80   # and a tighter stop, since invalidation is closer
 
