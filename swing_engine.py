@@ -273,7 +273,7 @@ SWING_LOOKBACK      = 5      # bars to look back for swing high/low
 ATR_FALLBACK_PCT    = 0.30   # fallback ATR % if calculation fails
 MIN_ATR_PCT         = 0.15   # dead market filter (lower than v15 — daily moves smaller)
 MAX_ATR_PCT         = 12.0
-MIN_RR_RATIO        = 1.5    # minimum TP1 R:R
+MIN_RR_RATIO        = 1.3    # minimum TP1 R:R
 PREFERRED_RR_RATIO  = 2.0    # preferred R:R
 
 # ATR-based TP/SL (1H ATR units) — per setup-type (ported from MTF v0.1)
@@ -282,7 +282,7 @@ TP1_MULT_CONT       = 1.6    # was 1.5 — R:R 1.5 buffer above MIN_RR_RATIO
 TP2_MULT_CONT       = 3.0
 SL_MULT_CONT        = 1.0
 
-TP1_MULT_PULL       = 1.6    # was 1.3
+TP1_MULT_PULL       = 1.3    # was 1.2 — keeps "tighter than CONT" intent, adds buffer
 TP2_MULT_PULL       = 2.5
 SL_MULT_PULL        = 0.80   # and a tighter stop, since invalidation is closer
 
