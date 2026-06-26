@@ -3566,6 +3566,7 @@ class SignalResult:
         "session_data",
         # P2: orderflow
         "orderflow_data",
+        "_of_soft_warn",          # P2: orderflow soft-warn passthrough
         # P3: liquidity context
         "liquidity_data",
         "sl_quality_label",
@@ -3615,6 +3616,7 @@ class SignalResult:
         self.session_data: dict = {}
         # P2
         self.orderflow_data: dict = {}
+        self._of_soft_warn: bool = False  # P2: orderflow soft-warn passthrough
         # P3
         self.liquidity_data: dict = {}
         self.sl_quality_label: str = ""
