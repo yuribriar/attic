@@ -4250,9 +4250,13 @@ def _apply_filters_and_adjustments(res: SignalResult,
                 res.sl = min(structure_sl, atr_based_sl)  # never wider than ATR-based
         # For shorts, only snap TP1 to support if that support is FURTHER from entry
         # than the ATR-based TP1 (i.e., snap extends TP1, never shrinks it).
+        # Bound the extension so TP1 can never end up farther than TP2 — otherwise
+        # TP1/TP2 invert (TP1 would require a bigger move than TP2, which breaks the
+        # "TP1 hits first" assumption used everywhere else, e.g. R:R display and
+        # the tp1_hit -> tp2 monitoring state machine).
         if res.supports:
             ns = res.supports[0]
-            if ns < res.tp1:   # support is below the ATR-based TP1 = extends target
+            if res.tp2 < ns < res.tp1:   # support is below ATR TP1 but still above TP2
                 res.tp1 = ns
 
     # P3: Liquidity context — detect equal H/L stop clusters on 4H
@@ -4539,11 +4543,17 @@ def check_active_signals(state: dict, bar_index_now: int,
                             # Opened closer to SL
                             if entry_touched:
                                 react_to_message(msg_id, REACT_SL)
+                                resolve("sl")
                             else:
                                 react_to_message(msg_id, REACT_MISS)
-                            resolve("sl")
+                                resolve("missed")
                             break
                         else:
+                            if not entry_touched:
+                                # TP1 hit but entry was never touched — missed entry signal
+                                react_to_message(msg_id, REACT_MISS)
+                                resolve("missed")
+                                break
                             react_to_message(msg_id, REACT_TP1)
                             tp1_hit = True
                             sig["tp1_hit"] = True
@@ -4559,9 +4569,10 @@ def check_active_signals(state: dict, bar_index_now: int,
                     elif cl <= sl_:
                         if entry_touched:
                             react_to_message(msg_id, REACT_SL)
+                            resolve("sl")
                         else:
                             react_to_message(msg_id, REACT_MISS)
-                        resolve("sl")
+                            resolve("missed")
                         break
                 else:
                     # TP1 already hit — now watching for TP2 or SL trail
@@ -4579,11 +4590,16 @@ def check_active_signals(state: dict, bar_index_now: int,
                         if abs(sl_ - co) < abs(tp1 - co):
                             if entry_touched:
                                 react_to_message(msg_id, REACT_SL)
+                                resolve("sl")
                             else:
                                 react_to_message(msg_id, REACT_MISS)
-                            resolve("sl")
+                                resolve("missed")
                             break
                         else:
+                            if not entry_touched:
+                                react_to_message(msg_id, REACT_MISS)
+                                resolve("missed")
+                                break
                             react_to_message(msg_id, REACT_TP1)
                             tp1_hit = True
                             sig["tp1_hit"] = True
@@ -4598,9 +4614,10 @@ def check_active_signals(state: dict, bar_index_now: int,
                     elif ch >= sl_:
                         if entry_touched:
                             react_to_message(msg_id, REACT_SL)
+                            resolve("sl")
                         else:
                             react_to_message(msg_id, REACT_MISS)
-                        resolve("sl")
+                            resolve("missed")
                         break
                 else:
                     if cl <= tp2:
