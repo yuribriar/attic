@@ -178,9 +178,10 @@
 ╚══════════════════════════════════════════════════════════════════════════════╝
 """
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 
 import copy
+import fcntl
 import json
 import math
 import os
@@ -213,8 +214,10 @@ if not TG_CHAT_ID:
 # ── CONFIG CONSTANTS ───────────────────────────────────────────────
 # ═══════════════════════════════════════════════════════════════════
 
-STATE_FILE            = "state_swing.json"
+_SCRIPT_DIR           = Path(__file__).resolve().parent
+STATE_FILE            = str(_SCRIPT_DIR / "state.json")
 STATE_VERSION         = 1
+LOCK_FILE             = str(_SCRIPT_DIR / "swing_engine.lock")  # prevents duplicate concurrent runs
 
 # ── API / threading ──────────────────────────────────────────────
 HL_INFO_URL           = "https://api.hyperliquid.xyz/info"
@@ -4783,6 +4786,21 @@ def priority_score(sig: SignalResult) -> tuple:
 
 def deduplicate_correlated(signals: list[tuple]) -> list[tuple]:
     signals.sort(key=lambda t: priority_score(t[2]), reverse=True)
+
+    # ── Pass 0: symbol-level dedup ─────────────────────────────────────────────
+    # Guarantee at most one signal per (symbol, direction) regardless of how the
+    # list was assembled.  This is a hard safety net; the correlation-group dedup
+    # below is the primary cross-symbol filter.
+    seen_sym: set[tuple] = set()
+    unique_signals: list[tuple] = []
+    for tup in signals:
+        sym_key = (tup[0], tup[1])   # (symbol, direction)
+        if sym_key not in seen_sym:
+            seen_sym.add(sym_key)
+            unique_signals.append(tup)
+    signals = unique_signals
+    # ──────────────────────────────────────────────────────────────────────────
+
     seen:   set[tuple] = set()
     result: list[tuple] = []
 
@@ -4999,6 +5017,20 @@ def get_dynamic_max_signals(btc_regime: dict | None, breadth_pct: float) -> int:
 
 
 def main():
+    # ── Instance lock: prevent duplicate runs sending the same signal ──────────
+    # If another instance of this script is already running (e.g. from a cron
+    # overlap or a process manager restart), we exit immediately rather than
+    # scanning and firing duplicate Telegram signals.
+    _lock_fh = open(LOCK_FILE, "w")
+    try:
+        fcntl.flock(_lock_fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print(f"[LOCK] Another instance is already running ({LOCK_FILE} is held). Exiting.")
+        _lock_fh.close()
+        return
+    # Lock is held for the lifetime of this process; released automatically on exit.
+    # ───────────────────────────────────────────────────────────────────────────
+
     print(f"[{datetime.now(timezone.utc).isoformat()}] Swing Engine v{__version__} starting…")
     print(f"Timeframe stack: 1D → 4H → 1H")
     print(f"Watchlist ({len(WATCHLIST)} pairs): {[hl_coin(s) for s in WATCHLIST]}")
