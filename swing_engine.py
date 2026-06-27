@@ -355,7 +355,7 @@ SPREAD_EXEMPT: set[str] = {
 }
 
 # ── Scoring adjustments (positive caps) ──────────────────────────
-MAX_NEGATIVE_ADJUSTMENTS = 3
+MAX_NEGATIVE_ADJUSTMENTS = 5   # raised from 3: of_net_score is baked into base_score so the true max negative exposure is higher
 MAX_POSITIVE_ADJUSTMENTS = 5
 DIVERGENCE_PENALTY = -2   # Q7: increased from -1 → -2. Swing-based divergence
                           # detection (Q7) now fires on real divergences only,
@@ -538,9 +538,9 @@ ORDERFLOW_LONG_RATIO_STRONG  = 0.60  # buy_vol / total_vol > this → +1 for lon
 ORDERFLOW_LONG_RATIO_WEAK    = 0.45  # < this → -1 for longs
 ORDERFLOW_SHORT_RATIO_STRONG = 0.40  # < this (sell dominant) → +1 for shorts
 ORDERFLOW_SHORT_RATIO_WEAK   = 0.55  # > this → -1 for shorts
-ORDERFLOW_HARD_REJECT_SCORE  = -3   # delta+cvd+ratio sum ≤ this → hard reject
+ORDERFLOW_HARD_REJECT_SCORE  = -4   # delta+cvd+ratio sum ≤ this → hard reject (raised from -3; -3 fired too frequently on illiquid perp candles where delta proxy is noisy)
 ORDERFLOW_SOFT_REJECT_SCORE  = 0    # < 0 → require final score ≥ OF_SOFT_MIN_SCORE
-ORDERFLOW_SOFT_MIN_SCORE     = 10   # min final score when OF net < 0
+ORDERFLOW_SOFT_MIN_SCORE     = 9    # min final score when OF net < 0 (lowered from 10)
 
 # P3: Liquidity Context
 EQUAL_HL_TOLERANCE_PCT   = 0.0015   # 0.15% — equal highs/lows detection
@@ -569,9 +569,10 @@ GRADE_SIZE_PCT = {
 # P6: Liquidity obstacle R:R requirement when obstacle blocks clean path
 LIQUIDITY_OBSTACLE_MIN_RR = 1.5     # require 1.5R when obstacle sits between entry and TP1
 
-REACT_TP1 = "🔥"
-REACT_TP2 = "🏆"
-REACT_SL  = "😭"
+REACT_TP1  = "🔥"
+REACT_TP2  = "🏆"
+REACT_SL   = "😭"
+REACT_MISS = "😢"   # SL/TP hit before entry was ever touched (missed fill)
 
 # ── Meta cache ──────────────────────────────────────────────────
 META_CACHE_TTL_S = 55.0
@@ -2104,20 +2105,29 @@ def detect_market_structure_4h(candles_4h: list[dict], direction: str) -> dict:
 
     mss_bearish = mss_bullish = bos_bearish = bos_bullish = False
 
+    # ATR for BOS buffer — require price to close meaningfully through the level,
+    # not just tick below/above it (which happens on normal pullbacks to EMA21/50).
+    closes_ = [c["c"] for c in candles_4h]
+    highs_  = [c["h"] for c in candles_4h]
+    lows_   = [c["l"] for c in candles_4h]
+    _atr_bos_arr = atr(highs_, lows_, closes_, ATR_LEN)
+    _atr_bos = safe(_atr_bos_arr[-1], closes_[-1] * 0.01) if _atr_bos_arr else closes_[-1] * 0.01
+    BOS_ATR_BUFFER = 0.3   # must close > 0.3×ATR through swing level to qualify as BOS
+
     if direction == "long":
         # MSS bearish: most recent swing high < prior swing high
         if len(swing_highs) >= 2:
             mss_bearish = swing_highs[-1] < swing_highs[-2]
-        # BOS bearish: current close below the most recent confirmed swing low
+        # BOS bearish: close must be meaningfully below swing low (not just a wick/graze)
         if swing_lows:
-            bos_bearish = cur_c < swing_lows[-1]
+            bos_bearish = cur_c < (swing_lows[-1] - _atr_bos * BOS_ATR_BUFFER)
     else:  # short
         # MSS bullish: most recent swing low > prior swing low
         if len(swing_lows) >= 2:
             mss_bullish = swing_lows[-1] > swing_lows[-2]
-        # BOS bullish: current close above the most recent confirmed swing high
+        # BOS bullish: close must be meaningfully above swing high
         if swing_highs:
-            bos_bullish = cur_c > swing_highs[-1]
+            bos_bullish = cur_c > (swing_highs[-1] + _atr_bos * BOS_ATR_BUFFER)
 
     label_parts = []
     if mss_bearish: label_parts.append("MSS_BEAR")
@@ -2270,13 +2280,11 @@ def check_session_filter(setup_type: str, utc_hour: int,
             return {"session": session, "score_adj": SESSION_OPTIMAL_BONUS,
                     "quality": "Optimal", "hard_reject": False}
         elif session == "NY_Afternoon":
-            # Acceptable only if delta still expanding (proxied by CVD rising)
-            if cvd_rising_bars > 0:
-                return {"session": session, "score_adj": 0,
-                        "quality": "Acceptable", "hard_reject": False}
-            else:
-                return {"session": session, "score_adj": SESSION_REJECT_PENALTY,
-                        "quality": "Rejected", "hard_reject": True}
+            # Acceptable in NY Afternoon — perps trade 24h and afternoon sessions
+            # often see continuation of moves that started in London/Overlap.
+            # No hard reject; score neutral (no bonus, no penalty).
+            return {"session": session, "score_adj": 0,
+                    "quality": "Acceptable", "hard_reject": False}
         elif session == "Asian":
             # Allow only when CVD has been rising 6+ consecutive bars
             if cvd_rising_bars >= ASIAN_CVD_MIN_BARS:
@@ -2841,21 +2849,20 @@ def detect_4h_setup(candles_4h: list[dict], daily: dict,
         # Q4: ATR compression bonus — squeeze before the breakout adds quality
         if contraction:
             score = min(3, score + 1)   # already at 3, cap holds; kept for clarity
-        # I4: VCP check — use in-candle ATR series as proxy for the pattern
+        # I4: VCP check — bonus only, never penalty. VCP is uncommon; penalizing
+        # its absence kills the majority of valid BREAK setups.
         if ENABLE_VCP:
             atr_vals_for_vcp = [safe(x) for x in ind["atr"][-VCP_LOOKBACK:] if not math.isnan(safe(x, float("nan")))]
             vcp_result = detect_vcp(atr_vals_for_vcp)
             if vcp_result["vcp"]:
-                score = min(3, score + 1)  # VCP confirmed: quality boost (tag added below)
-            else:
-                score = max(1, score - 1)  # no contraction before breakout: quality penalty
+                score = min(3, score + 1)  # VCP confirmed: quality boost
     elif breakout and (vol_ok or adx_ok):
         setup_type = "BREAK"
         score = 2
         # Q4: ATR compression bonus
         if contraction:
             score = min(3, score + 1)
-        # I4: VCP for lower-quality breakout
+        # I4: VCP bonus for lower-quality breakout
         if ENABLE_VCP:
             atr_vals_for_vcp = [safe(x) for x in ind["atr"][-VCP_LOOKBACK:] if not math.isnan(safe(x, float("nan")))]
             vcp_result = detect_vcp(atr_vals_for_vcp)
@@ -2882,17 +2889,10 @@ def detect_4h_setup(candles_4h: list[dict], daily: dict,
     elif ema_aligned and rsi_healthy and adx_ok and vol_ok:
         setup_type = "CONT"
         score = 3 if adx_persistent else 2   # single-bar ADX cross caps at 2
-        # Q9: Consolidation pre-condition — CONT setups with no prior compression
-        # are typically late-trend entries with lower win rates. Require price to
-        # have been in a range < 2x ATR for at least 3 of the last 5 bars.
-        if len(candles_4h) >= 5:
-            recent_highs = [candles_4h[i]["h"] for i in range(-5, 0)]
-            recent_lows  = [candles_4h[i]["l"] for i in range(-5, 0)]
-            range_compressed = (max(recent_highs) - min(recent_lows)) < (atr_ * 2.0)
-            bars_compressed  = sum(1 for i in range(-5, 0)
-                                   if (candles_4h[i]["h"] - candles_4h[i]["l"]) < atr_ * 1.5)
-            if not range_compressed or bars_compressed < 3:
-                score = max(1, score - 1)   # no consolidation precursor — quality deduction
+        # Q9 REMOVED: consolidation pre-condition was penalizing CONT setups in trending
+        # markets (where bars are by definition expanding, not compressed). A trending
+        # market showing expanding bars is exactly when CONT should fire cleanly.
+        # This penalty was causing almost every CONT signal to lose 1 score point.
         # I6: Trend Acceleration — EMA slope + ADX velocity adjustment for CONT
         if ENABLE_TREND_ACCELERATION:
             ef_arr = ind.get("ema_fast", [])
@@ -2958,11 +2958,13 @@ def detect_4h_setup(candles_4h: list[dict], daily: dict,
 
     if direction == "long":
         if ms_struct["bos_bearish"]:
-            # Hard suppress: structural support is broken — no long setup valid
+            # Hard suppress: price has closed significantly below 4H swing low (BOS_ATR_BUFFER applied)
             return {"setup_type": "NONE", "score": 0, "details": {
-                "reason": "BOS_BEAR: close below 4H swing low — setup suppressed",
+                "reason": "BOS_BEAR: close meaningfully below 4H swing low — setup suppressed",
             }}
-        if ms_struct["mss_bearish"] and setup_type != "NONE":
+        # MSS_BEAR (-2) only applies to CONT/BREAK — for PULL, lower swing highs
+        # are expected and CONFIRM a pullback is underway, not a reason to penalize.
+        if ms_struct["mss_bearish"] and setup_type not in ("NONE", "PULL"):
             score = max(0, score - 2)
             struct_tags.append("MSS_BEAR")
         # I2: Confirming MSS adds +1 quality bonus for longs
@@ -2972,9 +2974,11 @@ def detect_4h_setup(candles_4h: list[dict], daily: dict,
     else:  # short
         if ms_struct["bos_bullish"]:
             return {"setup_type": "NONE", "score": 0, "details": {
-                "reason": "BOS_BULL: close above 4H swing high — setup suppressed",
+                "reason": "BOS_BULL: close meaningfully above 4H swing high — setup suppressed",
             }}
-        if ms_struct["mss_bullish"] and setup_type != "NONE":
+        # MSS_BULL (-2) only applies to CONT/BREAK — for PULL shorts, higher swing lows
+        # confirm the pullback, not a trend reversal.
+        if ms_struct["mss_bullish"] and setup_type not in ("NONE", "PULL"):
             score = max(0, score - 2)
             struct_tags.append("MSS_BULL")
         # I2: Confirming MSS adds +1 quality bonus for shorts
@@ -3958,7 +3962,25 @@ def compute_signals(symbol: str,
 
         update_atr_history(state, symbol, atr_pct)
 
-        cand.entry   = cur_c
+        # For PULL setups: use the EMA level as the entry reference, not the last close.
+        # The trigger candle has already bounced off EMA; entering at its close means
+        # chasing the move. Use the reference EMA (whichever is closer) as entry.
+        # For CONT/BREAK: current close is correct (confirms momentum).
+        if setup["setup_type"] == "PULL":
+            ema_fast_ref = setup.get("ema_fast", cur_c)
+            ema_slow_ref = setup.get("ema_slow", cur_c)
+            # Use the EMA that is closer to current price as the entry level
+            ref_ema_entry = (ema_fast_ref
+                             if abs(cur_c - ema_fast_ref) <= abs(cur_c - ema_slow_ref)
+                             else ema_slow_ref)
+            # Cap: entry cannot be more than 0.5×ATR above (long) or below (short) the EMA
+            # to avoid using a stale EMA that is far from current price
+            if direction == "long":
+                cand.entry = min(cur_c, ref_ema_entry + atr_1h * 0.5)
+            else:
+                cand.entry = max(cur_c, ref_ema_entry - atr_1h * 0.5)
+        else:
+            cand.entry = cur_c
         cand.atr_val = atr_1h
         cand.atr_pct = atr_pct
 
@@ -4185,13 +4207,15 @@ def _apply_filters_and_adjustments(res: SignalResult,
         res.tp1 = cur_c + atr_val * tp1_m
         res.tp2 = cur_c + atr_val * tp2_m
         atr_based_sl = cur_c - atr_val * sl_m
-        # Q5: Structure-based SL — tighten to just below the nearest 4H swing low
-        # (if one is available and it produces a tighter stop than the ATR-based SL)
+        # Q5: Structure-based SL — place just below the nearest 4H swing low.
+        # Guard: only use if the swing low gives at least 0.5×ATR of room from entry
+        # (avoids SL being squeezed near-zero when a pivot low sits just below entry).
+        res.sl = atr_based_sl
         if res.supports:
             structure_sl = max(res.supports) * 0.998   # 0.2% below the swing low
-            res.sl = max(structure_sl, atr_based_sl)   # never wider than ATR-based
-        else:
-            res.sl = atr_based_sl
+            sl_dist_from_entry = cur_c - structure_sl
+            if sl_dist_from_entry >= atr_val * 0.5:    # minimum viable SL distance
+                res.sl = max(structure_sl, atr_based_sl)  # never wider than ATR-based
         # I3: BOS-level SL — if a bearish BOS level is known, place SL below it
         # (only when it produces a tighter stop than Q5/ATR)
         if ENABLE_BOS_LEVEL_TRACKING:
@@ -4199,26 +4223,33 @@ def _apply_filters_and_adjustments(res: SignalResult,
             if bos_lvl is not None and bos_lvl < cur_c:
                 bos_sl = bos_lvl * 0.998
                 res.sl = max(bos_sl, res.sl)  # tighter of BOS vs Q5
-        # Snap TP1 to nearest resistance if tighter
+        # Snap TP1 down to nearest resistance only if R:R still meets minimum.
+        # Prevents a close resistance from shrinking TP1 below the R:R gate.
         if res.resistances:
             nr = res.resistances[0]
             sr_dist = (nr - cur_c) / atr_val
-            if 0.2 <= sr_dist < tp1_m:
-                res.tp1 = nr
+            sl_dist_check = cur_c - res.sl
+            if 0.2 <= sr_dist < tp1_m and sl_dist_check > 0:
+                snapped_rr = (nr - cur_c) / sl_dist_check
+                if snapped_rr >= MIN_RR_RATIO:
+                    res.tp1 = nr
     else:
         res.tp1 = cur_c - atr_val * tp1_m
         res.tp2 = cur_c - atr_val * tp2_m
         atr_based_sl = cur_c + atr_val * sl_m
-        # Q5: Structure-based SL — tighten to just above the nearest 4H swing high
+        # Q5: Structure-based SL — place just above the nearest 4H swing high.
+        # Guard: only use if the swing high gives at least 0.5×ATR of room from entry.
+        res.sl = atr_based_sl
         if res.resistances:
             structure_sl = min(res.resistances) * 1.002   # 0.2% above the swing high
-            res.sl = min(structure_sl, atr_based_sl)      # never wider than ATR-based
-        else:
-            res.sl = atr_based_sl
+            sl_dist_from_entry = structure_sl - cur_c
+            if sl_dist_from_entry >= atr_val * 0.5:       # minimum viable SL distance
+                res.sl = min(structure_sl, atr_based_sl)  # never wider than ATR-based
+        # For shorts, only snap TP1 to support if that support is FURTHER from entry
+        # than the ATR-based TP1 (i.e., snap extends TP1, never shrinks it).
         if res.supports:
             ns = res.supports[0]
-            sr_dist = (cur_c - ns) / atr_val
-            if 0.2 <= sr_dist < tp1_m:
+            if ns < res.tp1:   # support is below the ATR-based TP1 = extends target
                 res.tp1 = ns
 
     # P3: Liquidity context — detect equal H/L stop clusters on 4H
@@ -4381,16 +4412,42 @@ def track_signal(state: dict, symbol: str, direction: str,
             "tp2":             sig.tp2,
             "sl":              sig.sl,
             "tp1_hit":         False,
+            "entry_touched":   False,
             "resolved":        False,
             "hist_id":         hist_id,
             "signal_type":     sig.signal_type,
             "entry":           sig.entry,
+            "atr_val":         sig.atr_val,
         })
+
+
+def _get_mid_price(symbol: str) -> float | None:
+    """Fetch the current Hyperliquid mid price for a symbol (for live signal tracking)."""
+    try:
+        cache = get_meta_and_asset_ctxs()
+        if cache:
+            mark = cache.get(hl_coin(symbol), {}).get("mark_px")
+            if mark is not None:
+                return float(mark)
+    except Exception:
+        pass
+    return None
 
 
 def check_active_signals(state: dict, bar_index_now: int,
                           scan_reference_ms: int | None = None):
-    """Check TP/SL hits using 1H candles."""
+    """
+    Check TP/SL hits using 1H candles + current mid price.
+
+    Reaction logic:
+      🔥 REACT_TP1  — TP1 reached (before SL) while entry was touched
+      🏆 REACT_TP2  — TP2 also reached (full winner)
+      😭 REACT_SL   — SL hit after entry was touched (real loss)
+      😢 REACT_MISS — SL or TP hit BEFORE entry zone was ever touched
+                      (price never came back to fill the order)
+
+    Entry-touch window: price trades within atr_val * 0.15 of entry price.
+    """
     with _state_lock:
         signals = list(state.get("active_signals", []))
     if not signals:
@@ -4414,9 +4471,13 @@ def check_active_signals(state: dict, bar_index_now: int,
         direction = sig["direction"]
         msg_id    = sig["msg_id"]
         tp1, tp2, sl_ = sig["tp1"], sig["tp2"], sig["sl"]
-        tp1_hit   = sig.get("tp1_hit", False)
-        last_ts   = sig.get("last_processed_candle_ts",
-                            sig.get("signal_bar_time", 0))
+        tp1_hit       = sig.get("tp1_hit", False)
+        entry_touched = sig.get("entry_touched", False)
+        entry_price   = sig.get("entry", 0.0)
+        atr_val_sig   = sig.get("atr_val", entry_price * 0.01 if entry_price else 0.01)
+        entry_tol     = atr_val_sig * 0.15   # within 15% of 1H ATR = entry filled
+        last_ts       = sig.get("last_processed_candle_ts",
+                                sig.get("signal_bar_time", 0))
 
         try:
             candles = get_candles(symbol, "1h", N_1H,
@@ -4433,12 +4494,19 @@ def check_active_signals(state: dict, bar_index_now: int,
 
         new = [c for c in candles if c["t"] > last_ts]
         if not new:
+            # No new closed bars — check live mid price to update entry_touched
+            if not entry_touched and entry_price:
+                mid = _get_mid_price(symbol)
+                if mid is not None and abs(mid - entry_price) <= entry_tol:
+                    sig["entry_touched"] = True
+                    entry_touched = True
+                    print(f"  [TRACK] {symbol} entry touched (mid={mid:.4f})")
             still_active.append(sig)
             continue
 
         hist_id = sig.get("hist_id")
 
-        def resolve(outcome: str):
+        def resolve(outcome: str, reacted: bool = False):
             if hist_id:
                 update_signal_result(state, hist_id, outcome)
             sig["resolved"] = True
@@ -4453,36 +4521,93 @@ def check_active_signals(state: dict, bar_index_now: int,
             ch, cl, co = candle["h"], candle["l"], candle["o"]
             last_ts = candle["t"]
 
+            # ── Entry-touch detection ─────────────────────────────
+            # A candle touches entry if its range overlaps [entry ± entry_tol]
+            if not entry_touched and entry_price:
+                if cl <= entry_price + entry_tol and ch >= entry_price - entry_tol:
+                    sig["entry_touched"] = True
+                    entry_touched = True
+
             if direction == "long":
                 if not tp1_hit:
                     if ch >= tp1 and cl <= sl_:
+                        # Both hit in same candle — decide by open proximity
                         if abs(sl_ - co) < abs(tp1 - co):
-                            react_to_message(msg_id, REACT_SL); resolve("sl"); break
+                            # Opened closer to SL
+                            if entry_touched:
+                                react_to_message(msg_id, REACT_SL)
+                            else:
+                                react_to_message(msg_id, REACT_MISS)
+                            resolve("sl")
+                            break
                         else:
-                            react_to_message(msg_id, REACT_TP1); tp1_hit = True; sig["tp1_hit"] = True
+                            react_to_message(msg_id, REACT_TP1)
+                            tp1_hit = True
+                            sig["tp1_hit"] = True
                     elif ch >= tp1:
-                        react_to_message(msg_id, REACT_TP1); tp1_hit = True; sig["tp1_hit"] = True
+                        if not entry_touched:
+                            # TP1 hit but entry was never touched — missed entry signal
+                            react_to_message(msg_id, REACT_MISS)
+                            resolve("missed")
+                            break
+                        react_to_message(msg_id, REACT_TP1)
+                        tp1_hit = True
+                        sig["tp1_hit"] = True
                     elif cl <= sl_:
-                        react_to_message(msg_id, REACT_SL); resolve("sl"); break
-                if tp1_hit and ch >= tp2:
-                    react_to_message(msg_id, REACT_TP2); resolve("tp2"); break
-                if tp1_hit and not sig.get("resolved") and cl <= sl_:
-                    resolve("tp1"); break
-            else:
+                        if entry_touched:
+                            react_to_message(msg_id, REACT_SL)
+                        else:
+                            react_to_message(msg_id, REACT_MISS)
+                        resolve("sl")
+                        break
+                else:
+                    # TP1 already hit — now watching for TP2 or SL trail
+                    if ch >= tp2:
+                        react_to_message(msg_id, REACT_TP2)
+                        resolve("tp2")
+                        break
+                    if cl <= sl_:
+                        # SL hit after TP1 = partial win; REACT_TP1 already sent on TP1 hit
+                        resolve("tp1")
+                        break
+            else:  # short
                 if not tp1_hit:
                     if cl <= tp1 and ch >= sl_:
                         if abs(sl_ - co) < abs(tp1 - co):
-                            react_to_message(msg_id, REACT_SL); resolve("sl"); break
+                            if entry_touched:
+                                react_to_message(msg_id, REACT_SL)
+                            else:
+                                react_to_message(msg_id, REACT_MISS)
+                            resolve("sl")
+                            break
                         else:
-                            react_to_message(msg_id, REACT_TP1); tp1_hit = True; sig["tp1_hit"] = True
+                            react_to_message(msg_id, REACT_TP1)
+                            tp1_hit = True
+                            sig["tp1_hit"] = True
                     elif cl <= tp1:
-                        react_to_message(msg_id, REACT_TP1); tp1_hit = True; sig["tp1_hit"] = True
+                        if not entry_touched:
+                            react_to_message(msg_id, REACT_MISS)
+                            resolve("missed")
+                            break
+                        react_to_message(msg_id, REACT_TP1)
+                        tp1_hit = True
+                        sig["tp1_hit"] = True
                     elif ch >= sl_:
-                        react_to_message(msg_id, REACT_SL); resolve("sl"); break
-                if tp1_hit and cl <= tp2:
-                    react_to_message(msg_id, REACT_TP2); resolve("tp2"); break
-                if tp1_hit and not sig.get("resolved") and ch >= sl_:
-                    resolve("tp1"); break
+                        if entry_touched:
+                            react_to_message(msg_id, REACT_SL)
+                        else:
+                            react_to_message(msg_id, REACT_MISS)
+                        resolve("sl")
+                        break
+                else:
+                    if cl <= tp2:
+                        react_to_message(msg_id, REACT_TP2)
+                        resolve("tp2")
+                        break
+                    if ch >= sl_:
+                        # SL hit after TP1 = partial win; REACT_TP1 already sent on TP1 hit
+                        resolve("tp1")
+                        break
 
         if not sig.get("resolved"):
             sig["last_processed_candle_ts"] = last_ts
