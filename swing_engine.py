@@ -175,10 +175,38 @@
 ║    ✘ 15M candle fetching as primary signal layer                            ║
 ║    ✘ BB / OBV base-score components                                         ║
 ║    ✘ pull_recover / pull_zone on 15m EMA                                   ║
+║  NEW IN v2.3.0  — Audit Fixes F1–F15                                          ║
+║    ✔ F1  Daily indicator cache key scoped per symbol — fixes critical race     ║
+║          condition under SCAN_WORKERS > 1 (classify_daily_trend receives       ║
+║          symbol param; cache key = f"{symbol}_daily")                          ║
+║    ✔ F2  PULL extension gate now uses 4H ATR as denominator (was 1H ATR);     ║
+║          valid 4H EMA pullbacks no longer rejected as "extended"                ║
+║    ✔ F3  OB/BB tap: rejection condition relaxed to close > zone LOW (was       ║
+║          close > zone HIGH); captures genuine absorption patterns               ║
+║    ✔ F4  PULL entry anchored to EMA + 0.1×ATR slippage (was candle close);    ║
+║          eliminates "buy the bounce top" entry problem                          ║
+║    ✔ F5  Orderflow hard reject raised -4 → -5; doji candles (range < 0.3×ATR) ║
+║          zeroed out from delta — reduces proxy noise on perp candles            ║
+║    ✔ F6  CONT Off_Hours: hard reject replaced with -1 soft penalty;            ║
+║          24/7 perps exchange — 21:00–00:00 UTC signals now processed           ║
+║    ✔ F7  Confluence gate: "pullback_setup" tautology replaced with             ║
+║          "tight_ema_proximity" (≤ 0.5× 4H ATR from EMA) — genuine factor      ║
+║    ✔ F8  BREAK: two-tier lookback (10-bar local + 30-bar major); local breaks  ║
+║          capped at score 2, restoring detection of intraweek structural breaks  ║
+║    ✔ F9  ATR fallback reduced 0.30 → 0.015 (1.5%); 30% was unrealistically   ║
+║          large and silently discarded signals via R:R/SL-width gates            ║
+║    ✔ F10 Entry touch tolerance widened 0.15 → 0.35×ATR; reduces incorrect     ║
+║          REACT_MISS on stale-but-valid fills                                    ║
+║    ✔ F11 detect_1h_confirmation: removed tautological ternary at line 3328     ║
+║    ✔ F12 scan_symbol: pre-signal extreme funding suppress for both directions   ║
+║    ✔ F13 BTC.D filter: 3-point smoothed comparison with 0.2% noise threshold   ║
+║    ✔ F14 OI_HISTORY_DEPTH increased 6 → 24 (6 hours at 15-min intervals)      ║
+║    ✔ F15 CONT score-1 branch now requires rsi_healthy; bare EMA alignment      ║
+║          returns NONE — prevents reversal-condition continuation signals         ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 """
 
-__version__ = "2.2.0"
+__version__ = "2.3.0"
 
 import copy
 import fcntl
@@ -228,7 +256,7 @@ HL_TF_WORKERS         = int(os.getenv("HL_TF_WORKERS", "2"))  # parallel TF fetc
 
 # ── Candle counts ─────────────────────────────────────────────────
 N_1H  = 150   # 1H bars (execution trigger)
-N_4H  = 120   # 4H bars (setup detection)
+N_4H  = 220   # 4H bars (setup detection)
 N_1D  = 300   # 1D bars (trend filter — needs 200 for EMA200)
 
 # ── Interval ms ──────────────────────────────────────────────────
@@ -296,7 +324,7 @@ IMPULSE_VOL_MULT    = 1.5    # volume multiplier for strong impulse
 SWING_LOOKBACK      = 5      # bars to look back for swing high/low
 
 # ── Risk management ───────────────────────────────────────────────
-ATR_FALLBACK_PCT    = 0.30   # fallback ATR % if calculation fails
+ATR_FALLBACK_PCT    = 0.015  # FIX-9: fallback ATR % reduced from 0.30 → 0.015 (1.5%); 30% was unrealistically large and caused all SL/TP calculations to be rejected by gates when triggered
 MIN_ATR_PCT         = 0.15   # dead market filter (lower than v15 — daily moves smaller)
 MAX_ATR_PCT         = 12.0
 MIN_RR_RATIO        = 1.25    # minimum TP1 R:R
@@ -385,7 +413,7 @@ BREADTH_EXTREME_LONG     = 0.90
 BREADTH_EXTREME_SHORT    = 0.10
 
 # ── OI ─────────────────────────────────────────────────────────
-OI_HISTORY_DEPTH         = 6
+OI_HISTORY_DEPTH         = 24  # FIX-14: increased from 6 → 24 (6 hours at 15-min intervals); the prior 90 min window was too short to identify meaningful OI trend development
 OI_CHANGE_THRESHOLD_PCT  = 1.0
 OI_STALE_CUTOFF_S        = 45 * 60
 OI_EXPECTED_INTERVAL_S   = 15 * 60
@@ -541,7 +569,7 @@ ORDERFLOW_LONG_RATIO_STRONG  = 0.60  # buy_vol / total_vol > this → +1 for lon
 ORDERFLOW_LONG_RATIO_WEAK    = 0.45  # < this → -1 for longs
 ORDERFLOW_SHORT_RATIO_STRONG = 0.40  # < this (sell dominant) → +1 for shorts
 ORDERFLOW_SHORT_RATIO_WEAK   = 0.55  # > this → -1 for shorts
-ORDERFLOW_HARD_REJECT_SCORE  = -4   # delta+cvd+ratio sum ≤ this → hard reject (raised from -3; -3 fired too frequently on illiquid perp candles where delta proxy is noisy)
+ORDERFLOW_HARD_REJECT_SCORE  = -5   # FIX-5A: raised from -4 → -5; hard reject only when all three OF components are maximally negative simultaneously, not on noisy doji candles; proxy delta on perps is structurally noisier than spot
 ORDERFLOW_SOFT_REJECT_SCORE  = 0    # < 0 → require final score ≥ OF_SOFT_MIN_SCORE
 ORDERFLOW_SOFT_MIN_SCORE     = 9    # min final score when OF net < 0 (lowered from 10)
 
@@ -1928,7 +1956,7 @@ def load_spread_from_state(state: dict):
 # This is the top of the 1D → 4H → 1H stack.
 # ═══════════════════════════════════════════════════════════════════
 
-def classify_daily_trend(candles_1d: list[dict]) -> dict:
+def classify_daily_trend(candles_1d: list[dict], symbol: str = "__DAILY__") -> dict:
     """
     Classify the daily trend using EMA21/50/200, ADX, ATR, and
     market structure (HH/HL for bull, LH/LL for bear).
@@ -1948,7 +1976,7 @@ def classify_daily_trend(candles_1d: list[dict]) -> dict:
             "details": {"reason": "Insufficient daily data"},
         }
 
-    ind = get_cached_indicators("__DAILY__", "1d", candles_1d)
+    ind = get_cached_indicators(f"{symbol}_daily", "1d", candles_1d)  # FIX-1: symbol-scoped daily cache key — prevents cross-symbol contamination under SCAN_WORKERS > 1
     closes = ind["c"]
     highs  = ind["h"]
     lows   = ind["l"]
@@ -2297,9 +2325,12 @@ def check_session_filter(setup_type: str, utc_hour: int,
                 return {"session": session, "score_adj": SESSION_REJECT_PENALTY,
                         "quality": "Rejected", "hard_reject": True}
         else:
-            # Off_Hours — treat as Asian-like
-            return {"session": session, "score_adj": SESSION_REJECT_PENALTY,
-                    "quality": "Rejected", "hard_reject": True}
+            # FIX-6: Off_Hours (21:00–00:00 UTC) changed from hard reject to soft penalty.
+            # Hyperliquid is a 24/7 perps exchange with meaningful late-US/early-Asia
+            # liquidity. Hard-rejecting CONT in Off_Hours kills valid signals. A -1 score
+            # penalty correctly discounts the session quality without eliminating the signal.
+            return {"session": session, "score_adj": -1,
+                    "quality": "Weak session (-1)", "hard_reject": False}
 
     # ── PULL ─────────────────────────────────────────────────────
     elif setup_type == "PULL":
@@ -2380,9 +2411,19 @@ def compute_orderflow(candles_1h: list[dict], direction: str) -> dict:
     # ── 2A: Delta ────────────────────────────────────────────────
     # Approximate delta as signed body fraction of range
     deltas = []
+    # FIX-5B: Estimate ATR for doji dampening — use simple mean of last 14 ranges as a
+    # lightweight proxy (avoids importing full ATR array just for this function).
+    _ranges = [highs[i] - lows[i] for i in range(len(closes)) if highs[i] > lows[i]]
+    _atr_est = (sum(_ranges[-14:]) / min(14, len(_ranges[-14:]))) if _ranges else 0.0
     for i in range(len(closes)):
         rng = highs[i] - lows[i]
         if rng <= 0:
+            deltas.append(0.0)
+            continue
+        # FIX-5B: Suppress delta on doji/indecision candles (range < 0.3×ATR_est).
+        # These candles carry no reliable directional information on perp markets and
+        # contribute pure noise to the aggressor delta proxy.
+        if _atr_est > 0 and rng < _atr_est * 0.3:
             deltas.append(0.0)
             continue
         body   = closes[i] - opens[i]
@@ -2809,18 +2850,35 @@ def detect_4h_setup(candles_4h: list[dict], daily: dict,
     near_ef = abs(cur_c - ef) <= pull_zone
     near_es = abs(cur_c - es) <= pull_zone
 
-    # Breakout — prev high broken for bulls, prev low for bears
-    # Q4: Uses BREAK_LOOKBACK_BARS=30 (~5 days on 4H) instead of the
-    # previous 10-bar (~1.7 day) lookback to filter noise signals.
-    lookback = BREAK_LOOKBACK_BARS
+    # FIX-8: Two-tier breakout detection.
+    # Major breakout (30-bar): structural multi-day high/low break → score 3 (existing).
+    # Local breakout (10-bar): meaningful intraweek high/low break → score 2 (new).
+    # The old single-tier 30-bar lookback made BREAK detection nearly impossible after
+    # any sustained rally, as virtually every close was below the 30-bar high.
+    LOCAL_BREAK_LOOKBACK = 10  # ~1.7 days on 4H
+    lookback = BREAK_LOOKBACK_BARS  # major = 30
     if len(c) > lookback + 2:
-        prev_high = max(h[-lookback - 2: -1])
-        prev_low  = min(l_[-lookback - 2: -1])
-        long_breakout  = cur_c > prev_high and direction == "long"
-        short_breakout = cur_c < prev_low  and direction == "short"
+        prev_high_major = max(h[-lookback - 2: -1])
+        prev_low_major  = min(l_[-lookback - 2: -1])
+        long_breakout_major  = cur_c > prev_high_major and direction == "long"
+        short_breakout_major = cur_c < prev_low_major  and direction == "short"
     else:
-        long_breakout = short_breakout = False
+        long_breakout_major = short_breakout_major = False
+
+    if len(c) > LOCAL_BREAK_LOOKBACK + 2:
+        prev_high_local = max(h[-LOCAL_BREAK_LOOKBACK - 2: -1])
+        prev_low_local  = min(l_[-LOCAL_BREAK_LOOKBACK - 2: -1])
+        long_breakout_local  = cur_c > prev_high_local and direction == "long"
+        short_breakout_local = cur_c < prev_low_local  and direction == "short"
+    else:
+        long_breakout_local = short_breakout_local = False
+
+    # Major supersedes local if both are true
+    long_breakout  = long_breakout_major  or long_breakout_local
+    short_breakout = short_breakout_major or short_breakout_local
     breakout = long_breakout or short_breakout
+    # Track which tier fired for scoring downstream
+    _major_breakout = long_breakout_major or short_breakout_major
 
     # Q4: ATR compression pre-condition — boost BREAK score by 1 when ATR
     # contracted before the breakout (squeeze → expansion pattern).
@@ -2848,7 +2906,7 @@ def detect_4h_setup(candles_4h: list[dict], daily: dict,
     # Score setup quality 1–3
     if breakout and vol_ok and adx_ok:
         setup_type = "BREAK"
-        score = 3
+        score = 3 if _major_breakout else 2  # FIX-8: local breakout capped at 2; major breakout can reach 3
         # Q4: ATR compression bonus — squeeze before the breakout adds quality
         if contraction:
             score = min(3, score + 1)   # already at 3, cap holds; kept for clarity
@@ -2861,7 +2919,7 @@ def detect_4h_setup(candles_4h: list[dict], daily: dict,
                 score = min(3, score + 1)  # VCP confirmed: quality boost
     elif breakout and (vol_ok or adx_ok):
         setup_type = "BREAK"
-        score = 2
+        score = 2 if _major_breakout else 1  # FIX-8: local breakout with weak confirmation capped at 1
         # Q4: ATR compression bonus
         if contraction:
             score = min(3, score + 1)
@@ -2918,9 +2976,16 @@ def detect_4h_setup(candles_4h: list[dict], daily: dict,
     elif ema_aligned and rsi_healthy:
         setup_type = "CONT"
         score = 2
-    elif ema_aligned:
+    elif ema_aligned and rsi_healthy:
+        # FIX-15: Added rsi_healthy gate to the lowest-quality CONT branch.
+        # Without it, a CONT score-1 could fire even when 4H RSI is overbought/oversold
+        # (prime reversal conditions). EMA alignment alone is not sufficient for continuation.
         setup_type = "CONT"
         score = 1
+    elif ema_aligned:
+        # EMA aligned but RSI unhealthy — too weak for a continuation signal
+        setup_type = "NONE"
+        score = 0
     else:
         setup_type = "NONE"
         score = 0
@@ -3193,14 +3258,14 @@ def detect_ob_bb_tap(candles_1h: list[dict], ind_1h: dict, direction: str,
     for z in zones:
         if direction == "long":
             wicked_in = cur["l"] <= z["high"] and cur["l"] >= z["low"] * 0.998
-            rejected  = cur["c"] > z["high"]
+            rejected  = cur["c"] > z["low"]  # FIX-3: close above zone LOW is sufficient — confirms buyers absorbed selling within the zone; requiring close above zone HIGH excluded most genuine OB interactions
             if wicked_in and rejected:
                 kind = "Breaker" if z.get("is_breaker") else "Order Block"
                 return {"tapped": True, "zone": z,
                         "label": f"{kind} tap + reject (zone {z['low']:.4f}-{z['high']:.4f})"}
         else:
             wicked_in = cur["h"] >= z["low"] and cur["h"] <= z["high"] * 1.002
-            rejected  = cur["c"] < z["low"]
+            rejected  = cur["c"] < z["high"]  # FIX-3: close below zone HIGH is sufficient — confirms sellers absorbed buying within the zone
             if wicked_in and rejected:
                 kind = "Breaker" if z.get("is_breaker") else "Order Block"
                 return {"tapped": True, "zone": z,
@@ -3325,7 +3390,9 @@ def detect_1h_confirmation(candles_1h: list[dict], direction: str,
     h1_ema_aligned = (direction == "long" and ef > es) or (direction == "short" and ef < es)
 
     # At least one trigger must fire
-    confirmed = len(triggers) >= 1 and rsi_ok if direction == "long" else len(triggers) >= 1 and rsi_ok
+    # FIX-11: Removed tautological ternary — both branches were identical.
+    # Confirmation requires at least one trigger AND RSI confirmation for either direction.
+    confirmed = len(triggers) >= 1 and rsi_ok
 
     # Cap score at 3
     score = min(score, 3)
@@ -3666,8 +3733,16 @@ def check_confluence_factors(setup: dict, h1_result: dict,
         factors.append("volume_expansion")
     if ob_bb_tapped:
         factors.append("ob_bb_tap")
+    # FIX-7: Replace tautological "pullback_setup" factor (which fired for ALL PULL setups,
+    # making confluence trivially satisfied) with "tight_ema_proximity" — a factor that
+    # confirms price is genuinely close to the 4H EMA, not just loosely in PULL territory.
     if setup.get("setup_type") == "PULL":
-        factors.append("pullback_setup")
+        _ema_ref   = setup.get("ema_fast", 0.0)
+        _atr_ref   = setup.get("atr_val", 1.0)
+        _h1_close  = safe(h1_result.get("ema_fast", _ema_ref))  # 1H EMA as close proxy
+        _ema_dist  = abs(_h1_close - _ema_ref) / _atr_ref if _atr_ref > 0 else 999.0
+        if _ema_dist <= 0.5:  # within 0.5× 4H ATR of the structural EMA
+            factors.append("tight_ema_proximity")
     if safe(setup.get("adx", 0)) >= 25:
         factors.append("adx_confirmed")
     return {"factors": factors, "count": len(factors)}
@@ -3711,7 +3786,7 @@ def compute_signals(symbol: str,
         return res
 
     # ── Phase 1: Daily trend classification ─────────────────────
-    daily = classify_daily_trend(candles_1d)
+    daily = classify_daily_trend(candles_1d, symbol=symbol)  # FIX-1
 
     # F8: BTC-regime directional bias for Neutral daily — rather than
     # opening both directions blindly in consolidation, use the confirmed
@@ -3768,9 +3843,13 @@ def compute_signals(symbol: str,
         if setup["setup_type"] == "PULL":
             h1_ind_check = get_cached_indicators(symbol, "1h", candles_1h)
             cur_c_1h = h1_ind_check["c"][-1]
-            atr_1h_check = safe(h1_ind_check["atr"][-1], cur_c_1h * 0.01)
+            # FIX-2: Use 4H ATR (setup["atr_val"]) as the denominator — ref_ema is a 4H structural
+            # level, so extension must be measured in 4H-ATR units, not 1H-ATR units.
+            # 4H ATR ≈ 2.5× 1H ATR; the old denominator caused valid EMA pullbacks to be
+            # rejected as "too extended" because the distance appeared large in 1H-ATR terms.
+            atr_4h_check = setup.get("atr_val", cur_c_1h * 0.025)
             ref_ema = setup["ema_fast"] if abs(cur_c_1h - setup["ema_fast"]) <= abs(cur_c_1h - setup["ema_slow"]) else setup["ema_slow"]
-            extension = abs(cur_c_1h - ref_ema) / atr_1h_check if atr_1h_check > 0 else 0.0
+            extension = abs(cur_c_1h - ref_ema) / atr_4h_check if atr_4h_check > 0 else 0.0
             if extension > PULL_MAX_EXTENSION_ATR:
                 continue  # price has already left the pullback zone — this is a chase, not a pullback
 
@@ -3972,16 +4051,24 @@ def compute_signals(symbol: str,
         if setup["setup_type"] == "PULL":
             ema_fast_ref = setup.get("ema_fast", cur_c)
             ema_slow_ref = setup.get("ema_slow", cur_c)
-            # Use the EMA that is closer to current price as the entry level
             ref_ema_entry = (ema_fast_ref
                              if abs(cur_c - ema_fast_ref) <= abs(cur_c - ema_slow_ref)
                              else ema_slow_ref)
-            # Cap: entry cannot be more than 0.5×ATR above (long) or below (short) the EMA
-            # to avoid using a stale EMA that is far from current price
+            # FIX-4: Anchor entry to the structural EMA level + a small execution slippage buffer
+            # (0.10×1H ATR) rather than using the post-bounce candle close. The previous formula
+            # min(cur_c, ema + 0.5×ATR) evaluated to cur_c in almost all cases, placing entry at
+            # the HIGH of the bounce candle — a local top. The corrected formula uses the EMA as
+            # the primary reference, then falls back to cur_c only when cur_c is already tighter
+            # (i.e., price hasn't yet moved away from the EMA).
+            slippage_buffer = atr_1h * 0.10
             if direction == "long":
-                cand.entry = min(cur_c, ref_ema_entry + atr_1h * 0.5)
+                ema_based_entry = ref_ema_entry + slippage_buffer
+                # Use the tighter (lower) of: EMA-anchored entry vs. current close
+                cand.entry = ema_based_entry if ema_based_entry < cur_c else cur_c
             else:
-                cand.entry = max(cur_c, ref_ema_entry - atr_1h * 0.5)
+                ema_based_entry = ref_ema_entry - slippage_buffer
+                # Use the tighter (higher) of: EMA-anchored entry vs. current close
+                cand.entry = ema_based_entry if ema_based_entry > cur_c else cur_c
         else:
             cand.entry = cur_c
         cand.atr_val = atr_1h
@@ -4060,10 +4147,13 @@ def _apply_filters_and_adjustments(res: SignalResult,
     if symbol != "BTCUSDT":
         btc_d_hist = state.get("btc_dominance_history", [])
         if len(btc_d_hist) >= 2:
-            if btc_d_hist[-1] > btc_d_hist[-2] and direction == "long":
+            # FIX-13: Use 3-point smoothed comparison to avoid reacting to single-reading BTC.D spikes.
+            # Compare most recent reading against the mean of the two prior readings.
+            _btcd_ref = sum(btc_d_hist[-3:-1]) / 2 if len(btc_d_hist) >= 3 else btc_d_hist[-2]
+            if btc_d_hist[-1] > _btcd_ref + 0.2 and direction == "long":  # +0.2% threshold avoids noise
                 adjusted -= 1
                 adjs.append(("BTC.D↑ alt rotation out", -1, "secondary"))
-            elif btc_d_hist[-1] < btc_d_hist[-2] and direction == "long":
+            elif btc_d_hist[-1] < _btcd_ref - 0.2 and direction == "long":
                 adjusted += 1
                 adjs.append(("BTC.D↓ alt season", +1, "secondary"))
 
@@ -4482,7 +4572,7 @@ def check_active_signals(state: dict, bar_index_now: int,
         entry_touched = sig.get("entry_touched", False)
         entry_price   = sig.get("entry", 0.0)
         atr_val_sig   = sig.get("atr_val", entry_price * 0.01 if entry_price else 0.01)
-        entry_tol     = atr_val_sig * 0.15   # within 15% of 1H ATR = entry filled
+        entry_tol     = atr_val_sig * 0.35   # FIX-10: widened from 0.15 → 0.35×ATR; the narrower zone caused legitimate fills to be classified as "missed" for stale entries (0–60 min old) where price opened outside the original 15% window
         last_ts       = sig.get("last_processed_candle_ts",
                                 sig.get("signal_bar_time", 0))
 
@@ -4953,6 +5043,16 @@ def scan_symbol(symbol: str, state: dict, bar_index_now: int,
         dir_check = None  # we check both
         # We don't know direction yet — check after signal
     # (full suppress is applied inside compute_signals funding block)
+
+    # FIX-12: Pre-check extreme funding before running the full signal pipeline.
+    # If funding is extreme (> FUNDING_SUPPRESS_EXTREME) in BOTH directions, suppress early.
+    # Direction-specific suppress still runs post-signal for single-direction cases.
+    if funding is not None and FUNDING_SUPPRESS_EXTREME:
+        if abs(funding) >= FUNDING_SUPPRESS_EXTREME * 2:
+            # Extreme in either direction — suppress without computing signals
+            print(f"    [FUNDING PRE-FILTER] {coin} suppressed — extreme funding "
+                  f"{funding*100:+.4f}%/8h (pre-signal check)")
+            return []
 
     sig = compute_signals(
         symbol, candles_1h, candles_4h, candles_1d,
