@@ -2160,9 +2160,10 @@ def check_cooldown(state: dict, symbol: str, direction: str,
     for sig in active:
         if (sig.get("symbol") == symbol and sig.get("direction") == direction
                 and not sig.get("resolved")):
-            age = bar_index - sig.get("bar_index", 0)
-            if age >= SIGNAL_MAX_AGE_1H_BARS:
-                continue
+            # Block re-entry unconditionally until TP or SL is hit.
+            # Age-based expiry is handled by check_active_signals, not here.
+            print(f"  [ACTIVE BLOCK] {hl_coin(symbol)} {direction.upper()} — "
+                  f"signal still open (TP/SL not hit), suppressing duplicate")
             return False
 
     if last_bar is not None:
@@ -2731,7 +2732,13 @@ def main():
               f"{[f'{hl_coin(s)} {d.upper()}' for s, d, _ in dropped]}")
 
     fired = 0
+    fired_keys: set[str] = set()  # guard against same-scan duplicates
     for rank, (symbol, direction, sig) in enumerate(top, start=1):
+        key = f"{symbol}_{direction}"
+        if key in fired_keys:
+            print(f"  [SAME-SCAN DUP] {hl_coin(symbol)} {direction.upper()} — skipped duplicate in this scan")
+            continue
+        fired_keys.add(key)
         msg    = format_signal(symbol, sig, "SWING", rank=rank)
         msg_id = send_telegram(msg)
 
