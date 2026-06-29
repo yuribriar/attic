@@ -1,23 +1,4 @@
-"""
-SWING ENGINE v3.0.0  —  1D → 4H → 1H  MULTI-TIMEFRAME
-High-Quality Signal Engine (Rebuilt from scratch)
-
-DESIGN PHILOSOPHY vs v2.x:
-  The core problem with v2.x was signal quantity over quality — too many setups
-  fired with weak confirmation stacks, resulting in losses and missed entries.
-
-  v3.0 fixes this through:
-    1. Stricter confluence gate (3 of 5 factors required, up from 2)
-    2. Orderflow is a HARD gate in both directions — no signal without alignment
-    3. Trend quality score replaces binary allow/deny on daily classification
-    4. PULL entries require price to be within 0.4×ATR of the EMA (was 2.0×ATR)
-    5. 4H structure must show confirming MSS (swing lows/highs stepping in direction)
-    6. BREAK signals require volatility compression (VCP or ATR < 60th pct) beforehand
-    7. Session hard-gating is stricter — only London/Overlap/NY for high-risk setups
-    8. Divergence is a hard reject (was -2 penalty, could still pass)
-    9. ADX DI alignment is mandatory for any scored setup (not just bonus)
-   10. Adaptive minimum score raised to 9 baseline (from 8)
-"""
+"""Swing Engine v3.0.0 — 1D → 4H → 1H multi-timeframe signal engine."""
 
 __version__ = "3.0.0"
 
@@ -2739,7 +2720,7 @@ def main():
               f"{[f'{hl_coin(s)} {d.upper()}' for s, d, _ in dropped]}")
 
     fired = 0
-    fired_keys: set[str] = set()  # guard against same-scan duplicates
+    fired_keys: set[str] = set()
     for rank, (symbol, direction, sig) in enumerate(top, start=1):
         key = f"{symbol}_{direction}"
         if key in fired_keys:
