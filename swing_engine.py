@@ -2310,7 +2310,8 @@ def check_active_signals(state: dict, bar_index_now: int,
                         if entry_touched:
                             react_to_message(msg_id, REACT_TP1)
                             sig["tp1_hit"] = True; tp1_hit = True
-                        elif cl <= sl_:
+                        else:
+                            # TP1 ran before entry — price moved without us
                             react_to_message(msg_id, REACT_MISS)
                             resolve("missed"); break
                     elif cl <= sl_:
@@ -2318,8 +2319,8 @@ def check_active_signals(state: dict, bar_index_now: int,
                             react_to_message(msg_id, REACT_SL)
                             resolve("sl")
                         else:
-                            react_to_message(msg_id, REACT_MISS)
-                            resolve("missed")
+                            # SL hit before entry — signal invalidated, not a loss
+                            resolve("expired")
                         break
                 else:
                     if ch >= tp2:
@@ -2333,7 +2334,8 @@ def check_active_signals(state: dict, bar_index_now: int,
                         if entry_touched:
                             react_to_message(msg_id, REACT_TP1)
                             sig["tp1_hit"] = True; tp1_hit = True
-                        elif ch >= sl_:
+                        else:
+                            # TP1 ran before entry — price moved without us
                             react_to_message(msg_id, REACT_MISS)
                             resolve("missed"); break
                     elif ch >= sl_:
@@ -2341,8 +2343,8 @@ def check_active_signals(state: dict, bar_index_now: int,
                             react_to_message(msg_id, REACT_SL)
                             resolve("sl")
                         else:
-                            react_to_message(msg_id, REACT_MISS)
-                            resolve("missed")
+                            # SL hit before entry — signal invalidated, not a loss
+                            resolve("expired")
                         break
                 else:
                     if cl <= tp2:
