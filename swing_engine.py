@@ -2456,16 +2456,6 @@ def format_signal(symbol: str, sig: SignalResult,
         f"  {of.get('labels', {}).get('ratio', '')}\n"
     ) if of else ""
 
-    conf_block = (
-        f"\n<b>Confluence ({len(sig.confluence_factors)}):</b> "
-        f"{', '.join(sig.confluence_factors)}\n"
-    ) if sig.confluence_factors else ""
-
-    score_breakdown = (
-        f"Daily:{sig.daily_score} 4H:{sig.setup_score} "
-        f"1H:{sig.h1_score} Vol:{sig.vol_score} ADX:{sig.adx_score}"
-    )
-
     return (
         f"{rank_tag}"
         f"{base_emoji} <b>{direction} [{sig.signal_type}]{premium_tag}  {grade_tag}</b>  {stars(sig.final_score)}\n"
@@ -2476,11 +2466,8 @@ def format_signal(symbol: str, sig: SignalResult,
         f"<b>TP2:</b>   <code>{fmt(sig.tp2)}</code>  (R:R {rr2:.1f})\n"
         f"<b>SL:</b>    <code>{fmt(sig.sl)}</code>   (ATR {sig.atr_pct:.2f}%)\n"
         f"\n"
-        f"<b>Score:</b> {sig.final_score}  ({score_breakdown})\n"
         f"<b>Leverage:</b> Max {max_lev:.0f}x   <b>Size:</b> {size_pct}%\n"
         f"{sr_block}"
-        f"{of_block}"
-        f"{conf_block}"
         f"\n<i>Swing Engine {__version__} [1D/4H/1H] • Hyperliquid Perps • {ts}</i>"
     )
 
