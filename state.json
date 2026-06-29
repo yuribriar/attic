@@ -1,1 +1,328 @@
-{}
+{
+  "_version": 1,
+  "oi_history": {
+    "BTCUSDT": [
+      {
+        "oi": 2033565237.4248,
+        "ts": 1782727249
+      }
+    ],
+    "ETHUSDT": [
+      {
+        "oi": 1137501561.75506,
+        "ts": 1782727249
+      }
+    ],
+    "HYPEUSDT": [
+      {
+        "oi": 1301912701.59572,
+        "ts": 1782727249
+      }
+    ],
+    "ZECUSDT": [
+      {
+        "oi": 159067866.882,
+        "ts": 1782727249
+      }
+    ],
+    "NEARUSDT": [
+      {
+        "oi": 67045762.326160006,
+        "ts": 1782727249
+      }
+    ],
+    "SUIUSDT": [
+      {
+        "oi": 29397348.95844,
+        "ts": 1782727249
+      }
+    ],
+    "PENGUUSDT": [
+      {
+        "oi": 3434305.983162,
+        "ts": 1782727249
+      }
+    ],
+    "ONDOUSDT": [
+      {
+        "oi": 7459796.97104,
+        "ts": 1782727249
+      }
+    ],
+    "BNBUSDT": [
+      {
+        "oi": 24696319.7439,
+        "ts": 1782727249
+      }
+    ],
+    "SOLUSDT": [
+      {
+        "oi": 388497588.9408,
+        "ts": 1782727249
+      }
+    ],
+    "TRXUSDT": [
+      {
+        "oi": 14908815.188520001,
+        "ts": 1782727249
+      }
+    ],
+    "BCHUSDT": [
+      {
+        "oi": 10179029.52864,
+        "ts": 1782727249
+      }
+    ],
+    "DOGEUSDT": [
+      {
+        "oi": 18873531.14625,
+        "ts": 1782727249
+      }
+    ],
+    "ADAUSDT": [
+      {
+        "oi": 28150003.1592,
+        "ts": 1782727249
+      }
+    ],
+    "DOTUSDT": [
+      {
+        "oi": 4736605.359072,
+        "ts": 1782727249
+      }
+    ],
+    "TAOUSDT": [
+      {
+        "oi": 17898942.94616,
+        "ts": 1782727249
+      }
+    ],
+    "AVAXUSDT": [
+      {
+        "oi": 16422863.288832,
+        "ts": 1782727249
+      }
+    ],
+    "AAVEUSDT": [
+      {
+        "oi": 81798709.03992,
+        "ts": 1782727249
+      }
+    ],
+    "XRPUSDT": [
+      {
+        "oi": 70475506.74960001,
+        "ts": 1782727249
+      }
+    ],
+    "LINKUSDT": [
+      {
+        "oi": 30578650.737599995,
+        "ts": 1782727249
+      }
+    ],
+    "UNIUSDT": [
+      {
+        "oi": 10229100.05862,
+        "ts": 1782727249
+      }
+    ],
+    "LTCUSDT": [
+      {
+        "oi": 11519312.78628,
+        "ts": 1782727249
+      }
+    ],
+    "XLMUSDT": [
+      {
+        "oi": 5913680.22732,
+        "ts": 1782727249
+      }
+    ],
+    "PENDLEUSDT": [
+      {
+        "oi": 6129677.7256000005,
+        "ts": 1782727249
+      }
+    ],
+    "APTUSDT": [
+      {
+        "oi": 4185563.9399640006,
+        "ts": 1782727249
+      }
+    ]
+  },
+  "signal_history": [
+    {
+      "id": "DOGEUSDT_1782727250",
+      "symbol": "DOGEUSDT",
+      "direction": "short",
+      "signal_type": "CONT",
+      "score": 12,
+      "daily_class": "Strong Bearish",
+      "funding_rate": 1.25e-05,
+      "atr_pct": 1.8835880125835556,
+      "oi_change_pct": null,
+      "result": null,
+      "sent": true,
+      "timestamp": 1782727250,
+      "grade": "A"
+    },
+    {
+      "id": "LTCUSDT_1782727251",
+      "symbol": "LTCUSDT",
+      "direction": "short",
+      "signal_type": "PULL",
+      "score": 11,
+      "daily_class": "Strong Bearish",
+      "funding_rate": 1.25e-05,
+      "atr_pct": 1.7463482344588759,
+      "oi_change_pct": null,
+      "result": null,
+      "sent": true,
+      "timestamp": 1782727251,
+      "grade": "B"
+    }
+  ],
+  "macro_calendar_cache": {
+    "fetched_at": 1782727249,
+    "events": []
+  },
+  "post_loss_cooldown": {},
+  "atr_history": {
+    "BTCUSDT": [
+      1.4677081696315883
+    ],
+    "ETHUSDT": [
+      1.7855160282369404
+    ],
+    "HYPEUSDT": [
+      3.0452436984720004
+    ],
+    "ZECUSDT": [
+      3.5593374445751578
+    ],
+    "NEARUSDT": [
+      3.2804142674532306
+    ],
+    "SUIUSDT": [
+      2.39812995040373
+    ],
+    "PENGUUSDT": [
+      2.8196308288303866
+    ],
+    "ONDOUSDT": [
+      2.36448627964823
+    ],
+    "BNBUSDT": [
+      1.3502736561167774
+    ],
+    "SOLUSDT": [
+      2.5228294792407326
+    ],
+    "TRXUSDT": [
+      0.5159429961197141
+    ],
+    "BCHUSDT": [
+      2.2313277023456775
+    ],
+    "ADAUSDT": [
+      2.25436461715032
+    ],
+    "DOTUSDT": [
+      2.2849896884216125
+    ],
+    "DOGEUSDT": [
+      1.8835880125835556
+    ],
+    "TAOUSDT": [
+      2.3420286346188357
+    ],
+    "AVAXUSDT": [
+      2.661010304287488
+    ],
+    "AAVEUSDT": [
+      3.9069255525285196
+    ],
+    "XRPUSDT": [
+      1.7344725521892896
+    ],
+    "LINKUSDT": [
+      1.8737547705694528
+    ],
+    "UNIUSDT": [
+      2.7037640176462316
+    ],
+    "LTCUSDT": [
+      1.7463482344588759
+    ],
+    "XLMUSDT": [
+      2.4849246389789448
+    ],
+    "PENDLEUSDT": [
+      2.8018031793519986
+    ],
+    "APTUSDT": [
+      2.7512804689467876
+    ]
+  },
+  "funding_history": {
+    "TRXUSDT": [
+      1.25e-05
+    ],
+    "PENGUUSDT": [
+      1.25e-05
+    ],
+    "DOGEUSDT": [
+      1.25e-05
+    ],
+    "LTCUSDT": [
+      1.25e-05
+    ],
+    "XLMUSDT": [
+      1.25e-05
+    ]
+  },
+  "signal_cooldowns": {
+    "DOGEUSDT_short": 495202,
+    "LTCUSDT_short": 495202
+  },
+  "last_signal_outcome": {},
+  "active_signals": [
+    {
+      "symbol": "DOGEUSDT",
+      "direction": "short",
+      "msg_id": 1118,
+      "bar_index": 495202,
+      "signal_bar_time": 1782727200000,
+      "tp1": 0.07116884644909882,
+      "tp2": 0.0687637866243345,
+      "sl": 0.0745194853502662,
+      "tp1_hit": false,
+      "entry_touched": false,
+      "resolved": false,
+      "hist_id": "DOGEUSDT_1782727250",
+      "signal_type": "CONT",
+      "entry": 0.07314908089171103,
+      "atr_val": 0.0013704044585551658
+    },
+    {
+      "symbol": "LTCUSDT",
+      "direction": "short",
+      "msg_id": 1119,
+      "bar_index": 495202,
+      "signal_bar_time": 1782727200000,
+      "tp1": 41.74378625285095,
+      "tp2": 40.54488308829542,
+      "sl": 43.18842733312283,
+      "tp1_hit": false,
+      "entry_touched": false,
+      "resolved": false,
+      "hist_id": "LTCUSDT_1782727251",
+      "signal_type": "PULL",
+      "entry": 42.629932070131126,
+      "atr_val": 0.7446603506556093
+    }
+  ],
+  "btc_dominance_history": []
+}
