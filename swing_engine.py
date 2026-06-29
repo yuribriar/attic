@@ -2082,7 +2082,10 @@ def compute_signals(symbol: str,
         if atr_pctile is not None and atr_pctile > 0.80:
             sl_m *= REGIME_HIGHVOL_SL_MULT
 
-        res.entry = cur_c
+        mark_px = _get_mid_price(symbol)
+        live_px = mark_px if mark_px is not None else cur_c
+        limit_offset = atr_v * 0.2
+        res.entry = live_px - limit_offset if res.fire_long else live_px + limit_offset
         if res.fire_long:
             res.tp1 = cur_c + atr_v * tp1_m
             res.tp2 = cur_c + atr_v * tp2_m
