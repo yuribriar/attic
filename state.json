@@ -1,1 +1,364 @@
-{}
+{
+  "_version": 1,
+  "oi_history": {
+    "BTCUSDT": [
+      {
+        "oi": 2017744643.9592,
+        "ts": 1782723030
+      }
+    ],
+    "ETHUSDT": [
+      {
+        "oi": 1137141520.35808,
+        "ts": 1782723030
+      }
+    ],
+    "HYPEUSDT": [
+      {
+        "oi": 1298649551.0321596,
+        "ts": 1782723030
+      }
+    ],
+    "ZECUSDT": [
+      {
+        "oi": 158142635.59120005,
+        "ts": 1782723030
+      }
+    ],
+    "NEARUSDT": [
+      {
+        "oi": 66816998.34972,
+        "ts": 1782723030
+      }
+    ],
+    "ONDOUSDT": [
+      {
+        "oi": 7365038.3488,
+        "ts": 1782723030
+      }
+    ],
+    "SUIUSDT": [
+      {
+        "oi": 29369752.296408,
+        "ts": 1782723030
+      }
+    ],
+    "PENGUUSDT": [
+      {
+        "oi": 3416264.114076,
+        "ts": 1782723030
+      }
+    ],
+    "BNBUSDT": [
+      {
+        "oi": 24629180.118399996,
+        "ts": 1782723030
+      }
+    ],
+    "SOLUSDT": [
+      {
+        "oi": 386668914.14936006,
+        "ts": 1782723030
+      }
+    ],
+    "TRXUSDT": [
+      {
+        "oi": 15042624.41568,
+        "ts": 1782723030
+      }
+    ],
+    "DOGEUSDT": [
+      {
+        "oi": 18766955.591888,
+        "ts": 1782723030
+      }
+    ],
+    "ADAUSDT": [
+      {
+        "oi": 28004010.724500004,
+        "ts": 1782723030
+      }
+    ],
+    "BCHUSDT": [
+      {
+        "oi": 10077702.208,
+        "ts": 1782723030
+      }
+    ],
+    "DOTUSDT": [
+      {
+        "oi": 4686543.759424001,
+        "ts": 1782723030
+      }
+    ],
+    "AVAXUSDT": [
+      {
+        "oi": 16274107.61971,
+        "ts": 1782723030
+      }
+    ],
+    "LINKUSDT": [
+      {
+        "oi": 30355261.51344,
+        "ts": 1782723030
+      }
+    ],
+    "TAOUSDT": [
+      {
+        "oi": 17851277.96704,
+        "ts": 1782723030
+      }
+    ],
+    "XRPUSDT": [
+      {
+        "oi": 70154415.15879999,
+        "ts": 1782723030
+      }
+    ],
+    "AAVEUSDT": [
+      {
+        "oi": 81282216.3384,
+        "ts": 1782723030
+      }
+    ],
+    "XLMUSDT": [
+      {
+        "oi": 5890754.58774,
+        "ts": 1782723030
+      }
+    ],
+    "LTCUSDT": [
+      {
+        "oi": 11490520.93812,
+        "ts": 1782723030
+      }
+    ],
+    "APTUSDT": [
+      {
+        "oi": 4082419.534104,
+        "ts": 1782723030
+      }
+    ],
+    "UNIUSDT": [
+      {
+        "oi": 9790158.1388,
+        "ts": 1782723030
+      }
+    ],
+    "PENDLEUSDT": [
+      {
+        "oi": 6152622.1056,
+        "ts": 1782723030
+      }
+    ]
+  },
+  "signal_history": [
+    {
+      "id": "LTCUSDT_1782723031",
+      "symbol": "LTCUSDT",
+      "direction": "short",
+      "signal_type": "PULL",
+      "score": 14,
+      "daily_class": "Strong Bearish",
+      "funding_rate": 1.25e-05,
+      "atr_pct": 1.7463482344588759,
+      "oi_change_pct": null,
+      "result": null,
+      "sent": true,
+      "timestamp": 1782723031,
+      "grade": "A+"
+    },
+    {
+      "id": "DOTUSDT_1782723032",
+      "symbol": "DOTUSDT",
+      "direction": "short",
+      "signal_type": "CONT",
+      "score": 13,
+      "daily_class": "Strong Bearish",
+      "funding_rate": -5.4431e-06,
+      "atr_pct": 2.2849896884216125,
+      "oi_change_pct": null,
+      "result": null,
+      "sent": true,
+      "timestamp": 1782723032,
+      "grade": "A"
+    },
+    {
+      "id": "BNBUSDT_1782723033",
+      "symbol": "BNBUSDT",
+      "direction": "short",
+      "signal_type": "CONT",
+      "score": 10,
+      "daily_class": "Bearish",
+      "funding_rate": 7.2514e-06,
+      "atr_pct": 1.3502736561167774,
+      "oi_change_pct": null,
+      "result": null,
+      "sent": true,
+      "timestamp": 1782723033,
+      "grade": "B"
+    }
+  ],
+  "macro_calendar_cache": {
+    "fetched_at": 1782723030,
+    "events": []
+  },
+  "post_loss_cooldown": {},
+  "atr_history": {
+    "BTCUSDT": [
+      1.4677081696315883
+    ],
+    "ETHUSDT": [
+      1.7855160282369404
+    ],
+    "HYPEUSDT": [
+      3.0452436984720004
+    ],
+    "ZECUSDT": [
+      3.5593374445751578
+    ],
+    "NEARUSDT": [
+      3.2804142674532306
+    ],
+    "ONDOUSDT": [
+      2.36448627964823
+    ],
+    "PENGUUSDT": [
+      2.8196308288303866
+    ],
+    "BNBUSDT": [
+      1.3502736561167774
+    ],
+    "SUIUSDT": [
+      2.39812995040373
+    ],
+    "SOLUSDT": [
+      2.5228294792407326
+    ],
+    "TRXUSDT": [
+      0.5159429961197141
+    ],
+    "DOGEUSDT": [
+      1.8835880125835556
+    ],
+    "BCHUSDT": [
+      2.2313277023456775
+    ],
+    "DOTUSDT": [
+      2.2849896884216125
+    ],
+    "ADAUSDT": [
+      2.25436461715032
+    ],
+    "AVAXUSDT": [
+      2.661010304287488
+    ],
+    "LINKUSDT": [
+      1.8737547705694528
+    ],
+    "TAOUSDT": [
+      2.3420286346188357
+    ],
+    "AAVEUSDT": [
+      3.9069255525285196
+    ],
+    "XLMUSDT": [
+      2.4849246389789448
+    ],
+    "XRPUSDT": [
+      1.7344725521892896
+    ],
+    "LTCUSDT": [
+      1.7463482344588759
+    ],
+    "UNIUSDT": [
+      2.7037640176462316
+    ],
+    "PENDLEUSDT": [
+      2.8018031793519986
+    ],
+    "APTUSDT": [
+      2.7512804689467876
+    ]
+  },
+  "funding_history": {
+    "ZECUSDT": [
+      1.25e-05
+    ],
+    "NEARUSDT": [
+      1.25e-05
+    ],
+    "TRXUSDT": [
+      1.25e-05
+    ],
+    "BNBUSDT": [
+      7.2514e-06
+    ],
+    "DOTUSDT": [
+      -5.4431e-06
+    ],
+    "LTCUSDT": [
+      1.25e-05
+    ]
+  },
+  "signal_cooldowns": {
+    "LTCUSDT_short": 495200,
+    "DOTUSDT_short": 495200,
+    "BNBUSDT_short": 495200
+  },
+  "last_signal_outcome": {},
+  "active_signals": [
+    {
+      "symbol": "LTCUSDT",
+      "direction": "short",
+      "msg_id": 1101,
+      "bar_index": 495200,
+      "signal_bar_time": 1782720000000,
+      "tp1": 41.754854182719825,
+      "tp2": 40.55595101816429,
+      "sl": 43.199495262991704,
+      "tp1_hit": false,
+      "entry_touched": false,
+      "resolved": false,
+      "hist_id": "LTCUSDT_1782723031",
+      "signal_type": "PULL",
+      "entry": 42.641,
+      "atr_val": 0.7446603506556093
+    },
+    {
+      "symbol": "DOTUSDT",
+      "direction": "short",
+      "msg_id": 1102,
+      "bar_index": 495200,
+      "signal_bar_time": 1782720000000,
+      "tp1": 0.789037889947903,
+      "tp2": 0.7563158116493355,
+      "sl": 0.8346250588595827,
+      "tp1_hit": false,
+      "entry_touched": false,
+      "resolved": false,
+      "hist_id": "DOTUSDT_1782723032",
+      "signal_type": "CONT",
+      "entry": 0.81598,
+      "atr_val": 0.018645058859582675
+    },
+    {
+      "symbol": "BNBUSDT",
+      "direction": "short",
+      "msg_id": 1103,
+      "bar_index": 495200,
+      "signal_bar_time": 1782720000000,
+      "tp1": 542.5827514023736,
+      "tp2": 529.4691380536991,
+      "sl": 560.852144358219,
+      "tp1_hit": false,
+      "entry_touched": false,
+      "resolved": false,
+      "hist_id": "BNBUSDT_1782723033",
+      "signal_type": "CONT",
+      "entry": 553.38,
+      "atr_val": 7.4721443582190235
+    }
+  ],
+  "btc_dominance_history": []
+}
