@@ -48,9 +48,9 @@ if not TG_CHAT_ID:
     raise RuntimeError("TG_CHAT_ID environment variable is required")
 
 _SCRIPT_DIR  = Path(__file__).resolve().parent
-STATE_FILE   = str(_SCRIPT_DIR / "state_v3.json")
+STATE_FILE   = str(_SCRIPT_DIR / "state.json")
 STATE_VERSION = 1
-LOCK_FILE    = str(_SCRIPT_DIR / "swing_engine_v3.lock")
+LOCK_FILE    = str(_SCRIPT_DIR / "swing_engine.lock")
 
 HL_INFO_URL           = "https://api.hyperliquid.xyz/info"
 SCAN_WORKERS          = int(os.getenv("SCAN_WORKERS", "2"))
