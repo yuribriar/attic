@@ -234,7 +234,7 @@ WIN_RATE_HARD_SUPPRESS_THRESHOLD  = 0.35
 WIN_RATE_HARD_SUPPRESS_MIN_SAMPLE = 25
 WIN_RATE_LOOKBACK_DAYS = 30
 WIN_RATE_RECENT_DAYS   = 7
-WIN_RATE_RECENT_WEIGHT = 2.0
+WIN_RATE_RECENT_WEIGHT = 3.0
 WIN_RATE_STALE_DAYS    = 14
 
 MAX_SIGNAL_HISTORY = 2000
@@ -2087,31 +2087,31 @@ def compute_signals(symbol: str,
         limit_offset = atr_v * 0.2
         res.entry = live_px - limit_offset if res.fire_long else live_px + limit_offset
         if res.fire_long:
-            res.tp1 = cur_c + atr_v * tp1_m
-            res.tp2 = cur_c + atr_v * tp2_m
-            atr_based_sl = cur_c - atr_v * sl_m
+            res.tp1 = res.entry + atr_v * tp1_m
+            res.tp2 = res.entry + atr_v * tp2_m
+            atr_based_sl = res.entry - atr_v * sl_m
             res.sl = atr_based_sl
             if supports:
                 struct_sl    = max(supports) * 0.998
-                sl_dist      = cur_c - struct_sl
+                sl_dist      = res.entry - struct_sl
                 if sl_dist >= atr_v * 0.5:
                     res.sl = max(struct_sl, atr_based_sl)
             if resistances:
                 nr      = resistances[0]
-                sr_dist = (nr - cur_c) / atr_v
-                sl_d    = cur_c - res.sl
+                sr_dist = (nr - res.entry) / atr_v
+                sl_d    = res.entry - res.sl
                 if 0.2 <= sr_dist < tp1_m and sl_d > 0:
-                    snapped_rr = (nr - cur_c) / sl_d
+                    snapped_rr = (nr - res.entry) / sl_d
                     if snapped_rr >= MIN_RR_RATIO:
                         res.tp1 = nr
         else:
-            res.tp1 = cur_c - atr_v * tp1_m
-            res.tp2 = cur_c - atr_v * tp2_m
-            atr_based_sl = cur_c + atr_v * sl_m
+            res.tp1 = res.entry - atr_v * tp1_m
+            res.tp2 = res.entry - atr_v * tp2_m
+            atr_based_sl = res.entry + atr_v * sl_m
             res.sl = atr_based_sl
             if resistances:
                 struct_sl = min(resistances) * 1.002
-                sl_dist   = struct_sl - cur_c
+                sl_dist   = struct_sl - res.entry
                 if sl_dist >= atr_v * 0.5:
                     res.sl = min(struct_sl, atr_based_sl)
             if supports:
@@ -2119,8 +2119,8 @@ def compute_signals(symbol: str,
                 if res.tp2 < ns < res.tp1:
                     res.tp1 = ns
 
-        tp1_dist = abs(res.tp1 - cur_c)
-        sl_dist  = abs(res.sl  - cur_c)
+        tp1_dist = abs(res.tp1 - res.entry)
+        sl_dist  = abs(res.sl  - res.entry)
         if sl_dist > 0:
             rr = tp1_dist / sl_dist
             if rr < MIN_RR_RATIO:
@@ -2185,8 +2185,9 @@ def check_cooldown(state: dict, symbol: str, direction: str,
 
     if last_sl_ts is not None:
         elapsed = int(time.time()) - last_sl_ts
-        if elapsed < PULL_REENTRY_COOLDOWN_S:
-            print(f"  [POST-LOSS COOLDOWN] {hl_coin(symbol)} {direction.upper()} — "
+        sig_type = state.get("last_signal_type", {}).get(f"{symbol}_{direction}", "")
+        if sig_type == "PULL" and elapsed < PULL_REENTRY_COOLDOWN_S:
+            print(f"  [POST-LOSS COOLDOWN] {hl_coin(symbol)} {direction.upper()} PULL — "
                   f"{PULL_REENTRY_COOLDOWN_S - elapsed}s remaining")
             return False
 
@@ -2261,7 +2262,7 @@ def check_active_signals(state: dict, bar_index_now: int,
         entry_touched = sig.get("entry_touched", False)
         entry_price   = sig.get("entry", 0.0)
         atr_val_sig   = sig.get("atr_val", entry_price * 0.01 if entry_price else 0.01)
-        entry_tol     = atr_val_sig * 0.35
+        entry_tol     = atr_val_sig * 0.55
         last_ts       = sig.get("last_processed_candle_ts",
                                 sig.get("signal_bar_time", 0))
 
@@ -2293,8 +2294,9 @@ def check_active_signals(state: dict, bar_index_now: int,
         def resolve(result_: str):
             sig["resolved"] = True
             with _state_lock:
-                state.setdefault("post_loss_cooldown", {})[f"{symbol}_{direction}"] = int(time.time()) \
-                    if result_ == "sl" else state.get("post_loss_cooldown", {}).get(f"{symbol}_{direction}", 0)
+                if result_ == "sl":
+                    state.setdefault("post_loss_cooldown", {})[f"{symbol}_{direction}"] = int(time.time())
+                    state.setdefault("last_signal_type", {})[f"{symbol}_{direction}"] = sig.get("signal_type", "")
                 state.setdefault("last_signal_outcome", {})[f"{symbol}_{direction}"] = result_
             hist_id = sig.get("hist_id")
             if hist_id:
