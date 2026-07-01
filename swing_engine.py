@@ -116,7 +116,7 @@ if not TG_CHAT_ID:
     raise RuntimeError("TG_CHAT_ID environment variable is required")
 
 _SCRIPT_DIR = Path(__file__).resolve().parent
-STATE_FILE = str(_SCRIPT_DIR / "crucible_alpha_state.json")
+STATE_FILE = str(_SCRIPT_DIR / "state.json")
 STATE_VERSION = 1
 LOCK_FILE = str(_SCRIPT_DIR / "crucible_alpha.lock")
 
