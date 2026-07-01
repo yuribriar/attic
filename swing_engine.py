@@ -90,7 +90,7 @@ if not TG_CHAT_ID:
     raise RuntimeError("TG_CHAT_ID environment variable is required")
 
 _SCRIPT_DIR = Path(__file__).resolve().parent
-STATE_FILE = str(_SCRIPT_DIR / "state.json")
+STATE_FILE = str(_SCRIPT_DIR / "obsidian_edge_state.json")
 STATE_VERSION = 1
 LOCK_FILE = str(_SCRIPT_DIR / "obsidian_edge.lock")
 
@@ -1088,8 +1088,8 @@ def build_4h_setup(candles_4h: list[dict], daily: dict, direction: str) -> Setup
     elif struct.bias == ("bull" if direction == "long" else "bear") and unmitigated:
         setup_type = "CONTINUATION"
         notes.append(f"Trend continuation, {struct.bias} structure intact")
-    elif displacement and struct.last_bos is not None and \
-            struct.last_bos >= len(candles_4h) - 4:
+    elif displacement and struct.last_bos_idx is not None and \
+            struct.last_bos_idx >= len(candles_4h) - 4:
         setup_type = "BREAKOUT"
         notes.append("Fresh BOS with displacement")
 
