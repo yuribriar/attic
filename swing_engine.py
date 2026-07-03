@@ -1,134 +1,92 @@
 """
-CRUCIBLE ALPHA  v1.0.0  —  1D -> 4H -> 1H  ADAPTIVE PROBABILITY ENGINE
-"Signal is earned, not counted."
+NYX ENGINE v2.0.0 — DUAL PIPELINE
+=============================================================
+Nyx's liquidity-engineering edge (sweep -> displacement/CHoCH -> imbalance ->
+breaker OTE entry, gated by H4 structure+EMA bias, premium/discount, and a
+live POI) run across TWO independent timeframe pipelines in parallel,
+Castellan-style:
 
-A ground-up institutional signal engine. It shares only its *operating
-model* with any prior bot on this deployment (Hyperliquid market data,
-Telegram delivery + reaction lifecycle, state.json persistence,
-single-scan-per-run execution triggered by an external cron). Every
-piece of trading logic in this file — market structure classification,
-liquidity mapping, order-block / fair-value-gap detection, regime
-detection, the confluence engine, the confidence model, entry
-selection and risk management — is an original design built around
-Smart Money / ICT concepts and standard quantitative primitives.
+    H4  / 15m   (original Nyx combo — session-gated, fast)
+    12H / 1h    (new slow combo — always-on, wider stops/targets)
 
-ARCHITECTURE
-------------
-1D  — Macro regime layer. Produces a continuous trend-quality score
-      (0-100) and a volatility/regime classification. Never a hard
-      directional gate — it shapes the confidence prior instead.
-4H  — Setup layer. Maps the dealing range (premium/discount), detects
-      liquidity sweeps, order blocks and fair value gaps, and defines
-      a directional *candidate* with concrete invalidation structure.
-5H(1H) — Trigger layer. Requires a displacement + momentum alignment
-      event on the 1H before a candidate is promoted to a *signal*.
-      This is what separates "a valid idea exists" from "act now".
+Each pipeline has its own tuned thresholds, its own cooldown/TTL scaling,
+and its own candle cache. A symbol can produce a candidate on either
+pipeline, or both, in the same scan; final selection is unified (see below).
 
-DECISION PHILOSOPHY
---------------------
-Price structure originates every idea. Indicators (RSI, ADX, ROC,
-Bollinger width, volume) are never allowed to originate a signal on
-their own — they only vote on confirmation/veto inside the confluence
-engine. Every vote is converted to a log-odds contribution and combined
-via logistic aggregation into a single probability estimate, which is
-then mapped to a 0-100 confidence score. This avoids the common trap of
-naive additive point-counting, where uncorrelated-looking conditions
-that are actually redundant get double-counted.
+This is a deliberate merge of the two prior engines (Nyx Engine v1.1.1 and
+Castellan Protocol v1.2.0), keeping what each did better and fixing what
+each did worse:
 
-Setups are only promoted to signals when modelled win probability
-clears an *adaptive* bar that tightens automatically in choppy/low
-quality regimes and relaxes in clean trending regimes with expanding
-volatility — implemented via `regime_confidence_adjustment`.
+Kept from Nyx (this is the base architecture):
+  - Hard-gate sequence: sweep -> displacement+CHoCH -> imbalance are
+    non-negotiable, not scoring bonuses.
+  - H4 structure+EMA double-confirmed bias (a lone swing read can't set
+    direction; EMA must agree).
+  - BTC regime filter + sector/direction diversification caps — the
+    portfolio-correlation controls Castellan never had.
+  - Selection ranks candidates by confluence score before capping —
+    Castellan's per-scan cap took candidates in hardcoded watchlist order
+    with no ranking at all, silently dropping better setups in favor of
+    earlier-listed symbols. That's fixed here by construction: every
+    candidate from every pipeline is scored, pooled, and sorted before any
+    cap is applied.
 
-Volume is a genuine confluence vote, not a documentation claim: a
-close-location-value x volume CVD proxy (`orderflow_proxy`) measures
-intrabar buy/sell pressure and its short-term slope, and current-bar
-volume is compared against its 20-period average, both feeding
-`score_confluence` directly. Historical win-rate is both a hard
-post-hoc suppression gate *and* a graduated evidence stream once a
-symbol/direction has >= WIN_RATE_MIN_SAMPLE resolved trades — realized
-edge now moves the confidence number itself, not just a veto. Fresh
-BOS/displacement breakouts additionally require confirmation against
-the prior 20-period Donchian channel before being rewarded at full
-weight.
+Ported in from Castellan:
+  - Two independent timeframe pipelines instead of one.
+  - A live-price staleness/drift re-check performed immediately before
+    each Telegram send (not just once, earlier, against a stale candle
+    close) — refuses to fire if price has already run away from plan.
+  - A global concurrency cap on unresolved active signals, across both
+    pipelines combined — a portfolio-level brake Nyx didn't have.
+  - An open-interest liquidity floor — refuses to signal on thin books.
+  - Adaptive rate limiting (backs off on 429s, eases back down on a streak
+    of clean requests) to handle the ~2x API load of running two pipelines.
+  - More defensive state loading: falls back to a `.bak` copy on a corrupt
+    primary state file, and checks a schema version before trusting it.
 
-OPERATING MODEL (kept compatible with the existing deployment)
------------------------------------------------------------------
-  * Single Python file, no packages
-  * One scan per execution — no long-running loop
-  * Triggered externally every 15 minutes (cron-job.org / GitHub Actions)
-  * Reads state.json at startup, writes it before exit
-  * Hyperliquid `info` endpoint for OHLCV + funding + open interest
-  * Telegram for delivery, message edits and emoji-reaction lifecycle
-    tracking (TP1 / TP2 / SL / missed)
+Fixed relative to both originals:
+  - Nyx v1's confluence score gave a free, undiscriminating point for
+    "Session" that was already guaranteed true (the whole scan skipped
+    itself when out of session, so anything reaching scoring had already
+    passed that check). That point is gone; session is a hard gate only,
+    per-pipeline, not also a score bonus. This meaningfully raises the real
+    bar a setup has to clear.
+  - Session gating is now per-pipeline instead of global: the fast H4/15m
+    combo still only fires in London/NY (genuine institutional flow
+    matters most for a stop-hunt read at that horizon); the slow 12H/1h
+    combo is not session-gated at all (a 12H swing isn't really an
+    intraday-session phenomenon), so the engine keeps scanning around the
+    clock the way Castellan did, without loosening the fast combo's logic.
+  - A same-symbol-across-pipelines cap (max 1 accepted signal per symbol
+    per scan) prevents the two pipelines from firing correlated, largely
+    redundant signals on the same asset in the same scan — something
+    Castellan's dual-combo design explicitly allowed and never dealt with.
 
-CHANGELOG
----------
-v1.0.0 — Initial release.
-v1.1.0 — Institutional audit fixes:
-          * Wired a real orderflow signal: ported a CLV x volume CVD
-            proxy (`orderflow_proxy`) plus a volume-vs-SMA20 ratio into
-            `score_confluence` as genuine confirmation/veto evidence.
-            Docstring no longer overstates what the code does.
-          * Promoted historical win-rate from a binary post-hoc
-            suppression gate to a graduated evidence stream in
-            `score_confluence` (in addition to, not instead of, the
-            existing hard suppression floor).
-          * Tightened correlation dedup to one signal per correlated
-            cluster (was one per (cluster, direction), which allowed
-            opposite-direction double exposure within a cluster).
-          * Wired the previously dead Donchian(20) computation into a
-            breakout-confirmation check for the BREAKOUT setup type.
+Timeframes : H4/15m and 12H/1h, run independently per symbol per scan.
+Exchange   : Hyperliquid
+Alerts     : Telegram (HTML)
 """
 
-from __future__ import annotations
-
-__engine_name__ = "CRUCIBLE ALPHA"
-__version__ = "1.1.0"
-__tagline__ = "Signal is earned, not counted."
-
-import fcntl
-import json
-import math
-import os
-import random
-import signal as os_signal
-import sys
-import threading
-import time
+import os, time, math, threading, requests, random, json, pathlib, sys
+import signal as _signal
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from copy import deepcopy
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from pathlib import Path
+from dataclasses import dataclass, field
 
-import requests
-
-# =====================================================================
-# 0. ENVIRONMENT / IDENTITY / CONSTANTS
-# =====================================================================
-
+# ═══════════════════════════════════════════════════════════════════════════════
+# ENV
+# ═══════════════════════════════════════════════════════════════════════════════
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
-TG_CHAT_ID = os.getenv("TG_CHAT_ID")
+TG_CHAT_ID   = os.getenv("TG_CHAT_ID")
 if not TG_BOT_TOKEN:
     raise RuntimeError("TG_BOT_TOKEN environment variable is required")
 if not TG_CHAT_ID:
     raise RuntimeError("TG_CHAT_ID environment variable is required")
 
-_SCRIPT_DIR = Path(__file__).resolve().parent
-STATE_FILE = str(_SCRIPT_DIR / "state.json")
-STATE_VERSION = 1
-LOCK_FILE = str(_SCRIPT_DIR / "crucible_alpha.lock")
-
 HL_INFO_URL = "https://api.hyperliquid.xyz/info"
-SCAN_WORKERS = int(os.getenv("SCAN_WORKERS", "2"))
-HL_TF_WORKERS = int(os.getenv("HL_TF_WORKERS", "2"))
-HL_MIN_INTERVAL_S = float(os.getenv("HL_MIN_INTERVAL_S", "0.18"))
-HL_MIN_INTERVAL_MAX_S = float(os.getenv("HL_MIN_INTERVAL_MAX_S", "0.60"))
+VERSION = "2.0.0"
 
-N_1H, N_4H, N_1D = 220, 280, 340
-INTERVAL_MS = {"1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000}
-
+# ── WATCHLIST / SECTOR MAP (unchanged from both prior engines) ──────────────
 WATCHLIST = [
     "BTCUSDT", "ETHUSDT", "HYPEUSDT", "ZECUSDT", "NEARUSDT",
     "ONDOUSDT", "SUIUSDT", "PENGUUSDT", "BNBUSDT", "SOLUSDT",
@@ -136,1918 +94,1535 @@ WATCHLIST = [
     "TAOUSDT", "AVAXUSDT", "LINKUSDT", "AAVEUSDT", "XRPUSDT",
     "XLMUSDT", "UNIUSDT", "LTCUSDT", "APTUSDT", "PENDLEUSDT",
 ]
-SMALL_CAP_PAIRS = {"PENGUUSDT", "HYPEUSDT", "ZECUSDT", "PENDLEUSDT"}
 
-EMA_FAST, EMA_MID, EMA_SLOW, EMA_TREND = 8, 20, 50, 200
-RSI_LEN, ATR_LEN, ADX_LEN, ROC_LEN, BB_LEN, DONCHIAN_LEN = 14, 14, 14, 12, 20, 20
-
-CONFIDENCE_FLOOR_STANDARD = 60.0
-CONFIDENCE_FLOOR_HIGH = 71.0
-CONFIDENCE_FLOOR_PREMIUM = 81.0
-CONFIDENCE_FLOOR_ELITE = 89.0
-
-MIN_RR = 1.5
-PREFERRED_RR = 2.3
-MAX_SIGNALS_PER_SCAN = 3
-MAX_CONCURRENT_ACTIVE = 10
-SIGNAL_MAX_AGE_1H_BARS = 30
-POST_WIN_COOLDOWN_BARS = 1
-POST_LOSS_COOLDOWN_S = 5400
-BASE_COOLDOWN_BARS = 4
-
-MIN_OI_USD = 500_000.0
-MIN_OI_USD_SMALL_CAP = 250_000.0
-FUNDING_HEADWIND_PCT = 0.0008
-FUNDING_TAILWIND_PCT = 0.0004
-
-ATR_PCT_FLOOR = 0.12
-ATR_PCT_CEIL = 11.0
-ATR_HISTORY_DEPTH = 180
-
-OI_HISTORY_DEPTH = 30
-FUNDING_HISTORY_DEPTH = 6
-
-CORR_LOOKBACK_BARS = 42
-CORR_MIN_SAMPLE = 20
-CORR_CLUSTER_THRESHOLD = 0.78
-
-WIN_RATE_MIN_SAMPLE = 20
-WIN_RATE_HARD_SUPPRESS_THRESHOLD = 0.32
-WIN_RATE_SUPPRESSION_MIN_GRADE = "High Quality"
-MAX_SIGNAL_HISTORY = 2000
-META_CACHE_TTL_S = 50.0
-
-REACT_TP1, REACT_TP2, REACT_SL, REACT_MISS = "🔥", "🏆", "😭", "😢"
-
-GRADE_FLOOR = {
-    "Elite": CONFIDENCE_FLOOR_ELITE,
-    "Premium": CONFIDENCE_FLOOR_PREMIUM,
-    "High Quality": CONFIDENCE_FLOOR_HIGH,
-    "Standard": CONFIDENCE_FLOOR_STANDARD,
+SECTOR_MAP: dict[str, str] = {
+    "BTCUSDT":    "btc",
+    "ETHUSDT":    "eth",
+    "SOLUSDT":    "eth_l1", "AVAXUSDT": "eth_l1", "SUIUSDT": "eth_l1", "APTUSDT": "eth_l1",
+    "NEARUSDT":   "eth_l1",
+    "BNBUSDT":    "bnb",
+    "XRPUSDT":    "payments", "XLMUSDT": "payments", "TRXUSDT": "payments", "LTCUSDT": "payments",
+    "DOGEUSDT":   "meme",    "PENGUUSDT": "meme",
+    "ADAUSDT":    "layer1_alt", "DOTUSDT": "layer1_alt", "TAOUSDT": "layer1_alt",
+    "LINKUSDT":   "defi",    "AAVEUSDT": "defi", "UNIUSDT": "defi",
+    "ONDOUSDT":   "defi",    "PENDLEUSDT": "defi",
+    "HYPEUSDT":   "hype",
+    "ZECUSDT":    "privacy", "BCHUSDT": "privacy",
 }
-GRADE_MAX_LEVERAGE = {"Elite": 10.0, "Premium": 8.0, "High Quality": 5.0, "Standard": 3.0}
-GRADE_SIZE_PCT = {"Elite": 100, "Premium": 100, "High Quality": 70, "Standard": 45}
-GRADE_EMOJI = {"Elite": "💎", "Premium": "⚡", "High Quality": "🔵", "Standard": "⚪"}
+BTC_REGIME_EXEMPT_SECTORS: set[str] = {"hype", "defi"}
 
-_hl_session = requests.Session()
-_hl_lock = threading.Lock()
-_hl_last_ts = 0.0
-_hl_min_interval = HL_MIN_INTERVAL_S
-_hl_streak = 0
-_state_lock = threading.Lock()
-_shutdown = False
+INTERVAL_MS = {
+    "15m": 15 * 60 * 1000,
+    "1h":  60 * 60 * 1000,
+    "4h":  4  * 60 * 60 * 1000,
+    "12h": 12 * 60 * 60 * 1000,
+    "1d":  24 * 60 * 60 * 1000,
+}
+
+# ── SESSION FILTER (applied per-pipeline, see Combo.session_filter_enabled) ─
+LONDON_OPEN_H, LONDON_CLOSE_H = 7, 12
+NY_OPEN_H, NY_CLOSE_H         = 13, 20
+DEAD_ZONE_START_H, DEAD_ZONE_END_H = 12, 13
+WEEKEND_MODE_ENABLED = True
+WEEKEND_MIN_CONFLUENCE_BUMP = 1
+
+# ── FREQUENCY / DIVERSIFICATION / PORTFOLIO CAPS (global, across pipelines) ─
+TOP_N_SIGNALS               = 4
+MAX_SAME_DIRECTION          = 3
+MAX_PER_SECTOR              = 1
+MAX_PER_SYMBOL              = 1     # NEW: stops both pipelines double-firing one symbol
+MAX_CONCURRENT_ACTIVE_SIGNALS = 10  # ported from Castellan: global brake across pipelines
+
+# ── LIQUIDITY / EXECUTION SAFETY (ported from Castellan) ────────────────────
+MIN_OI_USD          = 500_000
+MAX_ENTRY_DRIFT_R   = 0.5   # re-checked against a live price fetch immediately before send
+
+# ── OI / FUNDING (scoring bonus + liquidity gate, never a directional gate) ─
+OI_FUNDING_ENABLED       = True
+FUNDING_ALIGN_THRESHOLD  = 0.0001
+
+# ── BTC REGIME FILTER ────────────────────────────────────────────────────────
+BTC_REGIME_FILTER_ENABLED = True
+BTC_SYMBOL = "BTCUSDT"
+
+STATE_FILE    = pathlib.Path("state.json")
+WIN_RATE_FILE = pathlib.Path("win_rate.json")
+STATE_VERSION = 2
+
+SIGNAL_COOLDOWN_S_DEFAULT = 60 * 60 * 4  # fallback for legacy state entries
 
 
-def _handle_shutdown(sig, frame):
-    global _shutdown
-    _shutdown = True
-    print(f"\n[SHUTDOWN] signal {sig} received — finishing current scan…")
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMBO CONFIG — the two independent pipelines
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class Combo:
+    id: str
+    label: str
+    htf_tf: str
+    exec_tf: str
+    n_htf: int
+    n_exec: int
+
+    swing_left_htf: int
+    swing_right_htf: int
+    structure_lookback_htf: int
+    ema_fast: int
+    ema_slow: int
+    ema_sep_min_atr: float
+
+    pd_lookback: int
+    premium_threshold: float
+    discount_threshold: float
+
+    poi_lookback_htf: int
+    poi_fresh_max_mitig: float
+    poi_full_mitig: float
+    poi_max_atr_distance: float
+
+    pool_lookback_htf: int
+    pool_equal_tol_atr: float
+
+    swing_left_exec: int
+    swing_right_exec: int
+    sweep_lookback_exec: int
+    sweep_recent_bars: int
+    sweep_min_atr_ratio: float
+    sweep_strong_atr_ratio: float
+
+    displacement_max_bars: int
+    displacement_min_atr: float
+    displacement_strong_atr: float
+    displacement_body_ratio_min: float
+    choch_min_margin_atr: float
+    choch_strong_margin_atr: float
+    volume_bonus_ratio: float
+
+    fvg_min_size_atr: float
+
+    sl_buffer_atr: float
+    entry_max_dist_atr: float
+    tp1_min_rr: float
+    tp2_min_rr: float
+    tp1_fallback_rr: float
+    tp2_fallback_rr: float
+    tp3_fallback_rr: float
+
+    min_confluence_score: int
+    strong_signal_score: int
+    aplus_signal_score: int
+    theoretical_max_score: int
+
+    session_filter_enabled: bool
+    cooldown_hours: float
+    active_signal_ttl_hours: float
+    fill_timeout_hours: float
 
 
-for _s in (os_signal.SIGINT, os_signal.SIGTERM):
-    try:
-        os_signal.signal(_s, _handle_shutdown)
-    except Exception:
-        pass
+COMBOS: dict[str, Combo] = {
+    "h4_15m": Combo(
+        id="h4_15m", label="H4/15m", htf_tf="4h", exec_tf="15m",
+        n_htf=150, n_exec=200,
+        swing_left_htf=2, swing_right_htf=2, structure_lookback_htf=40,
+        ema_fast=21, ema_slow=50, ema_sep_min_atr=0.30,
+        pd_lookback=60, premium_threshold=0.60, discount_threshold=0.40,
+        poi_lookback_htf=20, poi_fresh_max_mitig=0.15, poi_full_mitig=0.90, poi_max_atr_distance=3.0,
+        pool_lookback_htf=80, pool_equal_tol_atr=0.15,
+        swing_left_exec=2, swing_right_exec=2,
+        sweep_lookback_exec=40, sweep_recent_bars=6, sweep_min_atr_ratio=0.15, sweep_strong_atr_ratio=0.35,
+        displacement_max_bars=4, displacement_min_atr=1.2, displacement_strong_atr=2.0,
+        displacement_body_ratio_min=0.60, choch_min_margin_atr=0.05, choch_strong_margin_atr=0.25,
+        volume_bonus_ratio=1.30,
+        fvg_min_size_atr=0.15,
+        sl_buffer_atr=0.15, entry_max_dist_atr=0.60,
+        tp1_min_rr=1.2, tp2_min_rr=2.5, tp1_fallback_rr=1.5, tp2_fallback_rr=3.0, tp3_fallback_rr=5.0,
+        min_confluence_score=6, strong_signal_score=8, aplus_signal_score=10, theoretical_max_score=12,
+        session_filter_enabled=True,
+        cooldown_hours=4, active_signal_ttl_hours=48, fill_timeout_hours=6,
+    ),
+    "12h_1h": Combo(
+        id="12h_1h", label="12H/1h", htf_tf="12h", exec_tf="1h",
+        n_htf=100, n_exec=200,
+        swing_left_htf=2, swing_right_htf=2, structure_lookback_htf=30,
+        ema_fast=21, ema_slow=50, ema_sep_min_atr=0.30,
+        pd_lookback=45, premium_threshold=0.60, discount_threshold=0.40,
+        poi_lookback_htf=16, poi_fresh_max_mitig=0.15, poi_full_mitig=0.90, poi_max_atr_distance=3.0,
+        pool_lookback_htf=60, pool_equal_tol_atr=0.18,
+        swing_left_exec=2, swing_right_exec=2,
+        sweep_lookback_exec=30, sweep_recent_bars=8, sweep_min_atr_ratio=0.15, sweep_strong_atr_ratio=0.35,
+        displacement_max_bars=6, displacement_min_atr=1.2, displacement_strong_atr=2.0,
+        displacement_body_ratio_min=0.60, choch_min_margin_atr=0.05, choch_strong_margin_atr=0.25,
+        volume_bonus_ratio=1.30,
+        fvg_min_size_atr=0.15,
+        sl_buffer_atr=0.15, entry_max_dist_atr=0.60,
+        tp1_min_rr=1.2, tp2_min_rr=2.5, tp1_fallback_rr=1.5, tp2_fallback_rr=3.0, tp3_fallback_rr=5.0,
+        min_confluence_score=6, strong_signal_score=8, aplus_signal_score=10, theoretical_max_score=12,
+        session_filter_enabled=False,   # slow combo is not an intraday-session phenomenon
+        cooldown_hours=16, active_signal_ttl_hours=96, fill_timeout_hours=18,
+    ),
+}
+# NOTE: the constants above are reasonable starting points carried over by
+# analogy from the two source engines' own scaling choices, not the product
+# of a backtest. Validate against historical data before running live.
 
 
-# =====================================================================
-# 1. HYPERLIQUID TRANSPORT LAYER
-# =====================================================================
+# ── RATE LIMIT / HTTP (adaptive backoff, ported from Castellan — needed more
+#    here since two pipelines roughly double outbound API volume) ───────────
+_hl_lock              = threading.Lock()
+_hl_last_req_ts       = 0.0
+_hl_min_interval      = 0.20
+_HL_MIN_INTERVAL_FLOOR = 0.20
+_HL_MIN_INTERVAL_CEIL  = 0.60
+_hl_consecutive_ok    = 0
+_hl_session           = requests.Session()
+_tg_session           = requests.Session()
+
+# ── CACHES (cleared / repopulated once per scan run) ─────────────────────────
+_candle_cache: dict[str, dict] = {}          # keyed "{symbol}:{tf}", htf only
+_CANDLE_CACHE_TTL_S = 60 * 60
+
+_atr_cache: dict[str, float] = {}
+_market_ctx: dict[str, dict] = {}            # {coin: {funding_rate, oi_coins, mark_px}}
+
+_fired_signals:  dict[str, float] = {}
+_active_signals: dict[str, dict]  = {}
+_last_scan_ts: float = 0.0
+
+_win_rate_data: dict = {}
+_win_rate_dirty = False
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DATA STRUCTURES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class SwingPoint:
+    index: int
+    price: float
+    kind: str
+
+@dataclass
+class StructureEvent:
+    index: int
+    kind: str
+    direction: str
+    level: float
+
+@dataclass
+class POI:
+    high: float
+    low: float
+    direction: str
+    index: int
+    state: str = "fresh"
+    mitigation_pct: float = 0.0
+
+@dataclass
+class FVG:
+    high: float
+    low: float
+    direction: str
+    index: int
+
+@dataclass
+class SweepEvent:
+    index: int
+    level: float
+    wick_extreme: float
+    atr_ratio: float
+
+@dataclass
+class DisplacementLeg:
+    end_index: int
+    atr_ratio: float
+    body_ratio: float
+    choch_level: float
+    choch_margin_atr: float
+    volume_ratio: float
+
+@dataclass
+class NyxSignal:
+    symbol: str
+    direction: str
+    combo_id: str
+    combo_label: str
+    entry_zone_high: float
+    entry_zone_low: float
+    exact_entry: float
+    backup_entry: float
+    stop_loss: float
+    take_profit_1: float
+    take_profit_2: float
+    take_profit_3: float | None
+    confluence: int
+    max_score: int
+    signal_grade: str
+    combos_hit: list = field(default_factory=list)
+    h4_bias: str = ""
+    poi_state: str = ""
+    sweep_atr_ratio: float = 0.0
+    displacement_atr_ratio: float = 0.0
+    funding_rate: float | None = None
+    timestamp: str = ""
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HYPERLIQUID API
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def hl_coin(symbol: str) -> str:
     return symbol.replace("USDT", "")
 
 
 def hl_post(payload: dict):
-    global _hl_last_ts, _hl_min_interval, _hl_streak
-    max_attempts = int(os.getenv("HL_MAX_ATTEMPTS", "6"))
-    base_sleep = float(os.getenv("HL_BASE_SLEEP_S", "0.75"))
-
+    global _hl_last_req_ts, _hl_min_interval, _hl_consecutive_ok
+    max_attempts = 5
     for attempt in range(max_attempts):
         try:
             with _hl_lock:
-                gap = _hl_min_interval - (time.time() - _hl_last_ts)
-                if gap > 0:
-                    time.sleep(gap)
-                _hl_last_ts = time.time()
+                elapsed = time.time() - _hl_last_req_ts
+                wait = _hl_min_interval - elapsed
+                if wait > 0:
+                    time.sleep(wait)
+                _hl_last_req_ts = time.time()
 
-            r = _hl_session.post(HL_INFO_URL, json=payload, timeout=15,
-                                  headers={"Content-Type": "application/json"})
-
+            r = _hl_session.post(HL_INFO_URL, json=payload,
+                                  headers={"Content-Type": "application/json"}, timeout=15)
             if r.status_code == 429:
                 with _hl_lock:
-                    _hl_min_interval = min(HL_MIN_INTERVAL_MAX_S, _hl_min_interval * 1.25 + 0.02)
-                    _hl_streak = 0
-                wait = base_sleep * (2 ** attempt) + random.uniform(0.0, 0.4)
-                time.sleep(min(20.0, wait))
+                    _hl_min_interval = min(_HL_MIN_INTERVAL_CEIL, _hl_min_interval * 1.25 + 0.02)
+                    _hl_consecutive_ok = 0
+                time.sleep(min(20.0, 1.0 * (2 ** attempt)) + random.uniform(0, 0.3))
                 continue
-
             r.raise_for_status()
+            data = r.json()
+            if isinstance(data, dict) and "error" in data:
+                raise ValueError(f"Hyperliquid API error (HTTP 200): {data['error']}")
             with _hl_lock:
-                _hl_streak += 1
-                if _hl_streak >= 10:
-                    _hl_min_interval, _hl_streak = HL_MIN_INTERVAL_S, 0
+                _hl_consecutive_ok += 1
+                if _hl_consecutive_ok >= 10:
+                    _hl_min_interval = _HL_MIN_INTERVAL_FLOOR
+                    _hl_consecutive_ok = 0
                 else:
-                    _hl_min_interval = max(HL_MIN_INTERVAL_S, _hl_min_interval - 0.0025)
-            return r.json()
+                    _hl_min_interval = max(_HL_MIN_INTERVAL_FLOOR, _hl_min_interval - 0.0025)
+            return data
         except Exception:
             if attempt == max_attempts - 1:
                 raise
-            time.sleep(min(20.0, base_sleep * (2 ** attempt)) + random.uniform(0.0, 0.3))
-    raise RuntimeError("hl_post exhausted retries")
+            time.sleep(min(10.0, 0.5 * (2 ** attempt)))
 
 
-def _bar_open(ref_ms: int, interval: str) -> int:
-    iv = INTERVAL_MS[interval]
-    return (ref_ms // iv) * iv
+def current_bar_open_ms(ref_ms: int, interval: str) -> int:
+    return (ref_ms // INTERVAL_MS[interval]) * INTERVAL_MS[interval]
 
 
-def get_candles(symbol: str, interval: str, n: int, reference_ms: int | None = None) -> list[dict]:
-    coin = hl_coin(symbol)
-    iv = INTERVAL_MS[interval]
-    ref = reference_ms if reference_ms is not None else int(time.time() * 1000)
-    end_ms = _bar_open(ref, interval)
-    start_ms = end_ms - iv * (n + 10)
+def filter_valid_candles(candles: list[dict]) -> list[dict]:
+    return [c for c in candles if c["h"] > c["l"]]
 
-    raw = hl_post({"type": "candleSnapshot",
-                    "req": {"coin": coin, "interval": interval, "startTime": start_ms, "endTime": end_ms}})
+
+def get_candles(symbol: str, interval: str, n: int) -> list[dict]:
+    iv_ms = INTERVAL_MS[interval]
+    ref_ms = int(time.time() * 1000)
+    end_ms = current_bar_open_ms(ref_ms, interval)
+    start_ms = end_ms - iv_ms * (n + 5)
+    raw = hl_post({
+        "type": "candleSnapshot",
+        "req":  {"coin": hl_coin(symbol), "interval": interval,
+                 "startTime": start_ms, "endTime": end_ms},
+    })
     if not raw:
         return []
-    out = []
-    for c in raw:
-        if int(c["t"]) >= end_ms:
-            continue
-        out.append({"t": int(c["t"]), "o": float(c["o"]), "h": float(c["h"]),
-                     "l": float(c["l"]), "c": float(c["c"]), "v": float(c["v"])})
-    return out[-n:]
+    candles = [{"t": int(c["t"]), "o": float(c["o"]), "h": float(c["h"]),
+                "l": float(c["l"]), "c": float(c["c"]), "v": float(c["v"])}
+               for c in raw]
+    valid = [c for c in candles if c["t"] < end_ms][-n:]
+    return filter_valid_candles(valid)
 
 
-def fetch_all_candles(symbol: str, reference_ms: int | None = None) -> tuple | None:
-    out: dict[str, list] = {}
-    with ThreadPoolExecutor(max_workers=max(1, HL_TF_WORKERS)) as ex:
-        futs = {ex.submit(get_candles, symbol, tf, n, reference_ms): tf
-                for tf, n in (("1h", N_1H), ("4h", N_4H), ("1d", N_1D))}
-        for fut in as_completed(futs):
-            tf = futs[fut]
-            try:
-                out[tf] = fut.result()
-            except Exception as e:
-                print(f"  [CANDLES] {symbol} {tf} failed: {e}")
-                return None
-    if len(out.get("1h", [])) < 60 or len(out.get("4h", [])) < 60 or len(out.get("1d", [])) < 60:
-        return None
-    return out["1h"], out["4h"], out["1d"]
+def get_candles_cached(symbol: str, tf: str, n: int) -> list[dict]:
+    """HTF candles only — a 4h/12h bar closes rarely enough to cache safely.
+    Execution-tf candles are always fetched fresh by the caller."""
+    key = f"{symbol}:{tf}"
+    entry = _candle_cache.get(key)
+    if entry and (time.time() - entry["ts"]) < _CANDLE_CACHE_TTL_S and entry["n"] >= n:
+        return entry["candles"][-n:]
+    candles = get_candles(symbol, tf, n)
+    _candle_cache[key] = {"candles": candles, "ts": time.time(), "n": n}
+    return candles
 
 
-_meta_cache, _meta_ts = None, 0.0
-_meta_lock = threading.Lock()
-
-
-def get_meta_and_ctx() -> dict | None:
-    global _meta_cache, _meta_ts
-    with _meta_lock:
-        if _meta_cache is not None and time.time() - _meta_ts < META_CACHE_TTL_S:
-            return _meta_cache
+def fetch_all_mids() -> dict[str, float]:
     try:
-        data = hl_post({"type": "metaAndAssetCtxs"})
-        if data is None:
-            return _meta_cache
-        universe, ctxs = data[0].get("universe", []), data[1]
-        cache = {}
-        for i, a in enumerate(universe):
-            name = a.get("name", "")
-            if not name:
+        raw = hl_post({"type": "allMids"})
+        return {k: float(v) for k, v in raw.items()} if raw else {}
+    except Exception as e:
+        print(f"  [MIDS] fetch error: {e}")
+        return {}
+
+
+def fetch_all_market_ctx() -> None:
+    """Funding + open interest (coins) + mark price in one call — used for
+    the OI liquidity gate, the funding scoring bonus, and available as a
+    price fallback."""
+    if not OI_FUNDING_ENABLED:
+        return
+    try:
+        raw = hl_post({"type": "metaAndAssetCtxs"})
+        if not raw or len(raw) < 2:
+            return
+        universe = raw[0].get("universe", [])
+        ctx_list = raw[1]
+        for i, asset in enumerate(universe):
+            coin = asset.get("name", "")
+            if not coin or i >= len(ctx_list):
                 continue
-            ctx = ctxs[i]
-            cache[name] = {
-                "funding": float(ctx["funding"]) if ctx.get("funding") is not None else None,
-                "oi_coins": float(ctx["openInterest"]) if ctx.get("openInterest") is not None else None,
-                "mark": float(ctx["markPx"]) if ctx.get("markPx") is not None else None,
+            ctx = ctx_list[i]
+            _market_ctx[coin] = {
+                "funding_rate": float(ctx["funding"]) if ctx.get("funding") is not None else None,
+                "oi_coins":     float(ctx["openInterest"]) if ctx.get("openInterest") is not None else None,
+                "mark_px":      float(ctx["markPx"]) if ctx.get("markPx") is not None else None,
             }
-        with _meta_lock:
-            _meta_cache, _meta_ts = cache, time.time()
-        return cache
+        print(f"  [MARKET CTX] Fetched {len(_market_ctx)} assets")
     except Exception as e:
-        print(f"  [META] fetch failed: {e}")
-        return _meta_cache
+        print(f"  [MARKET CTX] fetch error: {e}")
 
 
-def get_market_ctx(symbol: str) -> dict | None:
-    cache = get_meta_and_ctx()
-    if not cache or hl_coin(symbol) not in cache:
+def get_funding(symbol: str) -> float | None:
+    row = _market_ctx.get(hl_coin(symbol))
+    return row["funding_rate"] if row else None
+
+
+def get_open_interest_usd(symbol: str) -> float | None:
+    row = _market_ctx.get(hl_coin(symbol))
+    if not row or row.get("oi_coins") is None or row.get("mark_px") is None:
         return None
-    e = cache[hl_coin(symbol)]
-    oi_usd = e["oi_coins"] * e["mark"] if e.get("oi_coins") is not None and e.get("mark") is not None else None
-    return {"funding": e.get("funding"), "oi_usd": oi_usd, "mark": e.get("mark")}
+    return row["oi_coins"] * row["mark_px"]
 
 
-def get_mid_price(symbol: str) -> float | None:
-    cache = get_meta_and_ctx()
-    if cache and hl_coin(symbol) in cache:
-        return cache[hl_coin(symbol)].get("mark")
-    return None
+# ═══════════════════════════════════════════════════════════════════════════════
+# INDICATORS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def calc_atr(candles: list[dict], period: int = 14) -> float:
+    if len(candles) < period + 1:
+        return candles[-1]["h"] - candles[-1]["l"] if candles else 0.0
+    trs = [max(candles[i]["h"] - candles[i]["l"],
+               abs(candles[i]["h"] - candles[i-1]["c"]),
+               abs(candles[i]["l"] - candles[i-1]["c"]))
+           for i in range(1, len(candles))]
+    return sum(trs[-period:]) / period
 
 
-# =====================================================================
-# 2. CORE MATH / INDICATOR PRIMITIVES
-# =====================================================================
-
-def safe(v, fb=0.0):
-    try:
-        if v is None or (isinstance(v, float) and math.isnan(v)):
-            return fb
-        return float(v)
-    except (TypeError, ValueError):
-        return fb
+def calc_atr_cached(symbol: str, tf: str, candles: list[dict], period: int = 14) -> float:
+    key = f"{symbol}:{tf}"
+    if key not in _atr_cache:
+        _atr_cache[key] = calc_atr(candles, period)
+    return _atr_cache[key]
 
 
-def ema(vals: list[float], period: int) -> list[float]:
-    if len(vals) < period:
-        return [float("nan")] * len(vals)
+def calc_ema(values: list[float], period: int) -> list[float]:
+    if len(values) < period:
+        return values[:]
     k = 2.0 / (period + 1)
-    out = [float("nan")] * len(vals)
-    out[period - 1] = sum(vals[:period]) / period
-    for i in range(period, len(vals)):
-        out[i] = vals[i] * k + out[i - 1] * (1 - k)
+    out = [sum(values[:period]) / period]
+    for v in values[period:]:
+        out.append(v * k + out[-1] * (1 - k))
     return out
 
 
-def sma(vals: list[float], period: int) -> list[float]:
-    out = [float("nan")] * len(vals)
-    for i in range(period - 1, len(vals)):
-        out[i] = sum(vals[i - period + 1:i + 1]) / period
-    return out
+def calc_avg_volume(candles: list[dict], period: int = 20) -> float:
+    if not candles:
+        return 0.0
+    window = candles[-period:]
+    return sum(c["v"] for c in window) / len(window)
 
 
-def stdev(vals: list[float], period: int) -> list[float]:
-    out = [float("nan")] * len(vals)
-    for i in range(period - 1, len(vals)):
-        window = vals[i - period + 1:i + 1]
-        m = sum(window) / period
-        out[i] = math.sqrt(sum((x - m) ** 2 for x in window) / period)
-    return out
+def body_ratio(c: dict) -> float:
+    rng = c["h"] - c["l"]
+    if rng <= 0:
+        return 0.0
+    return abs(c["c"] - c["o"]) / rng
 
 
-def rsi(closes: list[float], period: int) -> list[float]:
-    n = len(closes)
-    out = [float("nan")] * n
-    if n < period + 1:
-        return out
-    gains = losses = 0.0
-    for i in range(1, period + 1):
-        d = closes[i] - closes[i - 1]
-        gains += max(d, 0.0)
-        losses += max(-d, 0.0)
-    avg_g, avg_l = gains / period, losses / period
-    out[period] = 100.0 if avg_l == 0 else 100.0 - 100.0 / (1.0 + avg_g / avg_l)
-    for i in range(period + 1, n):
-        d = closes[i] - closes[i - 1]
-        g, l = max(d, 0.0), max(-d, 0.0)
-        avg_g = (avg_g * (period - 1) + g) / period
-        avg_l = (avg_l * (period - 1) + l) / period
-        out[i] = 100.0 if avg_l == 0 else 100.0 - 100.0 / (1.0 + avg_g / avg_l)
-    return out
+# ═══════════════════════════════════════════════════════════════════════════════
+# SESSION FILTER (per-pipeline, see Combo.session_filter_enabled)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def is_active_session() -> bool:
+    now = datetime.now(timezone.utc)
+    hour = now.hour
+    if DEAD_ZONE_START_H <= hour < DEAD_ZONE_END_H:
+        return False
+    return (LONDON_OPEN_H <= hour < LONDON_CLOSE_H) or (NY_OPEN_H <= hour < NY_CLOSE_H)
 
 
-def atr(highs, lows, closes, period: int) -> list[float]:
-    n = len(closes)
-    trs = [float("nan")] * n
-    for i in range(1, n):
-        trs[i] = max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]), abs(lows[i] - closes[i - 1]))
-    out = [float("nan")] * n
-    if n <= period:
-        return out
-    out[period] = sum(trs[1:period + 1]) / period
-    for i in range(period + 1, n):
-        out[i] = (out[i - 1] * (period - 1) + trs[i]) / period
-    return out
+def get_min_confluence_score(combo: Combo) -> int:
+    score = combo.min_confluence_score
+    if WEEKEND_MODE_ENABLED and datetime.now(timezone.utc).weekday() >= 5:
+        score += WEEKEND_MIN_CONFLUENCE_BUMP
+    return score
 
 
-def adx_dmi(highs, lows, closes, period: int):
-    n = len(closes)
-    plus_dm = [0.0] * n
-    minus_dm = [0.0] * n
-    trs = [0.0] * n
-    for i in range(1, n):
-        up, down = highs[i] - highs[i - 1], lows[i - 1] - lows[i]
-        plus_dm[i] = up if (up > down and up > 0) else 0.0
-        minus_dm[i] = down if (down > up and down > 0) else 0.0
-        trs[i] = max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]), abs(lows[i] - closes[i - 1]))
+# ═══════════════════════════════════════════════════════════════════════════════
+# SWING / STRUCTURE DETECTION (shared fractal method, used at both timeframes)
+# ═══════════════════════════════════════════════════════════════════════════════
 
-    def wilder_smooth(series):
-        out = [float("nan")] * n
-        if n <= period:
-            return out
-        out[period] = sum(series[1:period + 1])
-        for i in range(period + 1, n):
-            out[i] = out[i - 1] - out[i - 1] / period + series[i]
-        return out
-
-    str_, spd, smd = wilder_smooth(trs), wilder_smooth(plus_dm), wilder_smooth(minus_dm)
-    plus_di = [float("nan")] * n
-    minus_di = [float("nan")] * n
-    dx = [float("nan")] * n
-    for i in range(period, n):
-        if str_[i] and str_[i] > 0:
-            plus_di[i] = 100.0 * spd[i] / str_[i]
-            minus_di[i] = 100.0 * smd[i] / str_[i]
-            s = plus_di[i] + minus_di[i]
-            dx[i] = 100.0 * abs(plus_di[i] - minus_di[i]) / s if s > 0 else 0.0
-    adx = [float("nan")] * n
-    first_valid = next((i for i in range(n) if not math.isnan(dx[i])), None)
-    if first_valid is not None and n - first_valid >= period:
-        start = first_valid + period
-        if start < n:
-            adx[start] = sum(x for x in dx[first_valid:start] if not math.isnan(x)) / period
-            for i in range(start + 1, n):
-                adx[i] = (adx[i - 1] * (period - 1) + dx[i]) / period
-    return adx, plus_di, minus_di
-
-
-def roc(vals: list[float], period: int) -> list[float]:
-    n = len(vals)
-    out = [float("nan")] * n
-    for i in range(period, n):
-        out[i] = (vals[i] - vals[i - period]) / vals[i - period] * 100.0 if vals[i - period] else 0.0
-    return out
-
-
-def bollinger_width_pct(closes: list[float], period: int) -> list[float]:
-    mid = sma(closes, period)
-    sd = stdev(closes, period)
-    n = len(closes)
-    out = [float("nan")] * n
-    for i in range(n):
-        if not math.isnan(mid[i]) and mid[i]:
-            out[i] = (4.0 * sd[i]) / mid[i] * 100.0
-    return out
-
-
-def donchian(highs, lows, period: int):
-    n = len(highs)
-    up, dn = [float("nan")] * n, [float("nan")] * n
-    for i in range(period - 1, n):
-        up[i] = max(highs[i - period + 1:i + 1])
-        dn[i] = min(lows[i - period + 1:i + 1])
-    return up, dn
-
-
-_ind_cache: dict[str, dict] = {}
-_ind_cache_lock = threading.Lock()
-
-
-def compute_indicators(candles: list[dict]) -> dict:
-    h = [c["h"] for c in candles]
-    l = [c["l"] for c in candles]
-    c = [c["c"] for c in candles]
-    v = [c_["v"] for c_ in candles]
-    adx, pdi, mdi = adx_dmi(h, l, c, ADX_LEN)
-    dc_up, dc_dn = donchian(h, l, DONCHIAN_LEN)
-    return {
-        "h": h, "l": l, "c": c, "v": v,
-        "ema8": ema(c, EMA_FAST), "ema20": ema(c, EMA_MID),
-        "ema50": ema(c, EMA_SLOW), "ema200": ema(c, EMA_TREND),
-        "rsi": rsi(c, RSI_LEN), "atr": atr(h, l, c, ATR_LEN),
-        "adx": adx, "plus_di": pdi, "minus_di": mdi,
-        "roc": roc(c, ROC_LEN), "bbw": bollinger_width_pct(c, BB_LEN),
-        "vol_sma": sma(v, 20), "dc_up": dc_up, "dc_dn": dc_dn,
-    }
-
-
-def cached_indicators(key: str, candles: list[dict]) -> dict:
-    with _ind_cache_lock:
-        if key in _ind_cache:
-            return _ind_cache[key]
-    ind = compute_indicators(candles)
-    with _ind_cache_lock:
-        _ind_cache[key] = ind
-    return ind
-
-
-def clear_indicator_cache():
-    with _ind_cache_lock:
-        _ind_cache.clear()
-
-
-# =====================================================================
-# 2b. ORDERFLOW PROXY (no L2 book available — body/volume based)
-# =====================================================================
-
-def orderflow_proxy(candles: list[dict], direction: str, lookback: int = 24) -> dict:
-    """Without a live order book, intrabar buy/sell pressure is
-    approximated via where each candle closes within its own range
-    (close-location value), weighted by volume — a standard proxy for
-    cumulative delta. Net pressure and its short-term slope are then
-    compared against the trade direction for alignment. This is the
-    real volume vote the module docstring claims; previously `vol_sma`
-    was computed and never referenced anywhere in the file."""
-    window = candles[-lookback:]
-    cvd = 0.0
-    cvd_series = []
-    buy_vol = sell_vol = 0.0
-    for bar in window:
-        rng = bar["h"] - bar["l"]
-        clv = ((bar["c"] - bar["l"]) - (bar["h"] - bar["c"])) / rng if rng > 0 else 0.0
-        delta = clv * bar["v"]
-        cvd += delta
-        cvd_series.append(cvd)
-        if delta >= 0:
-            buy_vol += abs(delta)
-        else:
-            sell_vol += abs(delta)
-
-    total = buy_vol + sell_vol
-    buy_ratio = (buy_vol / total) if total > 0 else 0.5
-    cvd_slope = (cvd_series[-1] - cvd_series[-6]) if len(cvd_series) >= 6 else 0.0
-
-    aligned = (direction == "long" and buy_ratio > 0.52 and cvd_slope > 0) or \
-              (direction == "short" and buy_ratio < 0.48 and cvd_slope < 0)
-
-    return {"buy_ratio": buy_ratio, "cvd_slope": cvd_slope, "aligned": aligned}
-
-
-def volume_confirmation(candles: list[dict], ind: dict) -> dict:
-    """Compares the triggering bar's volume against its 20-period SMA
-    (`vol_sma`, previously dead-computed and unused). Expansion above
-    average supports a genuine participation shift; contraction below
-    average is a mild caution flag rather than a veto."""
-    vol_now = candles[-1]["v"]
-    vol_sma_now = next((v for v in reversed(ind["vol_sma"]) if not math.isnan(v)), None)
-    if not vol_sma_now or vol_sma_now <= 0:
-        return {"ratio": 1.0, "expanding": False}
-    ratio = vol_now / vol_sma_now
-    return {"ratio": ratio, "expanding": ratio >= 1.15}
-
-
-# =====================================================================
-# 3. STATE PERSISTENCE
-# =====================================================================
-
-def load_state() -> dict:
-    fresh = {
-        "_version": STATE_VERSION, "oi_history": {}, "funding_history": {},
-        "atr_history": {}, "signal_history": [], "signal_cooldowns": {},
-        "post_loss_cooldown": {}, "last_signal_outcome": {}, "active_signals": [],
-        "macro_calendar_cache": {},
-    }
-    for p in (STATE_FILE, STATE_FILE + ".bak"):
-        if Path(p).exists():
-            try:
-                s = json.loads(Path(p).read_text())
-                if s.get("_version", 0) != STATE_VERSION:
-                    print(f"[STATE] version mismatch in {p} — starting fresh")
-                    continue
-                for k, v in fresh.items():
-                    s.setdefault(k, v)
-                return s
-            except Exception as e:
-                print(f"[STATE] failed to load {p}: {e}")
-    print("[STATE] starting fresh")
-    return fresh
-
-
-def save_state(state: dict):
-    with _state_lock:
-        data = deepcopy(state)
-    path, bak = Path(STATE_FILE), Path(STATE_FILE + ".bak")
-    try:
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, default=str, indent=2))
-        if path.exists():
-            path.replace(bak)
-        tmp.replace(path)
-    except Exception as e:
-        print(f"[STATE] save failed: {e}")
-
-
-def update_history(state: dict, bucket: str, symbol: str, value: float, depth: int):
-    with _state_lock:
-        h = state.setdefault(bucket, {}).setdefault(symbol, [])
-        h.append(value)
-        if len(h) > depth:
-            del h[: len(h) - depth]
-
-
-def percentile_rank(history: list[float], value: float) -> float | None:
-    if len(history) < 10:
-        return None
-    below = sum(1 for x in history if x <= value)
-    return below / len(history)
-
-
-def record_signal_history(state: dict, symbol: str, direction: str, setup_type: str,
-                           confidence: float, grade: str, funding: float | None,
-                           atr_pct: float, sent: bool) -> str:
-    hist_id = f"{symbol}_{direction}_{int(time.time() * 1000)}_{random.randint(100, 999)}"
-    with _state_lock:
-        hist = state.setdefault("signal_history", [])
-        hist.append({
-            "id": hist_id, "symbol": symbol, "direction": direction, "setup_type": setup_type,
-            "confidence": confidence, "grade": grade, "funding": funding, "atr_pct": atr_pct,
-            "sent": sent, "result": "pending", "ts": int(time.time()),
-        })
-        if len(hist) > MAX_SIGNAL_HISTORY:
-            del hist[: len(hist) - MAX_SIGNAL_HISTORY]
-    return hist_id
-
-
-def update_signal_result(state: dict, hist_id: str, result: str):
-    with _state_lock:
-        for rec in state.get("signal_history", []):
-            if rec.get("id") == hist_id:
-                rec["result"] = result
-                rec["resolved_ts"] = int(time.time())
-                return
-
-
-_wr_cache: dict | None = None
-
-
-def reset_win_rate_cache():
-    global _wr_cache
-    _wr_cache = None
-
-
-def compute_win_rates(state: dict) -> dict:
-    global _wr_cache
-    if _wr_cache is not None:
-        return _wr_cache
-    out: dict[str, dict] = {}
-    by_key: dict[str, list[str]] = {}
-    for rec in state.get("signal_history", []):
-        if rec.get("result") in ("pending",):
-            continue
-        key = f"{rec['symbol']}_{rec['direction']}"
-        by_key.setdefault(key, []).append(rec["result"])
-    for key, results in by_key.items():
-        wins = sum(1 for r in results if r in ("tp1", "tp2"))
-        losses = sum(1 for r in results if r == "sl")
-        n = wins + losses
-        out[key] = {"win_rate": (wins / n) if n > 0 else None, "n": n}
-    _wr_cache = out
-    return out
-
-
-# =====================================================================
-# 4. MARKET STRUCTURE — FRACTAL SWINGS, IMPULSE/CORRECTIVE CLASSIFICATION
-# =====================================================================
-#
-# Rather than the common HH/HL/LH/LL walk, structure here is built from
-# ATR-normalised "swing legs": a swing is only registered once price has
-# travelled at least `SWING_MIN_ATR` average-true-ranges from the prior
-# pivot. This filters out mechanically insignificant micro-pivots that
-# otherwise pollute BOS/CHoCH detection on noisy crypto price action,
-# and lets the *quality* of a break (how many ATRs it clears the prior
-# pivot by) feed directly into the structure_quality score used by the
-# confluence engine.
-
-SWING_MIN_ATR = 0.55
-
-
-@dataclass
-class StructureState:
-    bias: str
-    last_bos_idx: int | None
-    last_choch_idx: int | None
-    swing_highs: list[tuple[int, float]]
-    swing_lows: list[tuple[int, float]]
-    last_major_high: float | None
-    last_major_low: float | None
-    structure_quality: float
-    break_strength_atr: float
-
-
-def _raw_fractals(candles: list[dict], left: int = 2, right: int = 2):
-    highs = [c["h"] for c in candles]
-    lows = [c["l"] for c in candles]
+def find_swings(candles: list[dict], left: int = 2, right: int = 2) -> list[SwingPoint]:
+    swings: list[SwingPoint] = []
     n = len(candles)
-    sh, sl = [], []
     for i in range(left, n - right):
-        wh = highs[i - left:i + right + 1]
-        wl = lows[i - left:i + right + 1]
-        if highs[i] == max(wh) and wh.count(highs[i]) == 1:
-            sh.append(i)
-        if lows[i] == min(wl) and wl.count(lows[i]) == 1:
-            sl.append(i)
-    return sh, sl
+        window_h = [candles[j]["h"] for j in range(i - left, i + right + 1)]
+        window_l = [candles[j]["l"] for j in range(i - left, i + right + 1)]
+        if candles[i]["h"] == max(window_h) and window_h.count(candles[i]["h"]) == 1:
+            swings.append(SwingPoint(index=i, price=candles[i]["h"], kind="high"))
+        if candles[i]["l"] == min(window_l) and window_l.count(candles[i]["l"]) == 1:
+            swings.append(SwingPoint(index=i, price=candles[i]["l"], kind="low"))
+    return swings
 
 
-def analyze_market_structure(candles: list[dict], atr_series: list[float]) -> StructureState:
-    sh, sl = _raw_fractals(candles, left=2, right=2)
-    if len(sh) < 2 or len(sl) < 2:
-        return StructureState("neutral", None, None, [], [], None, None, 0.0, 0.0)
+def detect_structure(candles: list[dict], swings: list[SwingPoint],
+                      lookback_bars: int) -> tuple[str, list[StructureEvent]]:
+    """Walk swings chronologically and classify each break of a prior swing
+    extreme as BOS (continuation) or CHoCH (reversal). Returns the most
+    recent confirmed direction plus the event list."""
+    start_idx = max(0, len(candles) - lookback_bars)
+    relevant = [s for s in swings if s.index >= start_idx]
+    if len(relevant) < 2:
+        return "neutral", []
 
-    avg_atr = next((v for v in reversed(atr_series) if not math.isnan(v)), None) or 0.0
-    pts = sorted(
-        [(i, "H", candles[i]["h"]) for i in sh] + [(i, "L", candles[i]["l"]) for i in sl]
-    )
-
-    filtered: list[tuple[int, str, float]] = []
-    for i, kind, price in pts:
-        if not filtered:
-            filtered.append((i, kind, price))
-            continue
-        last_i, last_kind, last_price = filtered[-1]
-        if kind == last_kind:
-            better = (kind == "H" and price > last_price) or (kind == "L" and price < last_price)
-            if better:
-                filtered[-1] = (i, kind, price)
-            continue
-        move = abs(price - last_price)
-        if avg_atr > 0 and move < avg_atr * SWING_MIN_ATR:
-            continue
-        filtered.append((i, kind, price))
-
+    events: list[StructureEvent] = []
     trend = "neutral"
-    last_bos = last_choch = None
-    quality_hits = quality_total = 0
-    break_strength = 0.0
-    prev_h = prev_l = None
-    swing_highs, swing_lows = [], []
+    last_high = next((s for s in relevant if s.kind == "high"), None)
+    last_low  = next((s for s in relevant if s.kind == "low"), None)
 
-    for i, kind, price in filtered:
-        if kind == "H":
-            swing_highs.append((i, price))
-            if prev_h is not None:
-                quality_total += 1
-                strength = abs(price - prev_h) / avg_atr if avg_atr else 0.0
-                if price > prev_h:
-                    quality_hits += 1
-                    if trend == "bear":
-                        last_choch = i
-                    elif trend == "bull":
-                        last_bos = i
-                    trend = "bull"
-                    break_strength = strength
-                else:
-                    if trend == "bull":
-                        last_choch = i
-                        trend = "bear"
-                        break_strength = strength
-            prev_h = price
+    for s in relevant:
+        if s.kind == "high" and last_high and s.price > last_high.price:
+            kind = "CHoCH" if trend == "bear" else "BOS"
+            events.append(StructureEvent(index=s.index, kind=kind, direction="bull", level=s.price))
+            trend = "bull"
+        if s.kind == "low" and last_low and s.price < last_low.price:
+            kind = "CHoCH" if trend == "bull" else "BOS"
+            events.append(StructureEvent(index=s.index, kind=kind, direction="bear", level=s.price))
+            trend = "bear"
+        if s.kind == "high":
+            last_high = s
         else:
-            swing_lows.append((i, price))
-            if prev_l is not None:
-                quality_total += 1
-                strength = abs(price - prev_l) / avg_atr if avg_atr else 0.0
-                if price < prev_l:
-                    quality_hits += 1
-                    if trend == "bull":
-                        last_choch = i
-                    elif trend == "bear":
-                        last_bos = i
-                    trend = "bear"
-                    break_strength = strength
-                else:
-                    if trend == "bear":
-                        last_choch = i
-                        trend = "bull"
-                        break_strength = strength
-            prev_l = price
+            last_low = s
 
-    quality = (quality_hits / quality_total) if quality_total else 0.0
-    last_major_high = swing_highs[-1][1] if swing_highs else None
-    last_major_low = swing_lows[-1][1] if swing_lows else None
-    return StructureState(trend, last_bos, last_choch, swing_highs, swing_lows,
-                           last_major_high, last_major_low, quality, break_strength)
+    direction = events[-1].direction if events else "neutral"
+    return direction, events
 
 
-# =====================================================================
-# 5. LIQUIDITY MAPPING — SWEEPS, EQUAL HIGHS/LOWS, POOLS
-# =====================================================================
-
-@dataclass
-class LiquidityRead:
-    swept_high: float | None
-    swept_low: float | None
-    sweep_bar_idx: int | None
-    sweep_direction: str | None
-    nearest_pool_above: float | None
-    nearest_pool_below: float | None
-    equal_highs: list[float]
-    equal_lows: list[float]
+def htf_ema_trend(candles: list[dict], atr_htf: float, combo: Combo) -> str:
+    closes = [c["c"] for c in candles]
+    ema_fast = calc_ema(closes, combo.ema_fast)
+    ema_slow = calc_ema(closes, combo.ema_slow)
+    if not ema_fast or not ema_slow or atr_htf <= 0:
+        return "neutral"
+    sep = ema_fast[-1] - ema_slow[-1]
+    if abs(sep) < combo.ema_sep_min_atr * atr_htf:
+        return "neutral"
+    return "bull" if sep > 0 else "bear"
 
 
-def _cluster_levels(levels: list[float], tol_pct: float) -> list[float]:
-    if not levels:
-        return []
-    levels = sorted(levels)
-    clusters: list[list[float]] = [[levels[0]]]
-    for v in levels[1:]:
-        if abs(v - clusters[-1][-1]) / clusters[-1][-1] <= tol_pct:
-            clusters[-1].append(v)
-        else:
-            clusters.append([v])
-    return [sum(c) / len(c) for c in clusters if len(c) >= 2]
+def htf_bias(candles: list[dict], atr_htf: float,
+             combo: Combo) -> tuple[str, list[StructureEvent], list[SwingPoint]]:
+    swings = find_swings(candles, combo.swing_left_htf, combo.swing_right_htf)
+    structure_dir, events = detect_structure(candles, swings, combo.structure_lookback_htf)
+    ema_dir = htf_ema_trend(candles, atr_htf, combo)
+    bias = structure_dir if structure_dir == ema_dir and structure_dir != "neutral" else "neutral"
+    return bias, events, swings
 
 
-def read_liquidity(candles: list[dict], struct: StructureState, lookback: int = 40) -> LiquidityRead:
+# ═══════════════════════════════════════════════════════════════════════════════
+# HTF DEALING RANGE / PREMIUM-DISCOUNT
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def premium_discount_zone(candles: list[dict], lookback: int) -> dict:
     window = candles[-lookback:]
-    highs = [c["h"] for c in window]
-    lows = [c["l"] for c in window]
-    closes = [c["c"] for c in window]
-
-    equal_highs = _cluster_levels(highs, 0.0018)
-    equal_lows = _cluster_levels(lows, 0.0018)
-
-    swept_high = swept_low = None
-    sweep_idx = None
-    sweep_dir = None
-
-    prior_high = max(highs[:-3]) if len(highs) > 5 else None
-    prior_low = min(lows[:-3]) if len(lows) > 5 else None
-    for i in range(max(0, len(window) - 4), len(window)):
-        h, l, c = highs[i], lows[i], closes[i]
-        if prior_high and h > prior_high and c < prior_high:
-            swept_high = h
-            sweep_idx = i
-            sweep_dir = "bear"
-        if prior_low and l < prior_low and c > prior_low:
-            swept_low = l
-            sweep_idx = i
-            sweep_dir = "bull"
-
-    cur = closes[-1]
-    pools_above = sorted([p for p in equal_highs + ([struct.last_major_high] if struct.last_major_high else []) if p and p > cur])
-    pools_below = sorted([p for p in equal_lows + ([struct.last_major_low] if struct.last_major_low else []) if p and p < cur], reverse=True)
-
-    return LiquidityRead(
-        swept_high, swept_low, sweep_idx, sweep_dir,
-        pools_above[0] if pools_above else None,
-        pools_below[0] if pools_below else None,
-        equal_highs, equal_lows,
-    )
+    hi = max(c["h"] for c in window)
+    lo = min(c["l"] for c in window)
+    close = candles[-1]["c"]
+    rng = hi - lo
+    pct = (close - lo) / rng if rng > 0 else 0.5
+    return {"high": hi, "low": lo, "mid": (hi + lo) / 2, "pct": pct}
 
 
-# =====================================================================
-# 6. ZONES — ORDER BLOCKS & FAIR VALUE GAPS
-# =====================================================================
+# ═══════════════════════════════════════════════════════════════════════════════
+# HTF POI (order block behind the most recent BOS in bias direction)
+# ═══════════════════════════════════════════════════════════════════════════════
 
-@dataclass
-class Zone:
-    kind: str          # "OB" | "FVG"
-    direction: str      # "bull" | "bear"
-    top: float
-    bottom: float
-    idx: int
-    mitigated: bool
-    freshness: float    # 0-1, 1 = most recent
-
-
-def detect_fair_value_gaps(candles: list[dict], max_zones: int = 6) -> list[Zone]:
-    zones: list[Zone] = []
-    n = len(candles)
-    for i in range(2, n):
-        c0, c2 = candles[i - 2], candles[i]
-        if c2["l"] > c0["h"]:
-            zones.append(Zone("FVG", "bull", c2["l"], c0["h"], i - 1, False, 0.0))
-        elif c2["h"] < c0["l"]:
-            zones.append(Zone("FVG", "bear", c0["l"], c2["h"], i - 1, False, 0.0))
-
-    cur = candles[-1]["c"]
-    for z in zones:
-        if z.direction == "bull":
-            z.mitigated = any(c["l"] <= z.top for c in candles[z.idx + 1:])
+def compute_mitigation(candles_after: list[dict], zone_high: float, zone_low: float,
+                        direction: str) -> float:
+    if not candles_after:
+        return 0.0
+    height = zone_high - zone_low
+    if height <= 0:
+        return 1.0
+    deepest = 0.0
+    for c in candles_after:
+        if direction == "bull":
+            if c["c"] < zone_low:
+                return 1.0
+            pen = zone_high - c["l"]
         else:
-            z.mitigated = any(c["h"] >= z.bottom for c in candles[z.idx + 1:])
-
-    zones = [z for z in zones if not z.mitigated]
-    zones.sort(key=lambda z: z.idx, reverse=True)
-    zones = zones[:max_zones]
-    for rank, z in enumerate(zones):
-        z.freshness = max(0.0, 1.0 - rank / max_zones)
-    return zones
+            if c["c"] > zone_high:
+                return 1.0
+            pen = c["h"] - zone_low
+        deepest = max(deepest, max(0.0, min(1.0, pen / height)))
+    return deepest
 
 
-def detect_order_blocks(candles: list[dict], struct: StructureState, max_zones: int = 6) -> list[Zone]:
-    """An order block is the last opposite-coloured candle immediately
-    preceding a displacement leg that produced a structural break
-    (BOS/CHoCH). Anchoring to *structural* breaks rather than any local
-    displacement filters out low-conviction order blocks that never
-    actually reorganised the market."""
-    zones: list[Zone] = []
-    break_indices = sorted({i for i in (struct.last_bos_idx, struct.last_choch_idx) if i is not None})
-    all_break_pts = [i for i, _, _ in _swing_break_points(candles, struct)]
-    candidates = sorted(set(break_indices) | set(all_break_pts))
-
-    n = len(candles)
-    for bidx in candidates:
-        if bidx < 3 or bidx >= n:
-            continue
-        leg_start = max(0, bidx - 6)
-        seg = candles[leg_start:bidx + 1]
-        if len(seg) < 2:
-            continue
-        net_move = seg[-1]["c"] - seg[0]["o"]
-        direction = "bull" if net_move > 0 else "bear"
-        origin = None
-        for j in range(len(seg) - 1, -1, -1):
-            is_opposite = (seg[j]["c"] < seg[j]["o"]) if direction == "bull" else (seg[j]["c"] > seg[j]["o"])
-            if is_opposite:
-                origin = seg[j]
-                break
-        if origin is None:
-            continue
-        top, bottom = max(origin["o"], origin["c"]), min(origin["o"], origin["c"])
-        idx_abs = leg_start + seg.index(origin)
-        mitigated = any(
-            (c["l"] <= top if direction == "bull" else c["h"] >= bottom)
-            for c in candles[idx_abs + 1:]
-        )
-        if not mitigated:
-            zones.append(Zone("OB", direction, top, bottom, idx_abs, False, 0.0))
-
-    zones.sort(key=lambda z: z.idx, reverse=True)
-    zones = zones[:max_zones]
-    for rank, z in enumerate(zones):
-        z.freshness = max(0.0, 1.0 - rank / max_zones)
-    return zones
+def classify_poi_state(mitig: float, combo: Combo) -> str:
+    if mitig >= combo.poi_full_mitig:
+        return "full"
+    if mitig <= combo.poi_fresh_max_mitig:
+        return "fresh"
+    return "partial"
 
 
-def _swing_break_points(candles: list[dict], struct: StructureState):
-    pts = []
-    highs = {i: p for i, p in struct.swing_highs}
-    lows = {i: p for i, p in struct.swing_lows}
-    idxs = sorted(set(highs) | set(lows))
-    prev_h = prev_l = None
-    for i in idxs:
-        if i in highs:
-            if prev_h is not None and highs[i] > prev_h:
-                pts.append((i, "H", highs[i]))
-            prev_h = highs[i]
-        if i in lows:
-            if prev_l is not None and lows[i] < prev_l:
-                pts.append((i, "L", lows[i]))
-            prev_l = lows[i]
-    return pts
+def find_htf_poi(candles: list[dict], swings: list[SwingPoint], bias: str,
+                  atr_htf: float, current_price: float, combo: Combo) -> POI | None:
+    if bias not in ("bull", "bear"):
+        return None
+    start_idx = max(0, len(candles) - combo.poi_lookback_htf)
+    kind = "low" if bias == "bull" else "high"
+    pool = [s for s in swings if s.kind == kind and s.index >= start_idx]
+    if not pool:
+        return None
+    pivot = pool[-1]
+    candle = candles[pivot.index]
 
-
-# =====================================================================
-# 7. DEALING RANGE — PREMIUM / DISCOUNT
-# =====================================================================
-
-def dealing_range_position(candles: list[dict], struct: StructureState, lookback: int = 50) -> dict:
-    window = candles[-lookback:]
-    hi = struct.last_major_high or max(c["h"] for c in window)
-    lo = struct.last_major_low or min(c["l"] for c in window)
-    if hi <= lo:
-        hi, lo = max(c["h"] for c in window), min(c["l"] for c in window)
-    cur = candles[-1]["c"]
-    span = hi - lo
-    pos = (cur - lo) / span if span else 0.5
-    if pos >= 0.62:
-        label = "premium"
-    elif pos <= 0.38:
-        label = "discount"
+    if bias == "bull":
+        zone_low = candle["l"]
+        zone_high = max(candle["o"], candle["c"])
     else:
-        label = "equilibrium"
-    return {"high": hi, "low": lo, "position": pos, "label": label}
+        zone_high = candle["h"]
+        zone_low = min(candle["o"], candle["c"])
+    if zone_high <= zone_low:
+        return None
+
+    mitig = compute_mitigation(candles[pivot.index + 1:], zone_high, zone_low, bias)
+    state = classify_poi_state(mitig, combo)
+    if state == "full":
+        return None
+
+    if atr_htf > 0:
+        dist_atr = abs(current_price - (zone_high if bias == "bear" else zone_low)) / atr_htf
+        if dist_atr > combo.poi_max_atr_distance:
+            return None
+
+    return POI(high=zone_high, low=zone_low, direction=bias, index=pivot.index,
+                state=state, mitigation_pct=mitig)
 
 
-# =====================================================================
-# 8. REGIME & VOLATILITY CLASSIFICATION
-# =====================================================================
+# ═══════════════════════════════════════════════════════════════════════════════
+# HTF LIQUIDITY POOLS (equal highs/lows -> TP2 / TP3 draw targets)
+# ═══════════════════════════════════════════════════════════════════════════════
 
-def classify_volatility(state: dict, symbol: str, candles: list[dict], ind: dict) -> dict:
-    atr_val = next((v for v in reversed(ind["atr"]) if not math.isnan(v)), None)
-    cur = candles[-1]["c"]
-    atr_pct = (atr_val / cur * 100.0) if atr_val and cur else 0.0
-    update_history(state, "atr_history", symbol, atr_pct, ATR_HISTORY_DEPTH)
-    hist = state.get("atr_history", {}).get(symbol, [])
-    pct = percentile_rank(hist, atr_pct)
-
-    bbw = next((v for v in reversed(ind["bbw"]) if not math.isnan(v)), None) or 0.0
-    if pct is None:
-        regime = "normal"
-    elif pct <= 0.20:
-        regime = "low"
-    elif pct >= 0.80:
-        regime = "high"
+def find_htf_liquidity_pools(candles: list[dict], swings: list[SwingPoint], direction: str,
+                              current_price: float, atr_htf: float, combo: Combo) -> list[float]:
+    kind = "high" if direction == "long" else "low"
+    start_idx = max(0, len(candles) - combo.pool_lookback_htf)
+    tol = max(atr_htf * combo.pool_equal_tol_atr, current_price * 0.0005)
+    points = [s.price for s in swings if s.kind == kind and s.index >= start_idx]
+    if direction == "long":
+        points = sorted(p for p in points if p > current_price)
     else:
-        regime = "normal"
+        points = sorted((p for p in points if p < current_price), reverse=True)
 
-    contracting = bbw > 0 and len([v for v in ind["bbw"][-10:] if not math.isnan(v)]) >= 5 and \
-        ind["bbw"][-1] < (sum(v for v in ind["bbw"][-10:] if not math.isnan(v)) / max(1, len([v for v in ind["bbw"][-10:] if not math.isnan(v)])))
-
-    return {"atr_val": atr_val or 0.0, "atr_pct": atr_pct, "percentile": pct,
-            "regime": regime, "bbw": bbw, "contracting": contracting}
-
-
-def daily_trend_quality(candles_1d: list[dict], ind_1d: dict) -> dict:
-    """Continuous 0-100 trend-quality score built from EMA stack
-    ordering, ADX strength, price position relative to EMA200, and
-    the slope consistency of EMA50. This is a *prior*, never a hard
-    gate — a low score damps confidence rather than blocking a setup
-    outright, since strong 4H/1H setups can precede daily regime
-    shifts."""
-    e8, e20, e50, e200 = ind_1d["ema8"][-1], ind_1d["ema20"][-1], ind_1d["ema50"][-1], ind_1d["ema200"][-1]
-    adx = ind_1d["adx"][-1]
-    cur = candles_1d[-1]["c"]
-
-    if any(math.isnan(x) for x in (e8, e20, e50, e200, adx)):
-        return {"score": 50.0, "label": "insufficient data", "direction": "neutral"}
-
-    stack_bull = e8 > e20 > e50 > e200
-    stack_bear = e8 < e20 < e50 < e200
-    slope50 = ind_1d["ema50"][-1] - ind_1d["ema50"][-6] if len(ind_1d["ema50"]) > 6 and not math.isnan(ind_1d["ema50"][-6]) else 0.0
-
-    direction = "bull" if cur > e200 else "bear"
-    score = 50.0
-    if stack_bull:
-        score += 22
-        direction = "bull"
-    elif stack_bear:
-        score += 22
-        direction = "bear"
-    else:
-        score -= 8
-
-    adx_component = max(0.0, min(20.0, (adx - 15.0) * 1.1))
-    score += adx_component if (stack_bull or stack_bear) else adx_component * 0.3
-
-    if (direction == "bull" and slope50 > 0) or (direction == "bear" and slope50 < 0):
-        score += 8
-    else:
-        score -= 6
-
-    dist200 = abs(cur - e200) / e200 * 100.0 if e200 else 0.0
-    score += max(0.0, min(6.0, dist200 * 0.8))
-
-    score = max(0.0, min(100.0, score))
-    if score >= 78:
-        label = f"strong {direction}"
-    elif score >= 60:
-        label = f"moderate {direction}"
-    elif score >= 45:
-        label = "transitional"
-    else:
-        label = "choppy"
-    return {"score": score, "label": label, "direction": direction}
+    pools: list[float] = []
+    for p in points:
+        if not pools or abs(p - pools[-1]) > tol:
+            pools.append(p)
+    return pools
 
 
-# =====================================================================
-# 9. CONFLUENCE ENGINE — LOGISTIC PROBABILITY AGGREGATION
-# =====================================================================
-#
-# Each independent evidence stream contributes a log-odds delta rather
-# than a raw point value. Deltas are summed and passed through a
-# logistic function to produce a probability, which keeps the model
-# well-calibrated even as more evidence streams are added (unlike
-# additive point scoring, where the scale is arbitrary and redundant
-# conditions inflate scores). Weights below reflect the *marginal*,
-# largely decorrelated edge each factor contributes historically in
-# SMC-style research, not an attempt to reward stacking similar
-# indicators.
+# ═══════════════════════════════════════════════════════════════════════════════
+# BTC REGIME FILTER
+# ═══════════════════════════════════════════════════════════════════════════════
 
-def _logistic(x: float) -> float:
+_btc_regime_combo = COMBOS["h4_15m"]  # regime read off the fast pipeline's HTF
+
+def get_btc_regime() -> str:
+    if not BTC_REGIME_FILTER_ENABLED:
+        return "neutral"
     try:
-        return 1.0 / (1.0 + math.exp(-x))
-    except OverflowError:
-        return 0.0 if x < 0 else 1.0
-
-
-@dataclass
-class SetupCandidate:
-    direction: str
-    setup_type: str
-    struct: StructureState
-    zones: list[Zone]
-    liq: LiquidityRead
-    range_pos: dict
-    notes: list[str] = field(default_factory=list)
-    displacement: bool = False
-    donchian_confirmed: bool = False
-
-
-def find_setup_candidate(candles_4h: list[dict], ind_4h: dict) -> SetupCandidate | None:
-    atr_series = ind_4h["atr"]
-    struct = analyze_market_structure(candles_4h, atr_series)
-    if struct.bias == "neutral":
-        return None
-
-    liq = read_liquidity(candles_4h, struct)
-    range_pos = dealing_range_position(candles_4h, struct)
-    fvgs = detect_fair_value_gaps(candles_4h)
-    obs = detect_order_blocks(candles_4h, struct)
-    zones = obs + fvgs
-
-    direction = None
-    setup_type = None
-    notes: list[str] = []
-    displacement = False
-
-    recent_break = struct.last_choch_idx if struct.last_choch_idx and struct.last_choch_idx >= len(candles_4h) - 8 else None
-
-    if liq.sweep_direction == "bull" and range_pos["label"] in ("discount", "equilibrium"):
-        direction, setup_type = "long", "LIQUIDITY_SWEEP_REVERSAL"
-        notes.append("4H liquidity sweep below prior low, reclaimed — bullish reversal context")
-    elif liq.sweep_direction == "bear" and range_pos["label"] in ("premium", "equilibrium"):
-        direction, setup_type = "short", "LIQUIDITY_SWEEP_REVERSAL"
-        notes.append("4H liquidity sweep above prior high, rejected — bearish reversal context")
-    elif recent_break is not None:
-        direction = "long" if struct.bias == "bull" else "short"
-        setup_type = "CHOCH_REVERSAL"
-        notes.append(f"4H change of character confirms {struct.bias} reorganisation")
-    elif struct.bias == "bull" and range_pos["label"] == "discount" and any(z.direction == "bull" for z in zones):
-        direction, setup_type = "long", "TREND_CONTINUATION"
-        notes.append("Uptrend pullback into discount zone — continuation setup")
-    elif struct.bias == "bear" and range_pos["label"] == "premium" and any(z.direction == "bear" for z in zones):
-        direction, setup_type = "short", "TREND_CONTINUATION"
-        notes.append("Downtrend pullback into premium zone — continuation setup")
-    elif struct.last_bos_idx is not None and struct.last_bos_idx >= len(candles_4h) - 4 and struct.break_strength_atr >= 1.4:
-        direction = "long" if struct.bias == "bull" else "short"
-        setup_type = "BREAKOUT"
-        displacement = True
-        notes.append(f"Fresh {struct.bias} BOS with displacement of {struct.break_strength_atr:.2f}x ATR")
-    else:
-        return None
-
-    matching_zones = [z for z in zones if (z.direction == "bull") == (direction == "long")]
-    if not matching_zones and setup_type != "BREAKOUT":
-        return None
-
-    donchian_confirmed = False
-    if setup_type == "BREAKOUT":
-        # Previously-dead Donchian(20) computation now confirms the
-        # breakout: the current close must clear the *prior* 20-period
-        # channel extreme (excluding the current bar), not just show a
-        # large displacement candle. Distinguishes a real range breakout
-        # from a big candle inside an already-wide range.
-        dc_up, dc_dn = ind_4h["dc_up"], ind_4h["dc_dn"]
-        dc_up_prior = dc_up[-2] if len(dc_up) > 1 else float("nan")
-        dc_dn_prior = dc_dn[-2] if len(dc_dn) > 1 else float("nan")
-        last_close = candles_4h[-1]["c"]
-        if direction == "long" and not math.isnan(dc_up_prior) and last_close > dc_up_prior:
-            donchian_confirmed = True
-            notes.append("Breakout confirmed above prior 20-period Donchian high")
-        elif direction == "short" and not math.isnan(dc_dn_prior) and last_close < dc_dn_prior:
-            donchian_confirmed = True
-            notes.append("Breakout confirmed below prior 20-period Donchian low")
-
-    return SetupCandidate(direction, setup_type, struct, zones, liq, range_pos, notes, displacement,
-                           donchian_confirmed)
-
-
-def momentum_trigger(candles_1h: list[dict], ind_1h: dict, direction: str) -> dict | None:
-    """A signal is only promoted once the 1H shows a genuine
-    displacement candle aligned with momentum (RSI slope + ROC sign +
-    DI dominance), so the engine reacts to confirmed order flow rather
-    than anticipating it."""
-    if len(candles_1h) < 20:
-        return None
-    last = candles_1h[-1]
-    body = abs(last["c"] - last["o"])
-    rng = last["h"] - last["l"]
-    atr_val = next((v for v in reversed(ind_1h["atr"]) if not math.isnan(v)), None)
-    if not atr_val or atr_val <= 0:
-        return None
-
-    body_atr = body / atr_val
-    is_bull_candle = last["c"] > last["o"]
-    is_bear_candle = last["c"] < last["o"]
-
-    rsi_now, rsi_prev = ind_1h["rsi"][-1], ind_1h["rsi"][-3] if len(ind_1h["rsi"]) > 3 else float("nan")
-    roc_now = ind_1h["roc"][-1]
-    pdi, mdi = ind_1h["plus_di"][-1], ind_1h["minus_di"][-1]
-
-    if any(math.isnan(x) for x in (rsi_now, roc_now)):
-        return None
-
-    displacement = body_atr >= 0.7 and body / rng >= 0.55 if rng else False
-
-    if direction == "long":
-        aligned = is_bull_candle and roc_now > 0 and (math.isnan(rsi_prev) or rsi_now >= rsi_prev) \
-            and (math.isnan(pdi) or math.isnan(mdi) or pdi >= mdi)
-    else:
-        aligned = is_bear_candle and roc_now < 0 and (math.isnan(rsi_prev) or rsi_now <= rsi_prev) \
-            and (math.isnan(pdi) or math.isnan(mdi) or mdi >= pdi)
-
-    if not aligned:
-        return None
-
-    of = orderflow_proxy(candles_1h, direction)
-    vol_conf = volume_confirmation(candles_1h, ind_1h)
-
-    return {"cur": last["c"], "displacement": displacement, "body_atr": body_atr,
-            "rsi": rsi_now, "roc": roc_now, "ind": ind_1h,
-            "orderflow": of, "vol_confirmation": vol_conf}
-
-
-def regime_confidence_adjustment(daily: dict, vol: dict) -> float:
-    """Adaptive bar: favourable regimes (clean daily trend + expanding
-    volatility off a contraction) relax the required probability;
-    choppy/low-quality regimes tighten it."""
-    adj = 0.0
-    if daily["score"] >= 75:
-        adj += 4.0
-    elif daily["score"] <= 45:
-        adj -= 7.0
-    if vol["regime"] == "high" and vol.get("contracting") is False:
-        adj += 2.0
-    elif vol["regime"] == "low":
-        adj -= 3.0
-    return adj
-
-
-def score_confluence(direction: str, setup: SetupCandidate, trig: dict, daily: dict,
-                      vol: dict, funding_oi: tuple[float, list[str]],
-                      wr_prior: float | None = None) -> tuple[float, list[str]]:
-    log_odds = -0.55  # base prior: mild skepticism, evidence must earn its way up
-    notes: list[str] = list(setup.notes)
-
-    # --- Daily regime alignment ---
-    daily_aligned = (direction == "long" and daily["direction"] == "bull") or \
-                     (direction == "short" and daily["direction"] == "bear")
-    daily_weight = (daily["score"] - 50.0) / 50.0
-    log_odds += (0.85 if daily_aligned else -0.55) * abs(daily_weight) * 1.3
-
-    # --- Structural quality ---
-    log_odds += (setup.struct.structure_quality - 0.5) * 1.1
-    if setup.struct.break_strength_atr > 0:
-        log_odds += min(0.5, setup.struct.break_strength_atr * 0.18)
-
-    # --- Zone confluence (order blocks + FVGs stacking) ---
-    matching = [z for z in setup.zones if (z.direction == "bull") == (direction == "long")]
-    ob_hits = sum(1 for z in matching if z.kind == "OB")
-    fvg_hits = sum(1 for z in matching if z.kind == "FVG")
-    if ob_hits and fvg_hits:
-        log_odds += 0.55
-        notes.append("Order block and fair value gap confluence in the same zone")
-    elif ob_hits or fvg_hits:
-        log_odds += 0.25
-    freshness = max([z.freshness for z in matching], default=0.0)
-    log_odds += freshness * 0.25
-
-    # --- Premium/discount alignment ---
-    favourable_pd = (direction == "long" and setup.range_pos["label"] in ("discount", "equilibrium")) or \
-                     (direction == "short" and setup.range_pos["label"] in ("premium", "equilibrium"))
-    log_odds += 0.3 if favourable_pd else -0.4
-
-    # --- Liquidity sweep bonus ---
-    if setup.setup_type == "LIQUIDITY_SWEEP_REVERSAL":
-        log_odds += 0.4
-        notes.append("Stop-hunt sweep precedes reversal — classic liquidity-grab structure")
-
-    # --- Donchian breakout confirmation (previously dead computation) ---
-    if setup.setup_type == "BREAKOUT":
-        if setup.donchian_confirmed:
-            log_odds += 0.3
-        else:
-            log_odds -= 0.25
-            notes.append("Breakout lacks prior-range Donchian confirmation — displacement alone")
-
-    # --- Orderflow (CVD proxy) — real volume vote ---
-    of = trig["orderflow"]
-    if of["aligned"]:
-        log_odds += 0.35
-        notes.append("Orderflow (CVD proxy) confirms directional pressure")
-    else:
-        log_odds -= 0.25
-
-    # --- Volume confirmation (vs 20-period SMA) ---
-    vc = trig["vol_confirmation"]
-    if vc["expanding"]:
-        log_odds += min(0.3, (vc["ratio"] - 1.0) * 0.3)
-        notes.append("Volume expanding above 20-period average")
-    elif vc["ratio"] < 0.7:
-        log_odds -= 0.15
-
-    # --- Historical win-rate as graduated evidence (not just a gate) ---
-    if wr_prior is not None:
-        log_odds += max(-0.6, min(0.6, (wr_prior - 0.5) * 1.8))
-        notes.append(f"Historical win-rate {wr_prior * 100:.0f}% factored into confidence")
-
-    # --- 1H trigger quality ---
-    log_odds += min(0.5, trig["body_atr"] * 0.35)
-    if trig["displacement"]:
-        log_odds += 0.35
-        notes.append("1H displacement candle confirms order-flow shift")
-    rsi_val = trig["rsi"]
-    if direction == "long" and 35 <= rsi_val <= 68:
-        log_odds += 0.2
-    elif direction == "short" and 32 <= rsi_val <= 65:
-        log_odds += 0.2
-    elif (direction == "long" and rsi_val > 78) or (direction == "short" and rsi_val < 22):
-        log_odds -= 0.4
-        notes.append("Momentum already stretched on 1H — chasing risk elevated")
-
-    # --- Volatility regime ---
-    if vol["regime"] == "low":
-        log_odds -= 0.35
-        notes.append("Volatility percentile low — reduced follow-through probability")
-    elif vol["regime"] == "high":
-        log_odds += 0.1
-
-    # --- Funding / OI ---
-    f_score, f_notes = funding_oi
-    log_odds += f_score * 0.45
-    notes.extend(f_notes)
-
-    prob = _logistic(log_odds)
-    confidence = max(0.0, min(100.0, prob * 100.0))
-    confidence += regime_confidence_adjustment(daily, vol)
-    confidence = max(0.0, min(100.0, confidence))
-    return confidence, notes
-
-
-def grade_for_confidence(confidence: float) -> str | None:
-    if confidence >= CONFIDENCE_FLOOR_ELITE:
-        return "Elite"
-    if confidence >= CONFIDENCE_FLOOR_PREMIUM:
-        return "Premium"
-    if confidence >= CONFIDENCE_FLOOR_HIGH:
-        return "High Quality"
-    if confidence >= CONFIDENCE_FLOOR_STANDARD:
-        return "Standard"
-    return None
-
-
-# =====================================================================
-# 10. GRADE ORDERING (used for win-rate suppression overrides)
-# =====================================================================
-
-_GRADE_ORDER = {"Standard": 0, "High Quality": 1, "Premium": 2, "Elite": 3}
-
-
-def grade_at_least(grade: str, floor_grade: str) -> bool:
-    return _GRADE_ORDER.get(grade, -1) >= _GRADE_ORDER.get(floor_grade, 99)
-
-
-# =====================================================================
-# 11. ENTRY ENGINE — REALISTIC EXECUTION SELECTION
-# =====================================================================
-
-@dataclass
-class EntryPlan:
-    entry_type: str
-    entry: float
-    rationale: str
-
-
-def plan_entry(direction: str, setup: SetupCandidate, trig: dict, atr_val: float) -> EntryPlan:
-    cur = trig["cur"]
-    candidate_zones = [z for z in setup.zones if (z.direction == "bull") == (direction == "long")]
-
-    if setup.setup_type == "BREAKOUT" and setup.displacement:
-        return EntryPlan("MARKET", cur, "Displacement breakout — immediate market entry to avoid missing the move")
-
-    if candidate_zones:
-        nearest = min(candidate_zones, key=lambda z: abs(cur - (z.top + z.bottom) / 2))
-        mid = (nearest.top + nearest.bottom) / 2
-        dist_atr = abs(cur - mid) / atr_val if atr_val else 0.0
-        if dist_atr <= 0.15:
-            return EntryPlan("MARKET", cur, f"Price already inside {nearest.kind} zone")
-        if dist_atr <= 1.1:
-            edge = nearest.top if direction == "long" else nearest.bottom
-            limit_px = edge if dist_atr <= 0.5 else mid
-            return EntryPlan("LIMIT", limit_px, f"Limit order at {nearest.kind} zone ({dist_atr:.2f} ATR away)")
-
-    ema_ref = trig["ind"]["ema20"][-1]
-    if not math.isnan(ema_ref):
-        dist_atr = abs(cur - ema_ref) / atr_val if atr_val else 0.0
-        if dist_atr <= 0.6:
-            return EntryPlan("PULLBACK", ema_ref, "Shallow pullback to 20EMA, realistically fillable")
-
-    return EntryPlan("MARKET", cur, "No nearby discounted zone — engaging at market to avoid a stale signal")
-
-
-# =====================================================================
-# 12. RISK ENGINE — STRUCTURE-JUSTIFIED SL / TP
-# =====================================================================
-
-@dataclass
-class RiskPlan:
-    sl: float
-    tp1: float
-    tp2: float
-    rr1: float
-    rr2: float
-
-
-def plan_risk(direction: str, entry: float, setup: SetupCandidate, atr_val: float,
-              liq: LiquidityRead, vol: dict) -> RiskPlan:
-    vol_pad = atr_val * (0.35 if vol["regime"] in ("low", "normal") else 0.55)
-
-    if direction == "long":
-        struct_sl = (liq.swept_low or setup.struct.last_major_low or entry - atr_val * 1.2) - vol_pad
-        atr_floor_sl = entry - atr_val * 1.0
-        sl = min(struct_sl, atr_floor_sl) if struct_sl > entry - atr_val * 2.2 else atr_floor_sl
-        risk = entry - sl
-        pool_tp = liq.nearest_pool_above
-        tp1 = pool_tp if pool_tp and (pool_tp - entry) >= risk * MIN_RR else entry + risk * 1.6
-        tp2 = entry + risk * max(PREFERRED_RR, ((pool_tp - entry) / risk * 1.3) if pool_tp and risk > 0 else PREFERRED_RR)
-    else:
-        struct_sl = (liq.swept_high or setup.struct.last_major_high or entry + atr_val * 1.2) + vol_pad
-        atr_floor_sl = entry + atr_val * 1.0
-        sl = max(struct_sl, atr_floor_sl) if struct_sl < entry + atr_val * 2.2 else atr_floor_sl
-        risk = sl - entry
-        pool_tp = liq.nearest_pool_below
-        tp1 = pool_tp if pool_tp and (entry - pool_tp) >= risk * MIN_RR else entry - risk * 1.6
-        tp2 = entry - risk * max(PREFERRED_RR, ((entry - pool_tp) / risk * 1.3) if pool_tp and risk > 0 else PREFERRED_RR)
-
-    risk = abs(entry - sl)
-    rr1 = abs(tp1 - entry) / risk if risk > 0 else 0.0
-    rr2 = abs(tp2 - entry) / risk if risk > 0 else 0.0
-    return RiskPlan(sl, tp1, tp2, rr1, rr2)
-
-
-# =====================================================================
-# 13. MARKET FILTERS
-# =====================================================================
-
-def funding_oi_score(state: dict, symbol: str, direction: str, funding: float | None,
-                      oi_usd: float | None) -> tuple[float, list[str]]:
-    notes = []
-    score = 0.0
-    if funding is not None:
-        tailwind = (direction == "long" and funding < -FUNDING_TAILWIND_PCT) or \
-                   (direction == "short" and funding > FUNDING_TAILWIND_PCT)
-        headwind = (direction == "long" and funding > FUNDING_HEADWIND_PCT) or \
-                   (direction == "short" and funding < -FUNDING_HEADWIND_PCT)
-        if tailwind:
-            score += 0.6
-            notes.append("Funding favours this direction (crowd positioned opposite)")
-        elif headwind:
-            score -= 0.8
-            notes.append("Funding headwind — crowd already positioned this way")
-    if oi_usd is not None:
-        hist = state.get("oi_history", {}).get(symbol, [])
-        if len(hist) >= 5:
-            avg = sum(hist[-5:]) / 5
-            chg = (oi_usd - avg) / avg * 100 if avg else 0.0
-            if abs(chg) >= 3.0:
-                rising_with_move = chg > 0
-                score += 0.3 if rising_with_move else -0.2
-                notes.append(f"OI {'rising' if rising_with_move else 'falling'} {chg:+.1f}%")
-    return max(-1.0, min(1.0, score)), notes
-
-
-def passes_hard_filters(symbol: str, oi_usd: float | None, atr_pct: float) -> tuple[bool, str]:
-    min_oi = MIN_OI_USD_SMALL_CAP if symbol in SMALL_CAP_PAIRS else MIN_OI_USD
-    if oi_usd is not None and oi_usd < min_oi:
-        return False, f"OI ${oi_usd:,.0f} below floor ${min_oi:,.0f}"
-    if atr_pct < ATR_PCT_FLOOR:
-        return False, f"ATR% {atr_pct:.3f} below liquidity-quality floor"
-    if atr_pct > ATR_PCT_CEIL:
-        return False, f"ATR% {atr_pct:.2f} above sane ceiling — likely data anomaly or dislocation"
-    return True, ""
-
-
-def win_rate_suppression(state: dict, symbol: str, direction: str) -> bool:
-    wr = compute_win_rates(state).get(f"{symbol}_{direction}")
-    if wr and wr["n"] >= WIN_RATE_MIN_SAMPLE and wr["win_rate"] is not None:
-        return wr["win_rate"] < WIN_RATE_HARD_SUPPRESS_THRESHOLD
+        candles = get_candles_cached(BTC_SYMBOL, _btc_regime_combo.htf_tf, _btc_regime_combo.n_htf)
+        if len(candles) < _btc_regime_combo.ema_slow + 5:
+            return "neutral"
+        atr = calc_atr_cached(BTC_SYMBOL, _btc_regime_combo.htf_tf, candles)
+        return htf_ema_trend(candles, atr, _btc_regime_combo)
+    except Exception as e:
+        print(f"  [BTC REGIME] error: {e}")
+        return "neutral"
+
+
+def btc_regime_blocks(symbol: str, direction: str, regime: str) -> bool:
+    if not BTC_REGIME_FILTER_ENABLED or symbol == BTC_SYMBOL:
+        return False
+    sector = SECTOR_MAP.get(symbol, "")
+    if sector in BTC_REGIME_EXEMPT_SECTORS:
+        return False
+    if regime == "bear" and direction == "long":
+        return True
+    if regime == "bull" and direction == "short":
+        return True
     return False
 
 
-def win_rate_prior(state: dict, symbol: str, direction: str) -> float | None:
-    """Graduated evidence companion to win_rate_suppression: returns
-    the realized win rate once >= WIN_RATE_MIN_SAMPLE resolved trades
-    exist for this symbol/direction, else None (no opinion). This lets
-    real historical edge move `score_confluence`'s confidence number
-    directly rather than only acting as a binary post-hoc veto."""
-    wr = compute_win_rates(state).get(f"{symbol}_{direction}")
-    if wr and wr["n"] >= WIN_RATE_MIN_SAMPLE and wr["win_rate"] is not None:
-        return wr["win_rate"]
-    return None
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXEC-TF LIQUIDITY SWEEP (hard gate #1)
+# ═══════════════════════════════════════════════════════════════════════════════
 
+def detect_exec_sweep(candles: list[dict], swings: list[SwingPoint], bias: str,
+                       atr_exec: float, combo: Combo) -> SweepEvent | None:
+    if atr_exec <= 0 or bias not in ("bull", "bear"):
+        return None
+    n = len(candles)
+    recent_start = max(0, n - combo.sweep_recent_bars)
+    search_start = max(0, n - combo.sweep_lookback_exec)
 
-# =====================================================================
-# 14. CORRELATION DECLUSTERING
-# =====================================================================
-
-def correlation_matrix(symbols: list[str], bundles: dict[str, tuple]) -> dict[tuple[str, str], float]:
-    rets: dict[str, list[float]] = {}
-    for sym in symbols:
-        b = bundles.get(sym)
-        if not b:
-            continue
-        closes = [c["c"] for c in b[1][-(CORR_LOOKBACK_BARS + 1):]]
-        if len(closes) < CORR_MIN_SAMPLE + 1:
-            continue
-        r = [(closes[i] - closes[i - 1]) / closes[i - 1] for i in range(1, len(closes)) if closes[i - 1]]
-        if len(r) >= CORR_MIN_SAMPLE:
-            rets[sym] = r
-    matrix = {}
-    syms = sorted(rets)
-    for i, a in enumerate(syms):
-        for b in syms[i + 1:]:
-            ra, rb = rets[a], rets[b]
-            n = min(len(ra), len(rb))
-            ra_, rb_ = ra[:n], rb[:n]
-            ma, mb = sum(ra_) / n, sum(rb_) / n
-            cov = sum((x - ma) * (y - mb) for x, y in zip(ra_, rb_)) / n
-            va = sum((x - ma) ** 2 for x in ra_) / n
-            vb = sum((y - mb) ** 2 for y in rb_) / n
-            if va > 0 and vb > 0:
-                matrix[(a, b)] = cov / math.sqrt(va * vb)
-    return matrix
-
-
-def cluster_correlated(symbols: list[str], matrix: dict[tuple[str, str], float]) -> list[set[str]]:
-    parent = {s: s for s in symbols}
-
-    def find(x):
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
-
-    def union(a, b):
-        ra, rb = find(a), find(b)
-        if ra != rb:
-            parent[ra] = rb
-
-    for (a, b), corr in matrix.items():
-        if corr >= CORR_CLUSTER_THRESHOLD:
-            union(a, b)
-    clusters: dict[str, set[str]] = {}
-    for s in symbols:
-        clusters.setdefault(find(s), set()).add(s)
-    return list(clusters.values())
-
-
-def deduplicate_correlated(signals: list[tuple], clusters: list[set[str]]) -> list[tuple]:
-    """One signal per correlated cluster, full stop. Previously the
-    dedup key was (cluster, direction), which allowed a long AND a
-    short from two different symbols in the same correlated cluster to
-    both fire in one scan — a looser risk posture that sat at odds
-    with the whole point of correlation declustering. Tightened here
-    to match the stricter one-signal-per-cluster policy."""
-    sym_to_cluster = {}
-    for c in clusters:
-        for s in c:
-            sym_to_cluster[s] = frozenset(c)
-
-    best_per_cluster: dict[frozenset, tuple] = {}
-    for sym, direction, payload in signals:
-        key = sym_to_cluster.get(sym, frozenset({sym}))
-        conf = payload["confidence"]
-        if key not in best_per_cluster or conf > best_per_cluster[key][2]["confidence"]:
-            best_per_cluster[key] = (sym, direction, payload)
-    return list(best_per_cluster.values())
-
-
-# =====================================================================
-# 15. SIGNAL ASSEMBLY
-# =====================================================================
-
-@dataclass
-class Signal:
-    symbol: str
-    direction: str
-    setup_type: str
-    grade: str
-    confidence: float
-    entry_plan: EntryPlan
-    risk_plan: RiskPlan
-    daily: dict
-    setup: SetupCandidate
-    trig: dict
-    vol: dict
-    atr_pct: float
-    funding: float | None
-    notes: list[str]
-
-
-def evaluate_symbol(symbol: str, state: dict, candles_1h, candles_4h, candles_1d) -> list[Signal]:
-    ind_1h = cached_indicators(f"{symbol}_1h", candles_1h)
-    ind_4h = cached_indicators(f"{symbol}_4h", candles_4h)
-    ind_1d = cached_indicators(f"{symbol}_1d", candles_1d)
-
-    daily = daily_trend_quality(candles_1d, ind_1d)
-    vol = classify_volatility(state, symbol, candles_4h, ind_4h)
-
-    ctx = get_market_ctx(symbol) or {}
-    funding, oi_usd = ctx.get("funding"), ctx.get("oi_usd")
-    if funding is not None:
-        update_history(state, "funding_history", symbol, funding, FUNDING_HISTORY_DEPTH)
-    if oi_usd is not None:
-        update_history(state, "oi_history", symbol, oi_usd, OI_HISTORY_DEPTH)
-
-    ok, reason = passes_hard_filters(symbol, oi_usd, vol["atr_pct"])
-    if not ok:
-        print(f"  [FILTER] {hl_coin(symbol)} — {reason}")
-        return []
-
-    setup = find_setup_candidate(candles_4h, ind_4h)
-    if setup is None:
-        return []
-
-    trig = momentum_trigger(candles_1h, ind_1h, setup.direction)
-    if trig is None:
-        return []
-
-    direction = setup.direction
-    atr_val = vol["atr_val"]
-    entry_plan = plan_entry(direction, setup, trig, atr_val)
-    risk_plan = plan_risk(direction, entry_plan.entry, setup, atr_val, setup.liq, vol)
-
-    if risk_plan.rr1 < MIN_RR:
-        return []
-
-    f_score_notes = funding_oi_score(state, symbol, direction, funding, oi_usd)
-    wr_prior = win_rate_prior(state, symbol, direction)
-    confidence, notes = score_confluence(direction, setup, trig, daily, vol, f_score_notes, wr_prior)
-    grade = grade_for_confidence(confidence)
-    if grade is None:
-        return []
-
-    suppressed = win_rate_suppression(state, symbol, direction)
-    if suppressed and not grade_at_least(grade, WIN_RATE_SUPPRESSION_MIN_GRADE):
-        print(f"  [WR SUPPRESS] {hl_coin(symbol)} {direction.upper()} — "
-              f"grade {grade} below {WIN_RATE_SUPPRESSION_MIN_GRADE} floor required while suppressed")
-        return []
-    if suppressed:
-        print(f"  [WR SUPPRESS OVERRIDE] {hl_coin(symbol)} {direction.upper()} — "
-              f"{grade} clears suppression floor, allowing through")
-
-    signal = Signal(symbol, direction, setup.setup_type, grade, confidence, entry_plan,
-                     risk_plan, daily, setup, trig, vol, vol["atr_pct"], funding, notes)
-    return [signal]
-
-
-def check_cooldown(state: dict, symbol: str, direction: str, bar_index: int, confidence: float) -> bool:
-    with _state_lock:
-        active = list(state.get("active_signals", []))
-        last_bar = state.get("signal_cooldowns", {}).get(f"{symbol}_{direction}")
-        last_sl_ts = state.get("post_loss_cooldown", {}).get(f"{symbol}_{direction}")
-        prev_outcome = state.get("last_signal_outcome", {}).get(f"{symbol}_{direction}", "")
-
-    active_count = sum(1 for s in active if not s.get("resolved"))
-    if active_count >= MAX_CONCURRENT_ACTIVE:
-        return False
-
-    for sig in active:
-        if sig.get("symbol") == symbol and sig.get("direction") == direction and not sig.get("resolved"):
-            return False
-
-    if last_bar is not None:
-        bars = bar_index - last_bar
-        if prev_outcome in ("tp1", "tp2"):
-            req = POST_WIN_COOLDOWN_BARS
-        elif confidence >= CONFIDENCE_FLOOR_PREMIUM:
-            req = 1
-        elif confidence >= CONFIDENCE_FLOOR_HIGH:
-            req = 2
+    best: SweepEvent | None = None
+    for i in range(recent_start, n):
+        c = candles[i]
+        prior_swings = [s for s in swings if s.index < i and s.index >= search_start]
+        if bias == "bull":
+            lows = [s for s in prior_swings if s.kind == "low"]
+            if not lows:
+                continue
+            swept = [s for s in lows if c["l"] < s.price]
+            if not swept:
+                continue
+            level = min(s.price for s in swept)   # deepest liquidity taken, not nearest-in-time
+            if c["c"] > level:
+                ratio = (level - c["l"]) / atr_exec
+                if ratio >= combo.sweep_min_atr_ratio:
+                    cand = SweepEvent(index=i, level=level, wick_extreme=c["l"], atr_ratio=ratio)
+                    if best is None or i > best.index:
+                        best = cand
         else:
-            req = BASE_COOLDOWN_BARS
-        if bars < req:
+            highs = [s for s in prior_swings if s.kind == "high"]
+            if not highs:
+                continue
+            swept = [s for s in highs if c["h"] > s.price]
+            if not swept:
+                continue
+            level = max(s.price for s in swept)
+            if c["c"] < level:
+                ratio = (c["h"] - level) / atr_exec
+                if ratio >= combo.sweep_min_atr_ratio:
+                    cand = SweepEvent(index=i, level=level, wick_extreme=c["h"], atr_ratio=ratio)
+                    if best is None or i > best.index:
+                        best = cand
+    return best
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXEC-TF DISPLACEMENT + CHoCH (hard gate #2)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def detect_displacement(candles: list[dict], sweep: SweepEvent, bias: str,
+                         atr_exec: float, swings: list[SwingPoint], combo: Combo) -> DisplacementLeg | None:
+    n = len(candles)
+    window_end = min(n, sweep.index + 1 + combo.displacement_max_bars)
+    window = candles[sweep.index:window_end]
+    if len(window) < 1 or atr_exec <= 0:
+        return None
+
+    origin = sweep.wick_extreme
+    if bias == "bull":
+        extreme_reached = max(c["h"] for c in window)
+        end_candidates = [i for i, c in enumerate(window) if c["h"] == extreme_reached]
+    else:
+        extreme_reached = min(c["l"] for c in window)
+        end_candidates = [i for i, c in enumerate(window) if c["l"] == extreme_reached]
+    end_offset = end_candidates[-1] if end_candidates else len(window) - 1
+    end_index = sweep.index + end_offset
+
+    net_move = (extreme_reached - origin) if bias == "bull" else (origin - extreme_reached)
+    atr_ratio = net_move / atr_exec
+    if atr_ratio < combo.displacement_min_atr:
+        return None
+
+    best_body = max(body_ratio(c) for c in window)
+    if best_body < combo.displacement_body_ratio_min:
+        return None
+
+    opp_kind = "high" if bias == "bull" else "low"
+    prior_opp = [s for s in swings if s.kind == opp_kind and s.index < sweep.index]
+    if not prior_opp:
+        return None
+    choch_ref = max(prior_opp, key=lambda s: s.index)
+    closes_in_window = [c["c"] for c in candles[sweep.index:end_index + 1]]
+    if not closes_in_window:
+        return None
+    best_close = max(closes_in_window) if bias == "bull" else min(closes_in_window)
+    margin = (best_close - choch_ref.price) / atr_exec if bias == "bull" \
+        else (choch_ref.price - best_close) / atr_exec
+    if margin < combo.choch_min_margin_atr:
+        return None
+
+    avg_vol = calc_avg_volume(candles[:sweep.index] or candles, 20)
+    peak_vol = max(c["v"] for c in window)
+    vol_ratio = (peak_vol / avg_vol) if avg_vol > 0 else 1.0
+
+    return DisplacementLeg(end_index=end_index, atr_ratio=atr_ratio, body_ratio=best_body,
+                            choch_level=choch_ref.price, choch_margin_atr=margin,
+                            volume_ratio=vol_ratio)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# IMBALANCE (FVG) + BREAKER BLOCK -> OTE ENTRY ZONE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def find_freshest_fvg(candles: list[dict], start_idx: int, end_idx: int,
+                       direction: str, atr_exec: float, combo: Combo) -> FVG | None:
+    best: FVG | None = None
+    lo_bound = max(1, start_idx)
+    hi_bound = min(len(candles) - 1, end_idx)
+    for i in range(lo_bound, hi_bound):
+        a, b = candles[i - 1], candles[i + 1]
+        if direction == "bull" and b["l"] > a["h"]:
+            size = b["l"] - a["h"]
+            if size >= combo.fvg_min_size_atr * atr_exec:
+                cand = FVG(high=b["l"], low=a["h"], direction="bull", index=i)
+                if best is None or cand.index > best.index:
+                    best = cand
+        elif direction == "bear" and b["h"] < a["l"]:
+            size = a["l"] - b["h"]
+            if size >= combo.fvg_min_size_atr * atr_exec:
+                cand = FVG(high=a["l"], low=b["h"], direction="bear", index=i)
+                if best is None or cand.index > best.index:
+                    best = cand
+    return best
+
+
+def breaker_zone(candles: list[dict], sweep_index: int, direction: str) -> tuple[float, float]:
+    c = candles[sweep_index]
+    if direction == "bull":
+        return max(c["o"], c["c"]), c["l"]
+    return c["h"], min(c["o"], c["c"])
+
+
+def compute_entry_zone(breaker_hi: float, breaker_lo: float, fvg: FVG | None,
+                        direction: str) -> tuple[float, float, float]:
+    zone_hi, zone_lo = breaker_hi, breaker_lo
+    if fvg is not None:
+        overlap_hi = min(breaker_hi, fvg.high)
+        overlap_lo = max(breaker_lo, fvg.low)
+        if overlap_hi > overlap_lo:
+            zone_hi, zone_lo = overlap_hi, overlap_lo
+    exact_entry = (zone_hi + zone_lo) / 2
+    return zone_hi, zone_lo, exact_entry
+
+
+def fvg_is_fresh(candles: list[dict], fvg: FVG, direction: str, combo: Combo) -> bool:
+    after = candles[fvg.index + 1:]
+    mitig = compute_mitigation(after, fvg.high, fvg.low, direction)
+    return mitig <= combo.poi_fresh_max_mitig
+
+
+def breaker_is_untouched(candles: list[dict], sweep_index: int, zone_hi: float,
+                          zone_lo: float) -> bool:
+    for c in candles[sweep_index + 1:-1]:
+        if c["l"] <= zone_hi and c["h"] >= zone_lo:
             return False
-
-    if last_sl_ts is not None and int(time.time()) - last_sl_ts < POST_LOSS_COOLDOWN_S:
-        return False
-
     return True
 
 
-def update_cooldown(state: dict, symbol: str, direction: str, bar_index: int):
-    with _state_lock:
-        state.setdefault("signal_cooldowns", {})[f"{symbol}_{direction}"] = bar_index
+def find_exec_liquidity_target(swings: list[SwingPoint], direction: str,
+                                entry: float) -> float | None:
+    kind = "high" if direction == "long" else "low"
+    candidates = [s.price for s in swings if s.kind == kind]
+    if direction == "long":
+        candidates = [p for p in candidates if p > entry]
+        return min(candidates) if candidates else None
+    candidates = [p for p in candidates if p < entry]
+    return max(candidates) if candidates else None
 
 
-def track_signal(state: dict, symbol: str, direction: str, msg_id: int, sig: Signal,
-                  bar_index: int, hist_id: str):
-    with _state_lock:
-        state.setdefault("active_signals", []).append({
-            "symbol": symbol, "direction": direction, "msg_id": msg_id, "bar_index": bar_index,
-            "signal_bar_time": bar_index * INTERVAL_MS["1h"], "tp1": sig.risk_plan.tp1,
-            "tp2": sig.risk_plan.tp2, "sl": sig.risk_plan.sl, "entry": sig.entry_plan.entry,
-            "tp1_hit": False, "entry_touched": False, "resolved": False, "hist_id": hist_id,
-            "atr_val": sig.atr_pct / 100.0 * sig.entry_plan.entry,
-        })
+# ═══════════════════════════════════════════════════════════════════════════════
+# SIGNAL ASSEMBLY (per pipeline)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def compute_signal(symbol: str, combo: Combo, btc_regime: str) -> NyxSignal | None:
+    # ── Liquidity floor (ported from Castellan) — cheapest check first ────
+    oi_usd = get_open_interest_usd(symbol)
+    if oi_usd is not None and oi_usd < MIN_OI_USD:
+        return None
+
+    # ── Session gate — per pipeline, not global (see module docstring) ───
+    if combo.session_filter_enabled and not is_active_session():
+        return None
+
+    candles_htf = get_candles_cached(symbol, combo.htf_tf, combo.n_htf)
+    if len(candles_htf) < combo.ema_slow + 10:
+        return None
+    candles_exec = get_candles(symbol, combo.exec_tf, combo.n_exec)  # always fresh
+    if len(candles_exec) < 60:
+        return None
+
+    atr_htf  = calc_atr_cached(symbol, combo.htf_tf, candles_htf)
+    atr_exec = calc_atr_cached(symbol, combo.exec_tf, candles_exec)
+    if atr_htf <= 0 or atr_exec <= 0:
+        return None
+
+    current_price = candles_exec[-1]["c"]
+
+    # ── HTF bias: structure AND EMA must agree (hard gate) ────────────────
+    bias, _events, swings_htf = htf_bias(candles_htf, atr_htf, combo)
+    if bias == "neutral":
+        return None
+
+    direction = "long" if bias == "bull" else "short"
+
+    # ── BTC regime filter (hard gate) ──────────────────────────────────────
+    if btc_regime_blocks(symbol, direction, btc_regime):
+        return None
+
+    # ── Premium/discount alignment (hard gate) ────────────────────────────
+    pd = premium_discount_zone(candles_htf, combo.pd_lookback)
+    if bias == "bull" and pd["pct"] > combo.discount_threshold:
+        return None
+    if bias == "bear" and pd["pct"] < combo.premium_threshold:
+        return None
+
+    # ── HTF POI must exist and not be fully mitigated (hard gate) ─────────
+    poi = find_htf_poi(candles_htf, swings_htf, bias, atr_htf, current_price, combo)
+    if poi is None:
+        return None
+
+    # ── Exec-tf sweep (hard gate #1) ───────────────────────────────────────
+    swings_exec = find_swings(candles_exec, combo.swing_left_exec, combo.swing_right_exec)
+    sweep = detect_exec_sweep(candles_exec, swings_exec, bias, atr_exec, combo)
+    if sweep is None:
+        return None
+
+    # ── Displacement + CHoCH (hard gate #2) ────────────────────────────────
+    disp = detect_displacement(candles_exec, sweep, bias, atr_exec, swings_exec, combo)
+    if disp is None:
+        return None
+
+    # ── Fresh imbalance behind the displacement leg (hard gate #3) ────────
+    fvg = find_freshest_fvg(candles_exec, sweep.index, disp.end_index, bias, atr_exec, combo)
+    if fvg is None:
+        return None
+    if not fvg_is_fresh(candles_exec, fvg, bias, combo):
+        return None
+
+    breaker_hi, breaker_lo = breaker_zone(candles_exec, sweep.index, bias)
+    zone_hi, zone_lo, exact_entry = compute_entry_zone(breaker_hi, breaker_lo, fvg, bias)
+    if zone_hi <= zone_lo:
+        return None
+
+    backup_entry = (zone_hi if abs(current_price - zone_hi) <= abs(current_price - zone_lo)
+                     else zone_lo)
+
+    dist_atr = abs(current_price - exact_entry) / atr_exec
+    if dist_atr > combo.entry_max_dist_atr:
+        return None
+
+    buffer = combo.sl_buffer_atr * atr_exec
+    stop_loss = (sweep.wick_extreme - buffer) if direction == "long" else (sweep.wick_extreme + buffer)
+    risk = abs(exact_entry - stop_loss)
+    if risk <= 0:
+        return None
+
+    tp1 = find_exec_liquidity_target(swings_exec, direction, exact_entry)
+    if tp1 is None or abs(tp1 - exact_entry) / risk < combo.tp1_min_rr:
+        tp1 = exact_entry + risk * combo.tp1_fallback_rr if direction == "long" \
+            else exact_entry - risk * combo.tp1_fallback_rr
+
+    htf_pools = find_htf_liquidity_pools(candles_htf, swings_htf, direction, current_price, atr_htf, combo)
+    tp2 = None
+    for p in htf_pools:
+        if abs(p - exact_entry) / risk >= combo.tp2_min_rr:
+            tp2 = p
+            break
+    if tp2 is None:
+        tp2 = exact_entry + risk * combo.tp2_fallback_rr if direction == "long" \
+            else exact_entry - risk * combo.tp2_fallback_rr
+    if abs(tp2 - exact_entry) / risk < combo.tp2_min_rr:
+        return None
+
+    tp3 = None
+    for p in htf_pools:
+        if direction == "long" and p > tp2 and abs(p - exact_entry) / risk >= combo.tp2_min_rr * 1.5:
+            tp3 = p
+            break
+        if direction == "short" and p < tp2 and abs(p - exact_entry) / risk >= combo.tp2_min_rr * 1.5:
+            tp3 = p
+            break
+    if tp3 is None:
+        tp3 = exact_entry + risk * combo.tp3_fallback_rr if direction == "long" \
+            else exact_entry - risk * combo.tp3_fallback_rr
+
+    # ── Confluence scoring ─────────────────────────────────────────────────
+    # NOTE: no "Session" point here (fixed vs. Nyx v1) — session is already
+    # a hard gate above when combo.session_filter_enabled, so awarding it a
+    # score point too was giving every qualifying signal a free point that
+    # discriminated nothing.
+    score = 0
+    combos_hit: list[str] = []
+
+    if sweep.atr_ratio >= combo.sweep_strong_atr_ratio:
+        score += 2; combos_hit.append("Sweep(strong)")
+    else:
+        score += 1; combos_hit.append("Sweep")
+
+    if disp.atr_ratio >= combo.displacement_strong_atr:
+        score += 2; combos_hit.append("Displacement(strong)")
+    else:
+        score += 1; combos_hit.append("Displacement")
+
+    if disp.choch_margin_atr >= combo.choch_strong_margin_atr:
+        score += 2; combos_hit.append("CHoCH(clean)")
+    else:
+        score += 1; combos_hit.append("CHoCH")
+
+    combos_hit.append("Imbalance(fresh)")
+    score += 1
+
+    if breaker_is_untouched(candles_exec, sweep.index, breaker_hi, breaker_lo):
+        score += 1; combos_hit.append("Breaker(untouched)")
+
+    if disp.volume_ratio >= combo.volume_bonus_ratio:
+        score += 1; combos_hit.append("Volume")
+
+    if poi.state == "fresh":
+        score += 1; combos_hit.append("HTF-POI(fresh)")
+
+    ema_dir = htf_ema_trend(candles_htf, atr_htf, combo)
+    if ema_dir == bias:
+        closes = [c["c"] for c in candles_htf]
+        ema_fast = calc_ema(closes, combo.ema_fast)
+        ema_slow = calc_ema(closes, combo.ema_slow)
+        if ema_fast and ema_slow and abs(ema_fast[-1] - ema_slow[-1]) >= combo.ema_sep_min_atr * atr_htf * 1.5:
+            score += 1; combos_hit.append("HTF-Trend(strong)")
+
+    funding = get_funding(symbol)
+    if funding is not None:
+        if direction == "long" and funding <= -FUNDING_ALIGN_THRESHOLD:
+            score += 1; combos_hit.append("Funding")
+        elif direction == "short" and funding >= FUNDING_ALIGN_THRESHOLD:
+            score += 1; combos_hit.append("Funding")
+
+    min_score = get_min_confluence_score(combo)
+    if score < min_score:
+        return None
+
+    if score >= combo.aplus_signal_score:
+        grade = "A+"
+    elif score >= combo.strong_signal_score:
+        grade = "A"
+    else:
+        grade = "B"
+
+    return NyxSignal(
+        symbol=symbol, direction=direction, combo_id=combo.id, combo_label=combo.label,
+        entry_zone_high=zone_hi, entry_zone_low=zone_lo, exact_entry=exact_entry,
+        backup_entry=backup_entry,
+        stop_loss=stop_loss, take_profit_1=tp1, take_profit_2=tp2, take_profit_3=tp3,
+        confluence=score, max_score=combo.theoretical_max_score, signal_grade=grade,
+        combos_hit=combos_hit, h4_bias=bias, poi_state=poi.state,
+        sweep_atr_ratio=sweep.atr_ratio, displacement_atr_ratio=disp.atr_ratio,
+        funding_rate=funding, timestamp=datetime.now(timezone.utc).isoformat(),
+    )
 
 
-def check_active_signals(state: dict, bar_index_now: int, ref_ms: int):
-    with _state_lock:
-        signals = list(state.get("active_signals", []))
-    if not signals:
-        return
-    still_active = []
-    for sig in signals:
-        age = bar_index_now - sig.get("bar_index", bar_index_now)
-        if age > SIGNAL_MAX_AGE_1H_BARS:
-            hist_id = sig.get("hist_id")
-            if hist_id:
-                update_signal_result(state, hist_id, "expired")
-            continue
-        if sig.get("resolved"):
-            continue
+# ═══════════════════════════════════════════════════════════════════════════════
+# FORMATTING
+# ═══════════════════════════════════════════════════════════════════════════════
 
-        symbol, direction, msg_id = sig["symbol"], sig["direction"], sig["msg_id"]
-        tp1, tp2, sl_ = sig["tp1"], sig["tp2"], sig["sl"]
-        tp1_hit, entry_touched = sig.get("tp1_hit", False), sig.get("entry_touched", False)
-        entry_price = sig.get("entry", 0.0)
-        atr_val = sig.get("atr_val") or (entry_price * 0.01 if entry_price else 0.01)
-        entry_tol = atr_val * 0.55
-        last_ts = sig.get("last_processed_ts", sig.get("signal_bar_time", 0))
-
-        try:
-            candles = get_candles(symbol, "1h", N_1H, reference_ms=ref_ms)
-        except Exception as e:
-            print(f"  [TRACK] {symbol} fetch failed: {e}")
-            still_active.append(sig)
-            continue
-        new = [c for c in candles if c["t"] > last_ts]
-        if not new:
-            if not entry_touched and entry_price:
-                mid = get_mid_price(symbol)
-                if mid is not None and abs(mid - entry_price) <= entry_tol:
-                    sig["entry_touched"] = True
-            still_active.append(sig)
-            continue
-        last_ts = new[-1]["t"]
-
-        def resolve(result_: str):
-            sig["resolved"] = True
-            with _state_lock:
-                if result_ == "sl":
-                    state.setdefault("post_loss_cooldown", {})[f"{symbol}_{direction}"] = int(time.time())
-                state.setdefault("last_signal_outcome", {})[f"{symbol}_{direction}"] = result_
-            hist_id = sig.get("hist_id")
-            if hist_id:
-                update_signal_result(state, hist_id, result_)
-
-        for bar in new:
-            ch, cl = bar["h"], bar["l"]
-            if entry_price and not entry_touched:
-                if abs((ch + cl) / 2 - entry_price) <= entry_tol:
-                    sig["entry_touched"] = entry_touched = True
-            if direction == "long":
-                if not tp1_hit:
-                    if ch >= tp1:
-                        if entry_touched:
-                            react_to_message(msg_id, REACT_TP1)
-                            sig["tp1_hit"] = tp1_hit = True
-                        else:
-                            react_to_message(msg_id, REACT_MISS)
-                            resolve("missed"); break
-                    elif cl <= sl_:
-                        if entry_touched:
-                            react_to_message(msg_id, REACT_SL)
-                            resolve("sl")
-                        else:
-                            resolve("expired")
-                        break
-                else:
-                    if ch >= tp2:
-                        react_to_message(msg_id, REACT_TP2); resolve("tp2"); break
-                    if cl <= sl_:
-                        resolve("tp1"); break
-            else:
-                if not tp1_hit:
-                    if cl <= tp1:
-                        if entry_touched:
-                            react_to_message(msg_id, REACT_TP1)
-                            sig["tp1_hit"] = tp1_hit = True
-                        else:
-                            react_to_message(msg_id, REACT_MISS)
-                            resolve("missed"); break
-                    elif ch >= sl_:
-                        if entry_touched:
-                            react_to_message(msg_id, REACT_SL)
-                            resolve("sl")
-                        else:
-                            resolve("expired")
-                        break
-                else:
-                    if cl <= tp2:
-                        react_to_message(msg_id, REACT_TP2); resolve("tp2"); break
-                    if ch >= sl_:
-                        resolve("tp1"); break
-
-        if not sig.get("resolved"):
-            sig["last_processed_ts"] = last_ts
-            still_active.append(sig)
-
-    with _state_lock:
-        state["active_signals"] = still_active
-
-
-# =====================================================================
-# 16. TELEGRAM
-# =====================================================================
-
-def send_telegram(text: str) -> int | None:
-    url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage"
-    for attempt in range(3):
-        try:
-            r = requests.post(url, json={"chat_id": TG_CHAT_ID, "text": text, "parse_mode": "HTML"}, timeout=10)
-            r.raise_for_status()
-            return r.json()["result"]["message_id"]
-        except Exception as e:
-            if attempt == 2:
-                print(f"[TG ERROR] {e.__class__.__name__}: {str(e)[:200]}")
-            time.sleep(2)
-    return None
-
-
-def react_to_message(message_id: int, emoji: str):
-    url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/setMessageReaction"
-    try:
-        r = requests.post(url, json={"chat_id": TG_CHAT_ID, "message_id": message_id,
-                                       "reaction": [{"type": "emoji", "emoji": emoji}], "is_big": False}, timeout=10)
-        r.raise_for_status()
-    except Exception as e:
-        print(f"  [REACT ERROR] {e.__class__.__name__}: {str(e)[:200]}")
-
-
-def confidence_bar(confidence: float) -> str:
-    filled = max(0, min(10, round(confidence / 10)))
-    return "█" * filled + "░" * (10 - filled)
-
-
-RANK_MEDALS = {1: "🥇", 2: "🥈", 3: "🥉"}
-
-
-def fmt_px(v: float) -> str:
-    if v >= 1000:
+def fmt_price(v: float) -> str:
+    if v >= 100:
         return f"{v:,.2f}"
     if v >= 1:
-        return f"{v:.4f}"
+        return f"{v:,.4f}"
     return f"{v:.6f}"
 
 
-def format_signal(sig: Signal, rank: int = 0) -> str:
-    emoji = GRADE_EMOJI.get(sig.grade, "⚪")
-    direction_tag = "▲ LONG" if sig.direction == "long" else "▼ SHORT"
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    medal = RANK_MEDALS.get(rank, "")
-    rank_tag = f"{medal} <b>Priority #{rank}</b>\n" if rank else ""
-    max_lev = GRADE_MAX_LEVERAGE.get(sig.grade, 3.0)
-    size_pct = GRADE_SIZE_PCT.get(sig.grade, 45)
+def fmt_rr(entry: float, sl: float, tp: float) -> str:
+    risk = abs(entry - sl)
+    if risk <= 0:
+        return "n/a"
+    return f"{abs(tp - entry) / risk:.2f}R"
 
-    rp = sig.risk_plan
-    ep = sig.entry_plan
-    notes_block = ("\n" + "\n".join(f"• {n}" for n in sig.notes[:4]) + "\n") if sig.notes else ""
+
+def format_signal_message(sig: NyxSignal, live_price: float | None = None) -> str:
+    arrow = "🟢 LONG" if sig.direction == "long" else "🔴 SHORT"
+    grade_emoji = {"A+": "💎", "A": "⭐", "B": "✅"}[sig.signal_grade]
+    combos_str = ", ".join(sig.combos_hit)
+    funding_line = f"\nFunding: {sig.funding_rate*100:.4f}%/8h" if sig.funding_rate is not None else ""
+    price_line = ""
+    if live_price is not None:
+        dist_pct = (live_price - sig.exact_entry) / sig.exact_entry * 100 if sig.exact_entry else 0.0
+        sign = "+" if dist_pct >= 0 else ""
+        price_line = f"Live price: {fmt_price(live_price)} ({sign}{dist_pct:.2f}% from entry)\n"
 
     return (
-        f"{rank_tag}"
-        f"{emoji} <b>{direction_tag} [{sig.setup_type}]  {sig.grade.upper()}</b>  "
-        f"{confidence_bar(sig.confidence)} {sig.confidence:.0f}%\n"
-        f"<b>Pair:</b> {sig.symbol}   |   <b>Daily:</b> {sig.daily['label']} "
-        f"({sig.daily['score']:.0f}/100)   |   <b>Vol:</b> {sig.vol['regime']}\n"
-        f"\n"
-        f"<b>Entry:</b> <code>{fmt_px(ep.entry)}</code>  [{ep.entry_type}]\n"
-        f"<b>TP1:</b>   <code>{fmt_px(rp.tp1)}</code>  (R:R {rp.rr1:.1f})\n"
-        f"<b>TP2:</b>   <code>{fmt_px(rp.tp2)}</code>  (R:R {rp.rr2:.1f})\n"
-        f"<b>SL:</b>    <code>{fmt_px(rp.sl)}</code>   (ATR {sig.atr_pct:.2f}%)\n"
-        f"\n"
-        f"<b>Leverage:</b> Max {max_lev:.0f}x   <b>Size:</b> {size_pct}%\n"
-        f"{notes_block}"
-        f"\n<i>{__engine_name__} v{__version__} [1D/4H/1H] • Hyperliquid Perps • {ts}</i>"
+        f"{grade_emoji} <b>NYX SIGNAL — {sig.symbol}</b> {arrow}  <i>({sig.combo_label})</i>\n"
+        f"Grade: <b>{sig.signal_grade}</b>  |  Confluence: {sig.confluence}/{sig.max_score}\n"
+        f"HTF Bias: {sig.h4_bias.upper()}  |  HTF POI: {sig.poi_state}\n"
+        f"─────────────────────────\n"
+        f"{price_line}"
+        f"<b>Primary Limit:</b> {fmt_price(sig.exact_entry)}  <i>(better price, lower fill odds)</i>\n"
+        f"<b>Backup Limit:</b> {fmt_price(sig.backup_entry)}  <i>(worse price, higher fill odds)</i>\n"
+        f"<b>Stop Loss:</b> {fmt_price(sig.stop_loss)}\n"
+        f"<b>TP1:</b> {fmt_price(sig.take_profit_1)} ({fmt_rr(sig.exact_entry, sig.stop_loss, sig.take_profit_1)})\n"
+        f"<b>TP2:</b> {fmt_price(sig.take_profit_2)} ({fmt_rr(sig.exact_entry, sig.stop_loss, sig.take_profit_2)})\n"
+        + (f"<b>TP3:</b> {fmt_price(sig.take_profit_3)} ({fmt_rr(sig.exact_entry, sig.stop_loss, sig.take_profit_3)})\n"
+           if sig.take_profit_3 else "")
+        + f"─────────────────────────\n"
+        f"Sweep: {sig.sweep_atr_ratio:.2f} ATR  |  Displacement: {sig.displacement_atr_ratio:.2f} ATR\n"
+        f"Confirmations: {combos_str}"
+        f"{funding_line}\n"
+        f"<i>{sig.timestamp}</i>"
     )
 
 
-# =====================================================================
-# 17. SCAN ORCHESTRATION
-# =====================================================================
+# ═══════════════════════════════════════════════════════════════════════════════
+# DEDUP / COOLDOWN (per-combo, matching Castellan's per-combo cooldown state)
+# ═══════════════════════════════════════════════════════════════════════════════
 
-def scan_symbol(symbol: str, state: dict, bar_index_now: int, bundle: tuple | None) -> list[tuple]:
-    if bundle is None:
-        return []
-    candles_1h, candles_4h, candles_1d = bundle
+def signal_key(symbol: str, direction: str, combo_id: str) -> str:
+    return f"{combo_id}:{symbol}:{direction}"
+
+
+def is_duplicate(sig: NyxSignal, combo: Combo) -> bool:
+    key = signal_key(sig.symbol, sig.direction, combo.id)
+    ts = _fired_signals.get(key)
+    if ts is None:
+        return False
+    return (time.time() - ts) < combo.cooldown_hours * 3600
+
+
+def mark_fired(sig: NyxSignal) -> None:
+    _fired_signals[signal_key(sig.symbol, sig.direction, sig.combo_id)] = time.time()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SCAN
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def scan_symbol(symbol: str, combo: Combo, btc_regime: str) -> NyxSignal | None:
     try:
-        signals = evaluate_symbol(symbol, state, candles_1h, candles_4h, candles_1d)
+        sig = compute_signal(symbol, combo, btc_regime)
+        if sig is None:
+            return None
+        if is_duplicate(sig, combo):
+            return None
+        return sig
     except Exception as e:
-        print(f"  [ERROR] {symbol} evaluation failed: {e}")
-        return []
+        print(f"  [SCAN ERROR] {symbol} [{combo.label}]: {e}")
+        return None
 
-    out = []
-    for sig in signals:
-        if not check_cooldown(state, symbol, sig.direction, bar_index_now, sig.confidence):
+
+def run_scan() -> None:
+    global _last_scan_ts
+
+    _atr_cache.clear()
+    fetch_all_market_ctx()
+    btc_regime = get_btc_regime()
+    print(f"  [BTC REGIME] {btc_regime}")
+
+    pairs = [(sym, combo) for combo in COMBOS.values() for sym in WATCHLIST]
+    raw_signals: list[NyxSignal] = []
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(scan_symbol, sym, combo, btc_regime): (sym, combo) for sym, combo in pairs}
+        for fut in as_completed(futures):
+            sig = fut.result()
+            if sig:
+                raw_signals.append(sig)
+
+    print(f"  [SCAN] {len(raw_signals)} candidate(s) across {len(COMBOS)} pipeline(s) before caps")
+    raw_signals.sort(key=lambda s: s.confluence, reverse=True)
+
+    # ── Global concurrency brake (ported from Castellan) ──────────────────
+    active_count = sum(1 for s in _active_signals.values() if not s.get("resolved"))
+    available_slots = max(0, MAX_CONCURRENT_ACTIVE_SIGNALS - active_count)
+    if available_slots <= 0:
+        print(f"  [CONCURRENCY] {active_count} active signal(s) at/above cap "
+              f"({MAX_CONCURRENT_ACTIVE_SIGNALS}) — no new signals this scan")
+        _last_scan_ts = time.time()
+        return
+    n_target = min(TOP_N_SIGNALS, available_slots)
+
+    accepted: list[NyxSignal] = []
+    sector_used: dict[str, int] = {}
+    direction_used: dict[str, int] = {}
+    symbol_used: dict[str, int] = {}
+
+    for sig in raw_signals:
+        if len(accepted) >= n_target:
+            break
+        sector = SECTOR_MAP.get(sig.symbol, "other")
+        if sector_used.get(sector, 0) >= MAX_PER_SECTOR:
             continue
-        out.append((symbol, sig.direction, {"confidence": sig.confidence, "sig": sig}))
-    return out
-
-
-def main():
-    global _shutdown
-    lock_fd = open(LOCK_FILE, "w")
-    try:
-        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        print("[LOCK] another instance is running — exiting")
-        sys.exit(1)
-
-    banner = (
-        f"\n{'=' * 64}\n"
-        f"  {__engine_name__}  v{__version__}\n"
-        f"  \"{__tagline__}\"\n"
-        f"{'=' * 64}\n"
-    )
-    print(banner)
-
-    state = load_state()
-    reset_win_rate_cache()
-    clear_indicator_cache()
-
-    ref_ms = int(time.time() * 1000)
-    bar_index_now = ref_ms // INTERVAL_MS["1h"]
-
-    print("[PHASE 0] Checking active signals…")
-    check_active_signals(state, bar_index_now, ref_ms)
-    save_state(state)
-
-    print(f"[PHASE 1] Fetching candles for {len(WATCHLIST)} symbols…")
-    bundles: dict[str, tuple] = {}
-    with ThreadPoolExecutor(max_workers=max(1, SCAN_WORKERS)) as ex:
-        futs = {ex.submit(fetch_all_candles, sym, ref_ms): sym for sym in WATCHLIST}
-        for fut in as_completed(futs):
-            sym = futs[fut]
-            try:
-                b = fut.result()
-                if b:
-                    bundles[sym] = b
-                else:
-                    print(f"  [SKIP] {sym} — insufficient candle data")
-            except Exception as e:
-                print(f"  [ERROR] {sym} candle fetch: {e}")
-
-    if _shutdown:
-        save_state(state)
-        sys.exit(0)
-
-    print("[PHASE 2] Building correlation clusters…")
-    try:
-        matrix = correlation_matrix(WATCHLIST, bundles)
-        clusters = cluster_correlated(WATCHLIST, matrix)
-        multi = [sorted(c) for c in clusters if len(c) > 1]
-        if multi:
-            print(f"  [CORR] clusters: {multi}")
-    except Exception as e:
-        print(f"  [CORR] failed: {e}")
-        clusters = [{s} for s in WATCHLIST]
-
-    print("[PHASE 3] Scanning for confluence (1D -> 4H -> 1H)…")
-    get_meta_and_ctx()
-
-    pending: list[tuple] = []
-    with ThreadPoolExecutor(max_workers=max(1, SCAN_WORKERS)) as ex:
-        futs = {ex.submit(scan_symbol, sym, state, bar_index_now, bundles.get(sym)): sym for sym in WATCHLIST}
-        for fut in as_completed(futs):
-            sym = futs[fut]
-            try:
-                res = fut.result()
-                pending.extend(res)
-            except Exception as e:
-                print(f"    ERROR processing {sym}: {e}")
-
-    flat = [(sym, direction, payload["sig"]) for sym, direction, payload in pending]
-    deduped = deduplicate_correlated(
-        [(sym, direction, {"confidence": sig.confidence}) for sym, direction, sig in flat], clusters
-    )
-    deduped_keys = {(s, d) for s, d, _ in deduped}
-    deduped_signals = [(s, d, sig) for s, d, sig in flat if (s, d) in deduped_keys]
-    deduped_signals.sort(key=lambda t: t[2].confidence, reverse=True)
-    top = deduped_signals[:MAX_SIGNALS_PER_SCAN]
-    dropped = deduped_signals[MAX_SIGNALS_PER_SCAN:]
-
-    print(f"  [SCAN SUMMARY] {len(deduped_signals)} signal(s) found")
-    if dropped:
-        print(f"  [RANK] dropped {len(dropped)} lower-priority: "
-              f"{[f'{hl_coin(s)} {d.upper()}' for s, d, _ in dropped]}")
-
-    fired = 0
-    fired_keys: set[str] = set()
-    for rank, (symbol, direction, sig) in enumerate(top, start=1):
-        key = f"{symbol}_{direction}"
-        if key in fired_keys:
+        if direction_used.get(sig.direction, 0) >= MAX_SAME_DIRECTION:
             continue
-        fired_keys.add(key)
+        if symbol_used.get(sig.symbol, 0) >= MAX_PER_SYMBOL:
+            continue   # stops both pipelines firing the same symbol in one scan
+        accepted.append(sig)
+        sector_used[sector] = sector_used.get(sector, 0) + 1
+        direction_used[sig.direction] = direction_used.get(sig.direction, 0) + 1
+        symbol_used[sig.symbol] = symbol_used.get(sig.symbol, 0) + 1
 
-        msg = format_signal(sig, rank=rank)
-        msg_id = send_telegram(msg)
+    print(f"  [SCAN] {len(accepted)} signal(s) accepted after diversification + concurrency caps")
 
-        hist_id = record_signal_history(
-            state, symbol, direction, sig.setup_type, sig.confidence, sig.grade,
-            sig.funding, sig.atr_pct, sent=bool(msg_id),
-        )
+    # ── Live-price staleness re-check right before sending (ported from
+    #    Castellan) — refuses to fire on a plan the market has already
+    #    moved away from while the rest of the scan/selection ran. ────────
+    fresh_mids = fetch_all_mids()
+    for sig in accepted:
+        coin = hl_coin(sig.symbol)
+        live_price = fresh_mids.get(coin)
+        if live_price is None:
+            print(f"  [SKIP] {sig.symbol} [{sig.combo_label}] — could not confirm live price, "
+                  f"refusing to send an unverified entry")
+            continue
+        risk = abs(sig.exact_entry - sig.stop_loss)
+        drift_r = abs(live_price - sig.exact_entry) / risk if risk > 0 else float("inf")
+        if drift_r > MAX_ENTRY_DRIFT_R:
+            print(f"  [SKIP] {sig.symbol} [{sig.combo_label}] — entry stale: "
+                  f"live={fmt_price(live_price)} is {drift_r:.2f}R from entry={fmt_price(sig.exact_entry)}")
+            continue
 
+        msg = format_signal_message(sig, live_price)
+        msg_id = send_telegram_get_id(msg)
+        mark_fired(sig)
         if msg_id:
-            update_cooldown(state, symbol, direction, bar_index_now)
-            track_signal(state, symbol, direction, msg_id, sig, bar_index_now, hist_id)
-            print(f"  [SENT] #{rank} {hl_coin(symbol)} {direction.upper()} "
-                  f"grade={sig.grade} conf={sig.confidence:.0f}% "
-                  f"TP1={sig.risk_plan.tp1:.4f} TP2={sig.risk_plan.tp2:.4f} SL={sig.risk_plan.sl:.4f}")
+            track_active_signal(sig, msg_id)
+            print(f"  [FIRED] {sig.symbol} {sig.direction.upper()} [{sig.combo_label}] "
+                  f"grade={sig.signal_grade} conf={sig.confluence}/{sig.max_score}")
         else:
-            print(f"  [TG FAIL] #{rank} {hl_coin(symbol)} — Telegram send failed")
-        fired += 1
-        time.sleep(0.5)
+            print(f"  [TG FAIL] {sig.symbol} [{sig.combo_label}]")
 
-    save_state(state)
-    print(f"\nScan complete. {fired} signal(s) fired.")
+    _last_scan_ts = time.time()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TELEGRAM
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def send_telegram_get_id(text: str) -> int | None:
+    try:
+        r = _tg_session.post(
+            f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage",
+            json={"chat_id": TG_CHAT_ID, "text": text, "parse_mode": "HTML"},
+            timeout=15,
+        )
+        r.raise_for_status()
+        data = r.json()
+        if data.get("ok"):
+            return data["result"]["message_id"]
+        print(f"  [TG] sendMessage not ok: {data}")
+        return None
+    except Exception as e:
+        print(f"  [TG] send error: {e}")
+        return None
+
+
+def react_to_message(message_id: int, emoji: str) -> bool:
+    try:
+        r = _tg_session.post(
+            f"https://api.telegram.org/bot{TG_BOT_TOKEN}/setMessageReaction",
+            json={"chat_id": TG_CHAT_ID, "message_id": message_id,
+                  "reaction": [{"type": "emoji", "emoji": emoji}]},
+            timeout=15,
+        )
+        return r.ok
+    except Exception as e:
+        print(f"  [TG] react error: {e}")
+        return False
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ACTIVE SIGNAL TRACKING / REACTIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def track_active_signal(sig: NyxSignal, message_id: int) -> None:
+    combo = COMBOS.get(sig.combo_id)
+    key = f"{sig.symbol}:{sig.combo_id}:{sig.direction}:{int(time.time())}"
+    _active_signals[key] = {
+        "symbol": sig.symbol, "direction": sig.direction, "message_id": message_id,
+        "combo_id": sig.combo_id, "combo_label": sig.combo_label,
+        "exact_entry": sig.exact_entry, "backup_entry": sig.backup_entry,
+        "stop_loss": sig.stop_loss,
+        "tp1": sig.take_profit_1, "tp2": sig.take_profit_2, "tp3": sig.take_profit_3,
+        "combos_hit": sig.combos_hit, "signal_grade": sig.signal_grade,
+        "filled": False, "primary_filled": False, "backup_filled": False,
+        "fill_price": None, "filled_at": None,
+        "tp1_hit": False, "tp2_hit": False, "tp3_hit": False,
+        "resolved": False, "sent_at": time.time(),
+        "ttl_hours": combo.active_signal_ttl_hours if combo else 48.0,
+        "fill_timeout_hours": combo.fill_timeout_hours if combo else 6.0,
+    }
+
+
+def check_reactions(all_mids: dict) -> None:
+    now = time.time()
+    for key, s in list(_active_signals.items()):
+        if s.get("resolved"):
+            _active_signals.pop(key, None)
+            continue
+
+        coin = hl_coin(s["symbol"])
+        price = all_mids.get(coin)
+        if price is None:
+            continue
+
+        direction = s["direction"]
+        ttl_s = s.get("ttl_hours", 48.0) * 3600
+        fill_timeout_s = s.get("fill_timeout_hours", 6.0) * 3600
+
+        if not s["filled"]:
+            if now - s["sent_at"] > fill_timeout_s:
+                react_to_message(s["message_id"], "⌛")
+                record_outcome(s["symbol"], s.get("combo_id", ""), "expired")
+                s["resolved"] = True
+                continue
+
+            if not s["primary_filled"]:
+                p_hit = (price <= s["exact_entry"]) if direction == "long" else (price >= s["exact_entry"])
+                if p_hit:
+                    s["primary_filled"] = True
+            if not s["backup_filled"]:
+                b_hit = (price <= s["backup_entry"]) if direction == "long" else (price >= s["backup_entry"])
+                if b_hit:
+                    s["backup_filled"] = True
+            if not (s["primary_filled"] or s["backup_filled"]):
+                continue
+
+            s["filled"] = True
+            s["filled_at"] = now
+            filled_prices = [p for p, hit in
+                              ((s["exact_entry"], s["primary_filled"]),
+                               (s["backup_entry"], s["backup_filled"])) if hit]
+            s["fill_price"] = sum(filled_prices) / len(filled_prices)
+
+        sl_hit = (price <= s["stop_loss"]) if direction == "long" else (price >= s["stop_loss"])
+        if sl_hit:
+            outcome = "partial_loss" if s["tp1_hit"] else "loss"
+            react_to_message(s["message_id"], "❌")
+            record_outcome(s["symbol"], s.get("combo_id", ""), outcome)
+            s["resolved"] = True
+            continue
+
+        if not s["tp1_hit"]:
+            hit = (price >= s["tp1"]) if direction == "long" else (price <= s["tp1"])
+            if hit:
+                s["tp1_hit"] = True
+                react_to_message(s["message_id"], "✅")
+
+        if not s["tp2_hit"]:
+            hit = (price >= s["tp2"]) if direction == "long" else (price <= s["tp2"])
+            if hit:
+                s["tp2_hit"] = True
+                react_to_message(s["message_id"], "🎯")
+                if not s["tp3"]:
+                    record_outcome(s["symbol"], s.get("combo_id", ""), "win")
+                    s["resolved"] = True
+                    continue
+
+        if s["tp3"] and not s["tp3_hit"]:
+            hit = (price >= s["tp3"]) if direction == "long" else (price <= s["tp3"])
+            if hit:
+                s["tp3_hit"] = True
+                react_to_message(s["message_id"], "🏆")
+                record_outcome(s["symbol"], s.get("combo_id", ""), "win_full")
+                s["resolved"] = True
+                continue
+
+        if now - s["sent_at"] > ttl_s:
+            outcome = "timeout_win" if s["tp1_hit"] else "timeout"
+            record_outcome(s["symbol"], s.get("combo_id", ""), outcome)
+            s["resolved"] = True
+
+    for key in [k for k, s in _active_signals.items() if s.get("resolved")]:
+        _active_signals.pop(key, None)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WIN RATE MEMORY (now segmented by pipeline too)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def load_win_rate() -> None:
+    global _win_rate_data
+    if WIN_RATE_FILE.exists():
+        try:
+            _win_rate_data = json.loads(WIN_RATE_FILE.read_text())
+        except Exception:
+            _win_rate_data = {}
+    else:
+        _win_rate_data = {}
+
+
+def save_win_rate() -> None:
+    global _win_rate_dirty
+    try:
+        WIN_RATE_FILE.write_text(json.dumps(_win_rate_data, indent=2))
+        _win_rate_dirty = False
+    except Exception as e:
+        print(f"  [WIN RATE] save error: {e}")
+
+
+def _bump_bucket(bucket: dict, outcome: str) -> None:
+    if outcome in ("win", "win_full", "timeout_win", "partial_loss"):
+        bucket["wins"] += 1
+    elif outcome == "loss":
+        bucket["losses"] += 1
+    else:
+        bucket["other"] += 1
+
+
+def record_outcome(symbol: str, combo_id: str, outcome: str) -> None:
+    global _win_rate_dirty
+    _bump_bucket(_win_rate_data.setdefault("overall", {"wins": 0, "losses": 0, "other": 0}), outcome)
+    _bump_bucket(_win_rate_data.setdefault(symbol, {"wins": 0, "losses": 0, "other": 0}), outcome)
+    if combo_id:
+        _bump_bucket(_win_rate_data.setdefault(f"combo:{combo_id}",
+                                                {"wins": 0, "losses": 0, "other": 0}), outcome)
+    _win_rate_dirty = True
+
+
+def get_win_rate_summary() -> str:
+    overall = _win_rate_data.get("overall", {"wins": 0, "losses": 0, "other": 0})
+    total = overall["wins"] + overall["losses"]
+    pct = (overall["wins"] / total * 100) if total else 0.0
+    lines = [f"[WIN RATE] {overall['wins']}W / {overall['losses']}L "
+             f"({pct:.1f}%) — {overall['other']} other outcomes tracked"]
+    for combo in COMBOS.values():
+        b = _win_rate_data.get(f"combo:{combo.id}")
+        if b:
+            t = b["wins"] + b["losses"]
+            p = (b["wins"] / t * 100) if t else 0.0
+            lines.append(f"  [{combo.label}] {b['wins']}W / {b['losses']}L ({p:.1f}%)")
+    return "\n".join(lines)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STATE PERSISTENCE (defensive: falls back to .bak, checks schema version —
+# ported from Castellan)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _default_state() -> dict:
+    return {"_version": STATE_VERSION, "fired_signals": {}, "active_signals": {}, "last_scan_ts": 0.0}
+
+
+def load_state() -> None:
+    global _fired_signals, _active_signals, _last_scan_ts
+    for path in (STATE_FILE, STATE_FILE.with_suffix(".bak")):
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text())
+            if data.get("_version", 1) != STATE_VERSION:
+                print(f"  [STATE] Schema version mismatch in {path} — starting fresh")
+                continue
+            _fired_signals = {k: float(v) for k, v in data.get("fired_signals", {}).items()}
+            _active_signals = data.get("active_signals", {})
+            _last_scan_ts = float(data.get("last_scan_ts", 0.0))
+            if path != STATE_FILE:
+                print(f"  [STATE] Loaded from backup {path}")
+            print(f"  [STATE] Loaded {len(_fired_signals)} cooldown + {len(_active_signals)} active signals")
+            return
+        except Exception as e:
+            print(f"  [STATE] Failed to load {path}: {e}")
+    print("  [STATE] Starting fresh — no valid state file found")
+    fresh = _default_state()
+    _fired_signals, _active_signals, _last_scan_ts = {}, {}, 0.0
+
+
+def save_state() -> None:
+    if _win_rate_dirty:
+        save_win_rate()
+    try:
+        state_json = json.dumps({
+            "_version": STATE_VERSION,
+            "fired_signals": _fired_signals,
+            "active_signals": _active_signals,
+            "last_scan_ts": _last_scan_ts,
+        }, indent=2)
+        tmp = STATE_FILE.with_suffix(".tmp")
+        tmp.write_text(state_json)
+        if STATE_FILE.exists():
+            STATE_FILE.replace(STATE_FILE.with_suffix(".bak"))
+        os.replace(tmp, STATE_FILE)
+        print(f"  [STATE] Saved {len(_fired_signals)} cooldown + {len(_active_signals)} active signals")
+    except Exception as e:
+        print(f"  [STATE] Save error: {e}")
+
+
+def cleanup_state() -> None:
+    now = time.time()
+    before = len(_fired_signals)
+    max_cooldown_s = max(c.cooldown_hours for c in COMBOS.values()) * 3600
+    expired = [k for k, ts in _fired_signals.items() if now - ts > max_cooldown_s]
+    for k in expired:
+        _fired_signals.pop(k, None)
+
+    before_active = len(_active_signals)
+    stale = [k for k, s in _active_signals.items()
+             if s.get("resolved", False)
+             or now - s.get("sent_at", 0) > s.get("ttl_hours", 48.0) * 3600]
+    for k in stale:
+        _active_signals.pop(k, None)
+
+    print(f"  [CLEANUP] Removed {before - len(_fired_signals)} expired cooldowns, "
+          f"{before_active - len(_active_signals)} stale active signals")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAIN
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _shutdown_handler(signum, frame):
+    print(f"\n  [SHUTDOWN] Received signal {signum} — saving state before exit.")
+    save_state()
+    sys.exit(0)
+
+
+def main() -> None:
+    print("=" * 60)
+    print(f"  Nyx Engine v{VERSION}  [dual-pipeline, single-scan mode]")
+    print(f"  Pipelines: {', '.join(c.label for c in COMBOS.values())}")
+    print(f"  Top {TOP_N_SIGNALS} signals/scan | Sector cap {MAX_PER_SECTOR} | "
+          f"Same-dir cap {MAX_SAME_DIRECTION} | Same-symbol cap {MAX_PER_SYMBOL}")
+    print(f"  Global concurrency cap: {MAX_CONCURRENT_ACTIVE_SIGNALS} unresolved active signals")
+    print(f"  OI floor: ${MIN_OI_USD:,.0f} | Entry drift guard: {MAX_ENTRY_DRIFT_R}R")
+    print("=" * 60)
+
+    _signal.signal(_signal.SIGTERM, _shutdown_handler)
+    _signal.signal(_signal.SIGINT, _shutdown_handler)
+
+    load_state()
+    load_win_rate()
+    print(f"\n{get_win_rate_summary()}")
+
+    all_mids = fetch_all_mids()
+    if _active_signals:
+        print(f"\n[REACTIONS] Checking {len(_active_signals)} active signal(s)...")
+        try:
+            check_reactions(all_mids)
+        except Exception as e:
+            print(f"[REACT ERROR] {e}")
+    else:
+        print("\n[REACTIONS] No active signals to check.")
+
+    try:
+        run_scan()
+    except Exception as e:
+        print(f"[MAIN ERROR] {e}")
+        send_telegram_get_id(f"⚠️ Nyx Engine error: {e}")
+
+    cleanup_state()
+    save_state()
+    print("  [DONE] Scan complete. Exiting.")
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        try:
-            send_telegram(f"🚨 {__engine_name__} v{__version__} crashed: {e}")
-        except Exception:
-            pass
-        raise
-    finally:
-        _hl_session.close()
+    main()
