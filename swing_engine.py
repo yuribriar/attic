@@ -76,6 +76,26 @@ GOVERNOR_ADJUST_STEP = 2.0     # points of confidence threshold to nudge per gov
 GOVERNOR_FLOOR = 55.0
 GOVERNOR_CEIL = 88.0
 
+# Per-run cap on how many signals get sent out of a single scan. The
+# governor above targets 5-10 signals per 24h (rolling), but that stat
+# barely moves scan-to-scan, so nothing previously stopped one unusually
+# correlated scan (e.g. many symbols reacting to the same BTC move at once)
+# from dumping most of a day's quota in a single 15m run. This ranks every
+# candidate that clears its per-symbol gates by confidence and only sends
+# the strongest MAX_SIGNALS_PER_RUN; higher-grade candidates always win a
+# slot over lower-grade ones since grade is just a bucketed confidence
+# score. Raise this if you want more throughput per run; it does not change
+# how many candidates are found, only how many get sent at once.
+MAX_SIGNALS_PER_RUN = 3
+# Minimum time between threshold nudges. The count it reacts to is a 24h
+# rolling window, which barely moves scan-to-scan (every 15 min); adjusting
+# every scan against a slow-moving statistic causes whipsaw — a quiet
+# stretch can otherwise crater the threshold to GOVERNOR_FLOOR within a
+# couple hours, then a resulting burst overcorrects it back near the
+# ceiling. Rate-limiting to hourly keeps the correction on the same time
+# scale as the thing it's correcting.
+GOVERNOR_MIN_ADJUST_INTERVAL_S = 3600
+
 # Setup Grade -> Style sizing table (risk % of account equity per trade)
 GRADE_SIZE_TABLE = {
     ("A+", "scalp"): 1.00, ("A+", "intraday"): 1.25, ("A+", "swing"): 1.50,
@@ -85,8 +105,22 @@ GRADE_SIZE_TABLE = {
 }
 
 MAX_CONCURRENT_PER_SYMBOL = 1
+# Book-wide cap on open signals sharing the same direction, independent of
+# symbol. Majors (BTC/ETH/SOL/BNB/XRP/...) move together often enough that
+# a single broad market move can otherwise fire several "independent"
+# same-direction signals across the watchlist that are really one bet
+# repeated — inflating apparent diversification while concentrating risk.
+MAX_CONCURRENT_SAME_DIRECTION = 6
 COOLDOWN_BARS_15M = 6           # bars of 15m equivalent between signals on same symbol+dir
 DEDUP_PRICE_TOL_PCT = 0.0025
+# How far back to look when checking for a duplicate entry price. Without a
+# bound, a symbol re-testing the same support/resistance level (very normal
+# in crypto, and exactly what liquidity-sweep setups are built to catch)
+# would have every fresh, independently-confirmed setup near that price
+# rejected as a "duplicate" for as long as state remembers it (up to the
+# 14-day prune window). 48h keeps same-day/adjacent-day re-fires from
+# spamming while letting a genuinely new setup a few days later through.
+DEDUP_TIME_WINDOW_HOURS = 48
 
 # How far (in multiples of exec-timeframe ATR) a POI zone may sit from the
 # live market price and still be used as a pullback limit entry. Expressed
@@ -98,6 +132,22 @@ POI_ATR_MULT = {"scalp": 0.75, "intraday": 1.0, "swing": 1.25}
 # Hard cap as a fraction of price, regardless of ATR, so an abnormal ATR
 # spike (e.g. post-news candle) can't stretch the entry unreasonably far.
 POI_MAX_PCT_OF_PRICE = 0.02
+
+# --- Trend-Pullback Continuation pathway config ---
+# A second, deliberately independent setup family. The reversal pathway
+# above needs a counter-trend liquidity sweep + POI + structure break; this
+# one instead trades WITH an established trend on a healthy pullback, using
+# a different bias mechanism (swing-sequence structure + ADX, not EMA
+# cross) and a different trigger (RSI reset, not a structure break). The
+# point is to give the Adaptive Frequency Governor more independently
+# legitimate setups to pick from, so hitting the target signal count
+# doesn't only mean lowering the bar on one funnel.
+TREND_ADX_MIN = 20.0            # bias-tf ADX floor to confirm an actual trending regime, not chop
+RSI_PULLBACK_DIP_LONG = 45.0    # exec-tf RSI must have dipped at/below this recently (long)
+RSI_PULLBACK_TURN_LONG = 40.0   # ...and now be turning back up above this
+RSI_PULLBACK_DIP_SHORT = 55.0   # symmetric for shorts
+RSI_PULLBACK_TURN_SHORT = 60.0
+RSI_RESET_LOOKBACK = 8           # exec-tf bars to look back for the RSI dip
 
 logging.basicConfig(
     level=logging.INFO,
@@ -410,7 +460,13 @@ def _default_state() -> dict:
         "version": "zenith-prime-1.0.0",
         "signals": {},          # signal_id -> record
         "recent_by_symbol": {},  # symbol -> [{"t":ms,"dir":.., "price":.., "combo":..}]
-        "governor": {"threshold": 68.0, "history_days": {}},
+        "qualified_log": [],     # [ms, ...] every candidate that cleared its gates + governor
+                                  # threshold in a scan, whether or not MAX_SIGNALS_PER_RUN let
+                                  # it through. The governor reacts to this, not to state["signals"],
+                                  # so capping output per run doesn't blind the governor into
+                                  # thinking supply is lower than it actually is and dropping the
+                                  # threshold further than it should.
+        "governor": {"threshold": 68.0, "history_days": {}, "last_adjust_ms": 0},
         "win_history": {"by_grade": {}, "by_setup": {}},
         "atr_pct_memory": {},
         "last_run_ms": 0,
@@ -451,6 +507,7 @@ def prune_state(state: dict, max_signals: int = 500, max_days: int = 14):
         state["recent_by_symbol"][sym] = [
             r for r in state["recent_by_symbol"][sym] if r.get("t", 0) >= cutoff
         ][-20:]
+    state["qualified_log"] = [t for t in state.get("qualified_log", []) if t >= cutoff]
 
 
 # ============================================================================
@@ -781,25 +838,42 @@ def select_combo(regime: RegimeVector) -> str:
 # ============================================================================
 
 def governor_adjust_threshold(state: dict) -> float:
-    """Original mechanism: tracks signals produced over the trailing 24h and
-    nudges the confidence threshold up/down to keep output in the
-    5-10 signals/day band without hard-capping quality."""
+    """Tracks signals produced over the trailing 24h and nudges the
+    confidence threshold up/down to keep output in the 5-10 signals/day
+    band without hard-capping quality.
+
+    The count is a 24h rolling window; it moves very little between
+    consecutive 15-minute scans. Nudging the threshold every scan against
+    that slow-moving statistic is a mismatched feedback loop — a quiet
+    stretch can otherwise walk the threshold from 68 down to the 55 floor
+    in about 90 minutes, then a resulting burst overcorrects it back up
+    near the 88 ceiling. Rate-limiting adjustments to once per
+    GOVERNOR_MIN_ADJUST_INTERVAL_S keeps the correction speed on the same
+    time scale as the 24h window it's reacting to."""
     gov = state["governor"]
     now = int(time.time() * 1000)
     cutoff = now - 86_400_000
-    count_24h = sum(1 for rec in state["signals"].values() if rec.get("t", 0) >= cutoff)
+    # Counts candidates that cleared the threshold (qualified_log), not just
+    # the ones actually sent (state["signals"]) — those can differ once
+    # MAX_SIGNALS_PER_RUN caps output below true supply in a busy scan.
+    count_24h = sum(1 for t in state.get("qualified_log", []) if t >= cutoff)
     threshold = gov.get("threshold", 68.0)
 
-    if count_24h < TARGET_SIGNALS_MIN:
-        threshold -= GOVERNOR_ADJUST_STEP
-    elif count_24h > TARGET_SIGNALS_MAX:
-        threshold += GOVERNOR_ADJUST_STEP
-    else:
-        # gently relax back toward a neutral 70 when in-band
-        threshold += (70.0 - threshold) * 0.1
+    last_adjust_ms = gov.get("last_adjust_ms", 0)
+    due = (now - last_adjust_ms) >= GOVERNOR_MIN_ADJUST_INTERVAL_S * 1000
 
-    threshold = max(GOVERNOR_FLOOR, min(GOVERNOR_CEIL, threshold))
-    gov["threshold"] = threshold
+    if due:
+        if count_24h < TARGET_SIGNALS_MIN:
+            threshold -= GOVERNOR_ADJUST_STEP
+        elif count_24h > TARGET_SIGNALS_MAX:
+            threshold += GOVERNOR_ADJUST_STEP
+        else:
+            # gently relax back toward a neutral 70 when in-band
+            threshold += (70.0 - threshold) * 0.1
+        threshold = max(GOVERNOR_FLOOR, min(GOVERNOR_CEIL, threshold))
+        gov["threshold"] = threshold
+        gov["last_adjust_ms"] = now
+
     gov.setdefault("history_days", {})
     today_key = time.strftime("%Y-%m-%d", time.gmtime())
     gov["history_days"][today_key] = count_24h
@@ -966,6 +1040,153 @@ def build_pathway(symbol: str, bundle: dict, combo_name: str, regime: RegimeVect
     return cand
 
 
+def detect_momentum_reset(candles_exec: list[dict], ind_exec: dict, direction: str,
+                           lookback: int = RSI_RESET_LOOKBACK) -> Optional[dict]:
+    """Exec-tf trigger for the continuation pathway: RSI dipped into a
+    pullback pocket in the last `lookback` bars and is now turning back in
+    the trend direction, confirmed by a trend-direction closing candle.
+    This is a momentum-reset trigger, distinct from detect_mss's
+    structure-break trigger used by the reversal pathway."""
+    rsi_vals = ind_exec.get("rsi", [])
+    if len(rsi_vals) < lookback + 2:
+        return None
+    window = rsi_vals[-(lookback + 1):-1]
+    last_candle = candles_exec[-1]
+    if direction == "bullish":
+        dipped = min(window) <= RSI_PULLBACK_DIP_LONG
+        turning = rsi_vals[-1] > rsi_vals[-2] and rsi_vals[-1] > RSI_PULLBACK_TURN_LONG
+        bullish_close = last_candle["c"] > last_candle["o"]
+        if dipped and turning and bullish_close:
+            return {"rsi": rsi_vals[-1], "confirmed": True}
+    else:
+        dipped = max(window) >= RSI_PULLBACK_DIP_SHORT
+        turning = rsi_vals[-1] < rsi_vals[-2] and rsi_vals[-1] < RSI_PULLBACK_TURN_SHORT
+        bearish_close = last_candle["c"] < last_candle["o"]
+        if dipped and turning and bearish_close:
+            return {"rsi": rsi_vals[-1], "confirmed": True}
+    return None
+
+
+def in_pullback_zone(ind_struct: dict, last_close: float, atr_val: float) -> bool:
+    """Struct-tf check: price should have retraced into the band between
+    the fast and slow EMA (the trend's "value area"), rather than still
+    being extended away from it (no real pullback happened yet) or having
+    broken cleanly through the slow EMA (which reads as trend failure, not
+    a healthy pullback)."""
+    ema_fast = ind_struct["ema_fast"][-1]
+    ema_slow = ind_struct["ema_slow"][-1]
+    buf = atr_val * 0.5
+    lo, hi = min(ema_fast, ema_slow) - buf, max(ema_fast, ema_slow) + buf
+    return lo <= last_close <= hi
+
+
+def build_pathway_trend_continuation(symbol: str, bundle: dict, combo_name: str, regime: RegimeVector,
+                                      btc_bias: str, orderbook: dict, market_snap: dict) -> Optional[Candidate]:
+    """Second, deliberately independent setup family: trades WITH an
+    established trend on a healthy pullback, rather than fading a
+    liquidity sweep like build_pathway. Uses a different bias mechanism
+    (swing-sequence structure trend + ADX, not EMA cross) and a different
+    trigger (RSI reset, not a structure break), so it fires in genuinely
+    different conditions than the reversal pathway. The goal is to give the
+    Adaptive Frequency Governor more independently legitimate setups to
+    draw from, so reaching the target signal count doesn't only mean
+    lowering the bar on one funnel."""
+    combo = COMBOS[combo_name]
+    c_bias = bundle.get(combo["bias"], [])
+    c_struct = bundle.get(combo["struct"], [])
+    c_exec = bundle.get(combo["exec"], [])
+    if len(c_bias) < 30 or len(c_struct) < 30 or len(c_exec) < 30:
+        return None
+
+    ind_bias = compute_indicators(c_bias)
+    ind_struct = compute_indicators(c_struct)
+    ind_exec = compute_indicators(c_exec)
+    if not ind_bias or not ind_struct or not ind_exec:
+        return None
+
+    # --- HTF trend via swing structure + ADX, not EMA cross ---
+    bias_swings = find_swings(c_bias)
+    bias_struct = analyze_structure(c_bias, bias_swings)
+    if bias_struct.trend == "neutral":
+        log.info("%s [%s/trend] no signal: killer=HTF_TREND_NEUTRAL", symbol, combo_name)
+        return None
+    adx_bias = ind_bias["adx"][-1]
+    if adx_bias < TREND_ADX_MIN:
+        log.info("%s [%s/trend] no signal: killer=WEAK_TREND adx=%.1f", symbol, combo_name, adx_bias)
+        return None
+    htf_dir = bias_struct.trend
+    pd_zone = premium_discount_zone(c_bias)
+
+    # --- Struct tf: must have actually pulled back into the EMA value zone ---
+    last_struct_close = c_struct[-1]["c"]
+    atr_struct = ind_struct["atr"][-1]
+    if not in_pullback_zone(ind_struct, last_struct_close, atr_struct):
+        log.info("%s [%s/trend] no signal: killer=NOT_IN_PULLBACK_ZONE bias=%s", symbol, combo_name, htf_dir)
+        return None
+
+    # --- Exec tf: momentum-reset trigger ---
+    reset = detect_momentum_reset(c_exec, ind_exec, htf_dir)
+    if not reset:
+        log.info("%s [%s/trend] no signal: killer=NO_MOMENTUM_RESET bias=%s", symbol, combo_name, htf_dir)
+        return None
+
+    direction = "LONG" if htf_dir == "bullish" else "SHORT"
+
+    last_price = market_snap.get(symbol, {}).get("mark_px") or c_exec[-1]["c"]
+    atr_exec = ind_exec["atr"][-1]
+    entry = last_price
+    ema_fast_struct = ind_struct["ema_fast"][-1]
+    zone_dist = abs(ema_fast_struct - last_price)
+    atr_mult = POI_ATR_MULT.get(combo_name, 1.0)
+    atr_tol = atr_exec * atr_mult if atr_exec > 0 else 0.0
+    max_tol = last_price * POI_MAX_PCT_OF_PRICE
+    tol = min(atr_tol, max_tol) if atr_tol > 0 else 0.0
+    right_side = (direction == "LONG" and ema_fast_struct <= last_price) or \
+                 (direction == "SHORT" and ema_fast_struct >= last_price)
+    if tol > 0 and zone_dist < tol and right_side:
+        entry = ema_fast_struct
+
+    struct_swings = find_swings(c_struct)
+    local_struct = analyze_structure(c_struct, struct_swings)
+    sl_buffer = atr_exec * 1.1
+    if direction == "LONG":
+        anchor = local_struct.last_swing_low if local_struct.last_swing_low is not None else entry
+        sl = min(anchor, entry) - sl_buffer
+        risk = entry - sl
+        tp1 = entry + risk * 1.5
+        tp2 = entry + risk * 2.75
+    else:
+        anchor = local_struct.last_swing_high if local_struct.last_swing_high is not None else entry
+        sl = max(anchor, entry) + sl_buffer
+        risk = sl - entry
+        tp1 = entry - risk * 1.5
+        tp2 = entry - risk * 2.75
+
+    if risk <= 0:
+        return None
+
+    confluences = [
+        f"HTF {combo['bias']} structure trend: {htf_dir} (ADX {adx_bias:.0f})",
+        f"Pullback into EMA value zone ({combo['struct']})",
+        f"RSI reset & turn confirmed ({combo['exec']})",
+        f"Price in {pd_zone['zone']} zone (HTF range)",
+    ]
+    if btc_bias != "neutral":
+        aligned = (btc_bias == "bullish" and direction == "LONG") or (btc_bias == "bearish" and direction == "SHORT")
+        confluences.append(f"BTC regime {'aligned' if aligned else 'diverging'} ({btc_bias})")
+
+    ob_imbalance = orderbook.get("imbalance", 0.0)
+    if (direction == "LONG" and ob_imbalance > 0.1) or (direction == "SHORT" and ob_imbalance < -0.1):
+        confluences.append(f"Orderbook imbalance supportive ({ob_imbalance:+.2f})")
+
+    cand = Candidate(
+        symbol=symbol, direction=direction, style=combo_name,
+        entry=entry, sl=sl, tp1=tp1, tp2=tp2,
+        confluences=confluences, setup_family="ema_trend_pullback",
+    )
+    return cand
+
+
 # ============================================================================
 # SCORING / CONFIDENCE / GRADING
 # ============================================================================
@@ -1057,8 +1278,19 @@ def check_cooldown(state: dict, symbol: str, direction: str) -> bool:
 
 
 def is_duplicate(state: dict, cand: Candidate) -> bool:
+    """A near-identical entry price only counts as a duplicate within
+    DEDUP_TIME_WINDOW_HOURS. recent_by_symbol is otherwise kept for up to
+    the 14-day prune window, and without a shorter bound here a symbol
+    re-testing the same level days later — a completely normal, often
+    desirable re-entry in crypto — would have every fresh, independently
+    confirmed setup near that price rejected as a "duplicate" of something
+    long since resolved."""
     recs = state["recent_by_symbol"].get(cand.symbol, [])
+    now = int(time.time() * 1000)
+    window_ms = DEDUP_TIME_WINDOW_HOURS * 3_600_000
     for r in recs:
+        if (now - r.get("t", 0)) > window_ms:
+            continue
         if r["dir"] == cand.direction and abs(r["price"] - cand.entry) / cand.entry <= DEDUP_PRICE_TOL_PCT:
             return True
     return False
@@ -1067,6 +1299,15 @@ def is_duplicate(state: dict, cand: Candidate) -> bool:
 def concurrent_open_count(state: dict, symbol: str) -> int:
     return sum(1 for rec in state["signals"].values()
                if rec.get("symbol") == symbol and rec.get("status") == "open")
+
+
+def concurrent_open_count_by_direction(state: dict, direction: str) -> int:
+    """Book-wide count of open signals sharing a direction, regardless of
+    symbol — used to cap correlated exposure (e.g. several majors all
+    firing LONG on the same broad move) rather than only capping per
+    symbol."""
+    return sum(1 for rec in state["signals"].values()
+               if rec.get("direction") == direction and rec.get("status") == "open")
 
 
 # ============================================================================
@@ -1185,12 +1426,32 @@ def scan_symbol(symbol: str, state: dict, market_snap: dict, btc_bundle: dict,
         return None
 
     orderbook = analyze_orderbook(symbol)
-    cand = build_pathway(symbol, bundle, combo_name, regime, btc_bias, orderbook, market_snap)
-    if not cand:
+
+    # Run every independent setup pathway and let the strongest confirmed
+    # candidate compete for the signal slot. This is how frequency should
+    # grow — via more legitimate, differently-sourced opportunities — rather
+    # than by lowering the bar on a single setup family.
+    candidates = []
+    reversal_cand = build_pathway(symbol, bundle, combo_name, regime, btc_bias, orderbook, market_snap)
+    if reversal_cand:
+        candidates.append(reversal_cand)
+    continuation_cand = build_pathway_trend_continuation(symbol, bundle, combo_name, regime, btc_bias, orderbook, market_snap)
+    if continuation_cand:
+        candidates.append(continuation_cand)
+    if not candidates:
         return None
+
+    for c in candidates:
+        c.raw_score = score_candidate(c, regime, state, btc_bias)
+        c.confidence = c.raw_score
+    cand = max(candidates, key=lambda c: c.confidence)
+    cand.grade = grade_for_confidence(cand.confidence)
 
     if concurrent_open_count(state, symbol) >= MAX_CONCURRENT_PER_SYMBOL:
         log.info("%s skipped: max concurrent signals reached", symbol)
+        return None
+    if concurrent_open_count_by_direction(state, cand.direction) >= MAX_CONCURRENT_SAME_DIRECTION:
+        log.info("%s skipped: max concurrent %s exposure reached across book", symbol, cand.direction)
         return None
     if not check_cooldown(state, symbol, cand.direction):
         log.info("%s skipped: cooldown active", symbol)
@@ -1198,10 +1459,6 @@ def scan_symbol(symbol: str, state: dict, market_snap: dict, btc_bundle: dict,
     if is_duplicate(state, cand):
         log.info("%s skipped: duplicate of recent signal", symbol)
         return None
-
-    cand.raw_score = score_candidate(cand, regime, state, btc_bias)
-    cand.confidence = cand.raw_score
-    cand.grade = grade_for_confidence(cand.confidence)
 
     if cand.confidence < threshold:
         log.info("%s below governor threshold (%.1f < %.1f)", symbol, cand.confidence, threshold)
@@ -1327,7 +1584,10 @@ def run_scan():
     threshold = governor_adjust_threshold(state)
     log.info("Governor threshold this scan: %.1f", threshold)
 
-    produced = 0
+    # Pass 1: find every candidate that clears its per-symbol gates
+    # (concurrency, cooldown, dedup) and the governor threshold. Nothing is
+    # sent yet — this just establishes true supply for this scan.
+    qualified = []
     for symbol in WATCHLIST:
         try:
             seed_1h = breadth_cache.get(symbol)
@@ -1337,11 +1597,26 @@ def run_scan():
             log.exception("Unhandled error scanning %s: %s", symbol, e)
             continue
         if cand:
-            msg = format_signal_message(cand, market_snap)
-            msg_id = send_telegram(msg)
-            record_signal(state, cand, message_id=msg_id)
-            produced += 1
-            log.info("Signal produced: %s %s grade=%s conf=%.1f", cand.symbol, cand.direction, cand.grade, cand.confidence)
+            qualified.append(cand)
+            state["qualified_log"].append(int(time.time() * 1000))
+
+    # Pass 2: rank by confidence and only send the strongest N. Since grade
+    # is derived from confidence, this always prefers a higher grade over a
+    # lower one; ties within a grade go to whichever scored higher.
+    qualified.sort(key=lambda c: c.confidence, reverse=True)
+    if len(qualified) > MAX_SIGNALS_PER_RUN:
+        log.info("%d candidate(s) qualified this scan; sending top %d by confidence (dropped: %s)",
+                  len(qualified), MAX_SIGNALS_PER_RUN,
+                  ", ".join(f"{c.symbol}/{c.grade}/{c.confidence:.1f}" for c in qualified[MAX_SIGNALS_PER_RUN:]))
+    selected = qualified[:MAX_SIGNALS_PER_RUN]
+
+    produced = 0
+    for cand in selected:
+        msg = format_signal_message(cand, market_snap)
+        msg_id = send_telegram(msg)
+        record_signal(state, cand, message_id=msg_id)
+        produced += 1
+        log.info("Signal produced: %s %s grade=%s conf=%.1f", cand.symbol, cand.direction, cand.grade, cand.confidence)
 
     prune_state(state)
     state["last_run_ms"] = int(time.time() * 1000)
