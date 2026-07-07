@@ -1,0 +1,75 @@
+# .github/workflows/backtest.yml
+name: 📊 Run crypto‑engine back‑test (dry‑run)
+
+# You can start it manually from the Actions UI or let it run on a schedule.
+on:
+  workflow_dispatch:          # manual trigger
+  schedule:
+    - cron: '0 3 * * *'      # optional: every day at 03:00 UTC
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    env:
+      # ---------- required secrets (add them in Settings → Secrets) ----------
+      TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+      TG_CHAT_ID:   ${{ secrets.TG_CHAT_ID }}
+
+      # ---------- engine‑specific flags ----------
+      # Force a dry‑run so no state.json is written and no Telegram messages are sent
+      LUCERNA_DRY_RUN: "1"
+
+      # (optional) override defaults – you can omit these if you want the engine’s defaults
+      # PHOENIX_START_EQUITY: "100000"
+      # SCAN_WORKERS: "4"
+
+    steps:
+      # ---------------------------------------------------------
+      # 1️⃣ Checkout the repository that contains the engine file
+      # ---------------------------------------------------------
+      - name: ⬇ Checkout repository
+        uses: actions/checkout@v4
+
+      # ---------------------------------------------------------
+      # 2️⃣ Install a clean Python interpreter
+      # ---------------------------------------------------------
+      - name: 🐍 Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ---------------------------------------------------------
+      # 3️⃣ Install the Python dependencies declared in the engine
+      # ---------------------------------------------------------
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy requests python-telegram-bot
+
+      # ---------------------------------------------------------
+      # 4️⃣ Run the back‑testing module in dry‑run mode
+      #    The engines define a `--mode backtest` CLI flag and require
+      #    start / end dates (see Nexus `--mode backtest` handling) [1][2].
+      # ---------------------------------------------------------
+      - name: 🔧 Execute back‑test (dry‑run)
+        run: |
+          python phoenix_v1_0_0.py \
+            --mode backtest \
+            --start 2023-01-01 \
+            --end   2023-06-30
+
+      # ---------------------------------------------------------
+      # 5️⃣ Save the console output as an artifact for later review
+      # ---------------------------------------------------------
+      - name: 📁 Archive back‑test log
+        if: always()
+        run: |
+          mkdir -p artifacts
+          # Engines normally emit a log file (e.g., phoenix_engine.log)
+          cp *.log artifacts/ 2>/dev/null || true
+
+      - name: 📤 Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest‑dry‑run‑log
+          path: artifacts/
