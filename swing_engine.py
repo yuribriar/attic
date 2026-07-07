@@ -126,11 +126,11 @@ STATE_PATH = os.environ.get("LUCERNA_STATE_PATH", os.path.join(os.path.dirname(o
 LOG_PATH = os.environ.get("LUCERNA_LOG_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "lucerna.log"))
 
 WATCHLIST = [
-    "BTCUSDT", "ETHUSDT", "HYPEUSDT", "ZECUSDT", "NEARUSDT",
-    "ONDOUSDT", "SUIUSDT", "PENGUUSDT", "BNBUSDT", "SOLUSDT",
-    "TRXUSDT", "BCHUSDT", "DOGEUSDT", "ADAUSDT", "DOTUSDT",
-    "TAOUSDT", "AVAXUSDT", "LINKUSDT", "AAVEUSDT", "XRPUSDT",
-    "XLMUSDT", "UNIUSDT", "LTCUSDT", "APTUSDT", "PENDLEUSDT",
+    "BTC", "ETH", "HYPE", "ZEC", "NEAR",
+    "ONDO", "SUI", "PENGU", "BNB", "SOL",
+    "TRX", "BCH", "DOGE", "ADA", "DOT",
+    "TAO", "AVAX", "LINK", "AAVE", "XRP",
+    "XLM", "UNI", "LTC", "APT", "PENDLE",
 ]
 
 # Timeframes: 1D = macro bias, 4H = structure/HTF, 1H = execution trigger
