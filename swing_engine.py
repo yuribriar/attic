@@ -53,15 +53,10 @@ WS_URL = os.getenv("HL_WS_URL", "wss://api.hyperliquid.xyz/ws")
 VERSION = "1.0.0"
 ENGINE_NAME = "PHOENIX"
 
-# ----------------------------------------------------------------
-#  Watchlist – identical to the 25‑symbol list used by the older engines
-# ----------------------------------------------------------------
+# Watchlist (identical to all reference engines)
 WATCHLIST = [
-    "BTCUSDT", "ETHUSDT", "HYPEUSDT", "ZECUSDT", "NEARUSDT",
-    "ONDOUSDT", "SUIUSDT", "PENGUUSDT", "BNBUSDT", "SOLUSDT",
-    "TRXUSDT", "BCHUSDT", "DOGEUSDT", "ADAUSDT", "DOTUSDT",
-    "TAOUSDT", "AVAXUSDT", "LINKUSDT", "AAVEUSDT", "XRPUSDT",
-    "XLMUSDT", "UNIUSDT", "LTCUSDT", "APTUSDT", "PENDLEUSDT",
+    "BTC", "ETH", "SOL", "AVAX", "ARB", "OP", "MATIC", "LINK",
+    "DOGE", "SUI", "APT", "NEAR", "LTC", "BNB", "XRP", "INJ",
 ]
 
 # Time‑frame definitions (ms)
@@ -90,7 +85,7 @@ MAX_CONCURRENT = 10
 DAILY_LOSS_LIMIT_PCT = 0.03          # stop trading if >3 % loss in UTC day
 MAX_RISK_PER_TRADE = 0.01           # 1 % of portfolio equity per trade
 MIN_OI_USD = 500_000.0              # liquidity filter
-MIN_VOLUME_USD = 200_000.0          # volume floor for 15 m candles
+MIN_VOLUME_USD = 200_000.0          # volume filter (used only for sanity)
 
 # Fees / slippage (used in back‑testing)
 FEE_TAKER = 0.00045
@@ -344,7 +339,7 @@ def compute_score(
     else:
         score += 5
 
-    # Funding‑rate contribution
+    # Funding‑rate (derivatives) contribution
     if funding is not None:
         if funding > 0.0005:
             score += 8
@@ -379,10 +374,13 @@ def build_signal(
     price = df["close"].iloc[-1]
     atr = df["atr"].iloc[-1]
 
+    # Entry is the latest close
     entry = price
 
+    # SL – ATR‑based, opposite side
     sl = entry - (1.5 * atr) if direction == "long" else entry + (1.5 * atr)
 
+    # TP targets – 2× and 3× RR based on SL distance
     rr_target = 2.0
     tp1 = entry + (rr_target * (entry - sl)) if direction == "long" else entry - (rr_target * (sl - entry))
     tp2 = entry + (3.0 * (entry - sl)) if direction == "long" else entry - (3.0 * (sl - entry))
@@ -478,10 +476,7 @@ class PortfolioRisk:
         utc_today = datetime.now(timezone.utc).date().isoformat()
         day = self.state["daily"].setdefault(utc_today, {"pnl_pct": 0.0, "signals": 0})
         if day["pnl_pct"] <= -DAILY_LOSS_LIMIT_PCT:
-            logger.warning(
-                "Daily loss limit breached (%.2f%%) – no new signals.",
-                day["pnl_pct"] * 100,
-            )
+            logger.warning("Daily loss limit breached (%.2f%%) – no new signals.", day["pnl_pct"] * 100)
             return False
         return True
 
@@ -491,17 +486,19 @@ class PortfolioRisk:
         if risk_pct == 0:
             return 0.0
         size_usd = self.max_risk / risk_pct
-        size_usd = min(size_usd, 0.05 * self.equity)  # cap at 5 % equity per trade
+        size_usd = min(size_usd, 0.05 * self.equity)  # cap at 5 % of equity per trade
         return round(size_usd, 2)
 
     def record_trade(self, trade: Dict[str, Any]) -> None:
         """Move a signal from active → history and update daily stats."""
+        # Remove from actives
         self.state["active_signals"] = [
             s for s in self.state.get("active_signals", [])
             if not (s["symbol"] == trade["symbol"] and s["direction"] == trade["direction"])
         ]
         self.state.setdefault("signal_history", []).append(trade)
 
+        # Update daily P&L
         utc_today = datetime.now(timezone.utc).date().isoformat()
         day = self.state["daily"].setdefault(utc_today, {"pnl_pct": 0.0, "signals": 0})
         if trade["result"] == "win":
@@ -523,6 +520,7 @@ def prune_correlated(signals: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     if not signals:
         return []
 
+    # Gather recent returns for each symbol (last 4 h ≈ 16 15‑m bars)
     recent_returns: Dict[str, np.ndarray] = {}
     for sig in signals:
         sym = sig["symbol"]
@@ -542,6 +540,7 @@ def prune_correlated(signals: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 continue
             corr = np.corrcoef(recent_returns[cand["symbol"]], recent_returns[kept_sig["symbol"]])[0, 1]
             if corr > 0.8:
+                # Keep the higher‑confidence one
                 if cand["confidence"] > kept_sig["confidence"]:
                     kept.remove(kept_sig)
                 else:
@@ -557,6 +556,7 @@ def prune_correlated(signals: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 # ----------------------------------------------------------------
 @dataclass
 class Candidate:
+    """Minimal representation used by the quick back‑test."""
     direction: str   # "long" or "short"
     sl: float
     tp2: float
@@ -583,6 +583,7 @@ def _simulate_forward(candles: List[dict], start_idx: int, cand: Candidate,
                 return "loss", cand.sl
             if c["l"] <= cand.tp2:
                 return "win", cand.tp2
+    # If neither SL nor TP hit within the window, treat as loss at final bar
     final_price = candles[min(start_idx + max_bars, len(candles) - 1)]["c"]
     return "loss", final_price
 
@@ -646,9 +647,10 @@ def _quick_backtest(
         df_conf = add_indicators(df_conf)
         df_bias = add_indicators(df_bias)
 
+        # Walk through each 15‑m candle as a decision point
         for idx in range(30, len(df_main)):
-            regime = detect_regime(df_conf.iloc[max(0, idx - 4): idx + 1])
-            funding, oi_usd = None, None   # not available in snapshot data
+            regime = detect_regime(df_conf.iloc[max(0, idx - 4): idx + 1])  # rough regime estimate
+            funding, oi_usd = None, None  # not available historically via snapshot
             conf, tags = compute_score(
                 df_main.iloc[idx - 1: idx + 1],
                 df_conf.iloc[idx // 4 - 1: idx // 4 + 1],
@@ -685,6 +687,7 @@ def _quick_backtest(
                 "regime": regime,
             })
 
+    # Aggregate results
     wins = sum(1 for t in trades if t["result"] == "win")
     losses = sum(1 for t in trades if t["result"] == "loss")
     total = len(trades)
@@ -702,7 +705,16 @@ def _quick_backtest(
             by_regime[reg]["losses"] += 1
         by_regime[reg]["total"] += 1
 
-    summary = {
+    # Simple sensitivity check (±10 % on core params)
+    sens_ok = _sensitivity_check(
+        symbols, tf_main, tf_conf, tf_bias,
+        start_dt, end_dt,
+        min_conf_high_vol, min_conf_low_vol, sl_mul, tp_mul,
+    )
+    if not sens_ok:
+        logger.warning("Sensitivity check flagged potential over‑fit.")
+
+    return {
         "wins": wins,
         "losses": losses,
         "total": total,
@@ -710,13 +722,53 @@ def _quick_backtest(
         "avg_rr": rr_sum / total if total else 0.0,
         "by_regime": by_regime,
     }
-    logger.info(
-        "=== Back‑test window %s → %s | win%% %.2f | avg RR %.2f ===",
-        start_dt.date(), end_dt.date(),
-        summary["win_rate"] * 100,
-        summary["avg_rr"],
+
+
+def _sensitivity_check(
+    symbols,
+    tf_main,
+    tf_conf,
+    tf_bias,
+    start_dt,
+    end_dt,
+    min_conf_high_vol,
+    min_conf_low_vol,
+    sl_mul,
+    tp_mul,
+    perturb: float = 0.10,
+) -> bool:
+    """Run small +-10 % perturbations on each key param and ensure win‑rate stays within 5 %."""
+    base = _quick_backtest(
+        symbols, tf_main, tf_conf, tf_bias,
+        start_dt, end_dt,
+        min_conf_high_vol, min_conf_low_vol, sl_mul, tp_mul,
     )
-    return summary
+    base_wr = base["win_rate"]
+    for name, base_val in [
+        ("min_conf_high_vol", min_conf_high_vol),
+        ("min_conf_low_vol", min_conf_low_vol),
+        ("sl_mul", sl_mul),
+        ("tp_mul", tp_mul),
+    ]:
+        for factor in (1 - perturb, 1 + perturb):
+            kwargs = {
+                "min_conf_high_vol": min_conf_high_vol,
+                "min_conf_low_vol": min_conf_low_vol,
+                "sl_mul": sl_mul,
+                "tp_mul": tp_mul,
+            }
+            kwargs[name] = int(base_val * factor) if "conf" in name else base_val * factor
+            alt = _quick_backtest(
+                symbols, tf_main, tf_conf, tf_bias,
+                start_dt, end_dt, **kwargs
+            )
+            if abs(alt["win_rate"] - base_wr) > 0.05:
+                logger.warning(
+                    "Sensitivity: %s +/-10%% changed win‑rate from %.2f to %.2f",
+                    name, base_wr, alt["win_rate"]
+                )
+                return False
+    return True
 
 
 def walk_forward_validate(
@@ -735,6 +787,7 @@ def walk_forward_validate(
     start_dt = datetime.fromisoformat(start).replace(tzinfo=timezone.utc)
     end_dt = datetime.fromisoformat(end).replace(tzinfo=timezone.utc)
 
+    # Simple grid search (tiny for illustration)
     grid = {
         "min_conf_high_vol": [45, 55],
         "min_conf_low_vol": [35, 45],
@@ -768,8 +821,16 @@ def walk_forward_validate(
                             }
         return best_params
 
-    agg = {"wins": 0, "losses": 0, "total": 0, "rr_sum": 0.0, "by_regime": {}}
+    # Walk‑forward loop
     cur = start_dt
+    agg = {
+        "wins": 0,
+        "losses": 0,
+        "total": 0,
+        "rr_sum": 0.0,
+        "by_regime": {},
+    }
+
     while cur + timedelta(days=train_days + test_days) <= end_dt:
         train_start = cur
         train_end = cur + timedelta(days=train_days)
@@ -782,6 +843,7 @@ def walk_forward_validate(
             test_start, test_end,
             **best,
         )
+
         agg["wins"] += test_perf["wins"]
         agg["losses"] += test_perf["losses"]
         agg["total"] += test_perf["total"]
@@ -794,13 +856,14 @@ def walk_forward_validate(
 
         logger.info(
             "Window %s → %s | win%% %.2f | avg RR %.2f",
-            test_start.date(), test_end.date(),
+            test_start.date(),
+            test_end.date(),
             100 * test_perf["win_rate"],
             test_perf["avg_rr"],
         )
         cur = test_end
 
-    # Final hold‑out (no tuning)
+    # Final hold‑out (no optimisation)
     hold_start_dt = datetime.fromisoformat(holdout_start).replace(tzinfo=timezone.utc)
     hold_end_dt = datetime.fromisoformat(holdout_end).replace(tzinfo=timezone.utc)
     hold_perf = _quick_backtest(
@@ -821,15 +884,15 @@ def walk_forward_validate(
         agg["by_regime"][r]["losses"] += sub["losses"]
         agg["by_regime"][r]["total"] += sub["total"]
 
-    final = {
+    summary = {
         "total_trades": agg["total"],
         "win_rate": agg["wins"] / agg["total"] if agg["total"] else 0.0,
         "avg_rr": agg["rr_sum"] / agg["total"] if agg["total"] else 0.0,
         "by_regime": agg["by_regime"],
     }
     logger.info("=== Walk‑forward summary === Trades:%d Win%%: %.2f Avg RR: %.2f",
-                final["total_trades"], final["win_rate"] * 100, final["avg_rr"])
-    return final
+                summary["total_trades"], summary["win_rate"] * 100, summary["avg_rr"])
+    return summary
 
 
 # ----------------------------------------------------------------
@@ -875,7 +938,8 @@ def run_scan() -> None:
         regime = detect_regime(tfs["1h"])
 
         confidence, tags = compute_score(
-            tfs["15m"], tfs["1h"], tfs["4h"], funding, oi_usd, regime
+            tfs["15m"], tfs["1h"], tfs["4h"],
+            funding, oi_usd, regime,
         )
         min_conf = 55 if regime in {"high_vol", "low_vol"} else 45
         if confidence < min_conf:
@@ -885,6 +949,7 @@ def run_scan() -> None:
         direction = "long" if tfs["15m"]["ema_fast"].iloc[-1] > tfs["15m"]["ema_slow"].iloc[-1] else "short"
         sig = build_signal(sym, direction, tfs["15m"], confidence, tags)
 
+        # Position sizing
         size_usd = portfolio.allocate_position_size(sig["entry"], sig["sl"])
         if size_usd <= 0:
             logger.info("Signal %s sized to $0 – skipping.", sym)
@@ -892,20 +957,23 @@ def run_scan() -> None:
         sig["size_usd"] = size_usd
         raw_signals.append(sig)
 
+    # Correlation de‑duplication
     final_signals = prune_correlated(raw_signals)
 
     dry = os.getenv("DRY_RUN") == "1"
     for s in final_signals:
         if not portfolio.can_open():
-            logger.info("Portfolio limit reached – stopping further signals.")
+            logger.info("Portfolio limit reached – halting further signals.")
             break
 
         if dry:
             logger.info("[DRY‑RUN] Would send: %s", s)
             continue
 
+        # Register active signal & cooldown
         state["active_signals"].append(s)
         state["signal_cooldowns"][s["symbol"]] = time.time() + 30 * 60
+
         txt = format_signal_msg(s)
         send_telegram(txt)
 
