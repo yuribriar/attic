@@ -119,15 +119,18 @@ except ImportError:  # pragma: no cover - numpy is required, listed in deps
 
 HL_API_URL = "https://api.hyperliquid.xyz/info"
 
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+TELEGRAM_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.environ.get("TG_CHAT_ID", "")
 
 STATE_PATH = os.environ.get("LUCERNA_STATE_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "state.json"))
 LOG_PATH = os.environ.get("LUCERNA_LOG_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "lucerna.log"))
 
 WATCHLIST = [
-    "BTC", "ETH", "SOL", "AVAX", "ARB", "OP", "MATIC", "LINK",
-    "DOGE", "SUI", "APT", "NEAR", "LTC", "BNB", "XRP", "INJ",
+    "BTCUSDT", "ETHUSDT", "HYPEUSDT", "ZECUSDT", "NEARUSDT",
+    "ONDOUSDT", "SUIUSDT", "PENGUUSDT", "BNBUSDT", "SOLUSDT",
+    "TRXUSDT", "BCHUSDT", "DOGEUSDT", "ADAUSDT", "DOTUSDT",
+    "TAOUSDT", "AVAXUSDT", "LINKUSDT", "AAVEUSDT", "XRPUSDT",
+    "XLMUSDT", "UNIUSDT", "LTCUSDT", "APTUSDT", "PENDLEUSDT",
 ]
 
 # Timeframes: 1D = macro bias, 4H = structure/HTF, 1H = execution trigger
