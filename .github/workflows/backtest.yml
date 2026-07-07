@@ -53,7 +53,7 @@ jobs:
       # ---------------------------------------------------------
       - name: 🔧 Execute back‑test (dry‑run)
         run: |
-          python phoenix_v1_0_0.py \
+          python swing_engine.py \
             --mode backtest \
             --start 2023-01-01 \
             --end   2023-06-30
