@@ -18,51 +18,6 @@
       "tp1_hit": false
     },
     {
-      "id": "0dab3cd7-5c56-4623-a998-254531e2b944",
-      "symbol": "ETH",
-      "direction": "long",
-      "pathway": "trend_continuation",
-      "entry": 1802.8,
-      "sl": 1778.4128658352556,
-      "tp1": 1839.5014071122814,
-      "tp2": 1867.0274624464926,
-      "confidence": 78.56264893448682,
-      "size_pct": 7.5,
-      "msg_id": 1770,
-      "opened_ts": 1783443684.0425556,
-      "tp1_hit": false
-    },
-    {
-      "id": "1f14efdf-4b24-40cf-b119-c20039ca2239",
-      "symbol": "SUI",
-      "direction": "long",
-      "pathway": "liquidity_reversal",
-      "entry": 0.74707,
-      "sl": 0.7299128695310044,
-      "tp1": 0.7619842392587335,
-      "tp2": 0.7729213480484715,
-      "confidence": 69.0,
-      "size_pct": 7.5,
-      "msg_id": 1776,
-      "opened_ts": 1783445481.0752256,
-      "tp1_hit": false
-    },
-    {
-      "id": "5a7ce834-4594-4a5b-8d17-7ed7dfbd7d93",
-      "symbol": "ETH",
-      "direction": "long",
-      "pathway": "trend_continuation",
-      "entry": 1811.0,
-      "sl": 1779.6908429672196,
-      "tp1": 1847.063878033615,
-      "tp2": 1874.1117865588265,
-      "confidence": 70.80426804738241,
-      "size_pct": 7.5,
-      "msg_id": 1783,
-      "opened_ts": 1783449077.7990334,
-      "tp1_hit": false
-    },
-    {
       "id": "9aac415e-4bea-497c-b318-91c35911ec69",
       "symbol": "HYPE",
       "direction": "short",
@@ -154,6 +109,63 @@
       "closed_ts": 1783451719.2823768,
       "pnl_pct": -0.75,
       "ts": 1783451719.2823782
+    },
+    {
+      "id": "0dab3cd7-5c56-4623-a998-254531e2b944",
+      "symbol": "ETH",
+      "direction": "long",
+      "pathway": "trend_continuation",
+      "entry": 1802.8,
+      "sl": 1778.4128658352556,
+      "tp1": 1839.5014071122814,
+      "tp2": 1867.0274624464926,
+      "confidence": 78.56264893448682,
+      "size_pct": 7.5,
+      "msg_id": 1770,
+      "opened_ts": 1783443684.0425556,
+      "tp1_hit": false,
+      "result": "loss",
+      "closed_ts": 1783459842.972852,
+      "pnl_pct": -0.75,
+      "ts": 1783459842.9728532
+    },
+    {
+      "id": "1f14efdf-4b24-40cf-b119-c20039ca2239",
+      "symbol": "SUI",
+      "direction": "long",
+      "pathway": "liquidity_reversal",
+      "entry": 0.74707,
+      "sl": 0.7299128695310044,
+      "tp1": 0.7619842392587335,
+      "tp2": 0.7729213480484715,
+      "confidence": 69.0,
+      "size_pct": 7.5,
+      "msg_id": 1776,
+      "opened_ts": 1783445481.0752256,
+      "tp1_hit": false,
+      "result": "loss",
+      "closed_ts": 1783459843.598772,
+      "pnl_pct": -0.75,
+      "ts": 1783459843.5987735
+    },
+    {
+      "id": "5a7ce834-4594-4a5b-8d17-7ed7dfbd7d93",
+      "symbol": "ETH",
+      "direction": "long",
+      "pathway": "trend_continuation",
+      "entry": 1811.0,
+      "sl": 1779.6908429672196,
+      "tp1": 1847.063878033615,
+      "tp2": 1874.1117865588265,
+      "confidence": 70.80426804738241,
+      "size_pct": 7.5,
+      "msg_id": 1783,
+      "opened_ts": 1783449077.7990334,
+      "tp1_hit": false,
+      "result": "loss",
+      "closed_ts": 1783459844.2182136,
+      "pnl_pct": -0.75,
+      "ts": 1783459844.2182155
     }
   ],
   "cooldowns": {
@@ -686,9 +698,9 @@
   },
   "daily": {
     "date": "2026-07-07",
-    "realized_pct": -3.0,
+    "realized_pct": -5.25,
     "signal_count": 9,
-    "paused": false
+    "paused": true
   },
   "correlation_returns": {
     "funding:BTC": [
@@ -1066,5 +1078,5 @@
       1.25e-05
     ]
   },
-  "bar_index": 19
+  "bar_index": 20
 }
