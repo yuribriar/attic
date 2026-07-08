@@ -119,6 +119,7 @@ except ImportError:  # pragma: no cover - numpy is required, listed in deps
 
 HL_API_URL = "https://api.hyperliquid.xyz/info"
 
+
 TELEGRAM_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TG_CHAT_ID", "")
 
@@ -1214,6 +1215,17 @@ def passes_hard_filters(symbol: str, snapshot: dict, ob_analysis: dict, atr_pct:
     return True, "ok"
 
 
+def has_active_signal(state: dict, symbol: str) -> bool:
+    """True if `symbol` already has an open signal in state["active_signals"],
+    in either direction. This is the one-signal-per-symbol gate: a symbol
+    stays locked out of new signals until its open one resolves via SL,
+    TP1-then-SL (breakeven), or TP2 (see `check_active_signals`). Distinct
+    from `check_cooldown`, which is a short post-signal cooldown per
+    symbol+direction and does not by itself prevent overlapping signals on
+    a symbol that's still open."""
+    return any(s.get("symbol") == symbol for s in state.get("active_signals", []))
+
+
 def check_cooldown(state: dict, symbol: str, direction: str, bar_index: int) -> bool:
     key = f"{symbol}:{direction}"
     entry = state["cooldowns"].get(key)
@@ -1291,10 +1303,13 @@ def react_to_message(message_id: int, emoji: str) -> None:
 
 
 def fmt_px(v: float) -> str:
+    # No thousands-separator commas: these values get wrapped in <code> so
+    # Telegram users can tap-to-copy straight into an order form. A comma in
+    # the copied string breaks most numeric price fields.
     if v >= 100:
-        return f"{v:,.2f}"
+        return f"{v:.2f}"
     if v >= 1:
-        return f"{v:,.4f}"
+        return f"{v:.4f}"
     return f"{v:.6f}"
 
 
@@ -1310,9 +1325,10 @@ def format_signal(cand: Candidate, confidence: float, notes: list[str], size_pct
         f"<b>{arrow} — {cand.symbol}</b>  [{grade}]",
         f"Pathway: {cand.pathway.replace('_', ' ').title()}  ({cand.duration_hint})",
         "",
-        f"Entry: <b>{fmt_px(cand.entry)}</b>",
-        f"Stop Loss: {fmt_px(cand.sl)}",
-        f"TP1: {fmt_px(cand.tp1)}   TP2: {fmt_px(cand.tp2)}",
+        f"Entry: <code>{fmt_px(cand.entry)}</code>",
+        f"Stop Loss: <code>{fmt_px(cand.sl)}</code>",
+        f"TP1: <code>{fmt_px(cand.tp1)}</code>",
+        f"TP2: <code>{fmt_px(cand.tp2)}</code>",
         f"R:R (to TP2): {cand.rr():.2f}",
         f"Suggested size: {size_pct:.2f}% of equity",
         "",
@@ -1343,7 +1359,17 @@ def track_signal(state: dict, cand: Candidate, confidence: float, msg_id: Option
 
 def check_active_signals(state: dict, latest_prices: dict[str, float]) -> None:
     """Resolve active signals against latest prices: TP/SL hits update history +
-    daily realized P&L, which feeds the daily-loss circuit breaker."""
+    daily realized P&L, which feeds the daily-loss circuit breaker.
+
+    Lifecycle (one signal per symbol, enforced by `has_active_signal`): a signal
+    blocks new signals on its symbol until exactly one of three closes fires --
+      1) SL hit before TP1 ever prints                       -> "loss"
+      2) TP1 hit, then price falls back to the breakeven stop -> "breakeven_after_tp1"
+      3) TP1 hit, then TP2 hit                                 -> "win_tp2"
+    (TP2 hit without TP1 ever registering, e.g. a gap between checks, also
+    resolves as "win_tp2".) Only after one of these fires does the symbol
+    free up for a new signal.
+    """
     still_active = []
     for sig in state.get("active_signals", []):
         price = latest_prices.get(sig["symbol"])
@@ -1355,17 +1381,26 @@ def check_active_signals(state: dict, latest_prices: dict[str, float]) -> None:
         hit_tp1 = (price >= sig["tp1"]) if direction == "long" else (price <= sig["tp1"])
         hit_sl = (price <= sig["sl"]) if direction == "long" else (price >= sig["sl"])
 
-        if hit_sl and not sig.get("tp1_hit"):
-            pnl_pct = -sig["size_pct"] * (PER_TRADE_RISK_PCT / max(sig["size_pct"], 1e-6))
-            _resolve(state, sig, "loss", pnl_pct)
-            continue
-        if hit_tp2:
-            pnl_pct = sig["size_pct"] * (abs(sig["tp2"] - sig["entry"]) / sig["entry"]) * (1 if direction == "long" else 1)
-            _resolve(state, sig, "win_tp2", pnl_pct)
-            continue
-        if hit_tp1 and not sig.get("tp1_hit"):
-            sig["tp1_hit"] = True
-            sig["sl"] = sig["entry"]  # move to breakeven
+        if not sig.get("tp1_hit"):
+            if hit_sl:
+                pnl_pct = -sig["size_pct"] * (PER_TRADE_RISK_PCT / max(sig["size_pct"], 1e-6))
+                _resolve(state, sig, "loss", pnl_pct)
+                continue
+            if hit_tp2:  # gapped through both targets between checks
+                pnl_pct = sig["size_pct"] * (abs(sig["tp2"] - sig["entry"]) / sig["entry"])
+                _resolve(state, sig, "win_tp2", pnl_pct)
+                continue
+            if hit_tp1:
+                sig["tp1_hit"] = True
+                sig["sl"] = sig["entry"]  # move to breakeven
+        else:
+            if hit_tp2:
+                pnl_pct = sig["size_pct"] * (abs(sig["tp2"] - sig["entry"]) / sig["entry"])
+                _resolve(state, sig, "win_tp2", pnl_pct)
+                continue
+            if hit_sl:  # breakeven stop hit post-TP1 -- closes flat, symbol frees up
+                _resolve(state, sig, "breakeven_after_tp1", 0.0)
+                continue
         still_active.append(sig)
     state["active_signals"] = still_active
 
@@ -1379,7 +1414,13 @@ def _resolve(state: dict, sig: dict, result: str, pnl_pct: float) -> None:
     if state["daily"]["realized_pct"] <= DAILY_LOSS_LIMIT_PCT:
         state["daily"]["paused"] = True
     if not DRY_RUN and sig.get("msg_id"):
-        react_to_message(sig["msg_id"], "\u2705" if pnl_pct > 0 else "\u274C")
+        if pnl_pct > 0:
+            emoji = "\u2705"       # win
+        elif pnl_pct < 0:
+            emoji = "\u274C"       # loss
+        else:
+            emoji = "\U0001F91D"   # breakeven close
+        react_to_message(sig["msg_id"], emoji)
 
 
 # ==============================================================================
@@ -1473,6 +1514,9 @@ def run_scan(dry_run: bool = False) -> None:
     for symbol in WATCHLIST:
         if _SHUTDOWN:
             break
+        if has_active_signal(state, symbol):
+            logger.info("Skipping %s: signal already open on this symbol (locked until it closes).", symbol)
+            continue
         try:
             bundle = fetch_all_candles(symbol, reference_ms)
             if not bundle:
