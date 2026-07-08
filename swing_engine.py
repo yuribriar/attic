@@ -1459,15 +1459,42 @@ def send_telegram(text: str) -> Optional[int]:
     return None
 
 
+def reply_telegram(text: str, reply_to_message_id: Optional[int]) -> Optional[int]:
+    """Sends a message threaded as a reply to the original signal post (if
+    we have its message_id), so TP1/SL/close-out updates show up attached
+    to the trade they belong to instead of as standalone messages."""
+    if DRY_RUN:
+        logger.info("[DRY-RUN] Telegram reply suppressed:\n%s", text)
+        return None
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        logger.warning("Telegram credentials missing; skipping reply.")
+        return None
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "HTML"}
+    if reply_to_message_id:
+        payload["reply_to_message_id"] = reply_to_message_id
+    try:
+        resp = requests.post(url, json=payload, timeout=10)
+        if resp.status_code == 200:
+            return resp.json().get("result", {}).get("message_id")
+        logger.error("Telegram reply failed: %s", resp.text[:200])
+    except requests.RequestException as e:
+        logger.error("Telegram reply error: %s", e)
+    return None
+
+
 def react_to_message(message_id: int, emoji: str) -> None:
     if DRY_RUN or not message_id:
         return
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setMessageReaction"
     try:
-        requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "message_id": message_id,
-                                  "reaction": [{"type": "emoji", "emoji": emoji}]}, timeout=8)
-    except requests.RequestException:
-        pass
+        resp = requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "message_id": message_id,
+                                         "reaction": [{"type": "emoji", "emoji": emoji}]}, timeout=8)
+        if resp.status_code != 200:
+            logger.warning("Telegram reaction failed (msg_id=%s, emoji=%s): %s",
+                            message_id, emoji, resp.text[:200])
+    except requests.RequestException as e:
+        logger.warning("Telegram reaction error (msg_id=%s, emoji=%s): %s", message_id, emoji, e)
 
 
 def fmt_px(v: float) -> str:
@@ -1503,6 +1530,7 @@ def format_signal(cand: Candidate, confidence: float, notes: list[str], size_pct
     # tap (Telegram) or click (Telegram Desktop) copies just that number --
     # no label text, no thousands separators, nothing else to strip out.
     lines = [
+        "\U0001F52E <b>LUCERNA</b>",
         f"<b>{arrow} — {cand.symbol}</b>  [{grade}]",
         f"Pathway: {cand.pathway.replace('_', ' ').title()}  ({cand.duration_hint})",
         "",
@@ -1609,7 +1637,11 @@ def check_active_signals(state: dict, latest_prices: dict[str, float]) -> None:
             sig.pop("_tp1_hit_this_check", None)
             resolved_result = _apply_bar_to_signal(sig, direction, lo, hi)
             if sig.pop("_tp1_hit_this_check", False) and not DRY_RUN and sig.get("msg_id"):
-                react_to_message(sig["msg_id"], "\U0001F3AF")  # TP1 hit, SL moved to breakeven
+                react_to_message(sig["msg_id"], "\U0001F525")  # TP1 hit, SL moved to breakeven
+                tp1_text = (f"\U0001F525 <b>TP1 hit</b> — {sig['symbol']} {sig['direction'].upper()}\n"
+                            f"Price: <code>{fmt_px_raw(sig['tp1'])}</code>\n"
+                            f"SL moved to breakeven (<code>{fmt_px_raw(sig['entry'])}</code>).")
+                reply_telegram(tp1_text, sig["msg_id"])
             if resolved_result is not None:
                 break
 
@@ -1646,8 +1678,17 @@ def _resolve(state: dict, sig: dict, result: str, pnl_pct: float) -> None:
     if state["daily"]["realized_pct"] <= DAILY_LOSS_LIMIT_PCT:
         state["daily"]["paused"] = True
     if not DRY_RUN and sig.get("msg_id"):
-        emoji = "\u2705" if result == "win_tp2" else ("\u2696\ufe0f" if result == "breakeven" else "\u274C")
+        emoji = "\U0001F3C6" if result == "win_tp2" else ("\U0001F44D" if result == "breakeven" else "\U0001F62D")
         react_to_message(sig["msg_id"], emoji)
+        if result != "breakeven":
+            # Breakeven stop-outs (SL hit after TP1 already moved it to entry)
+            # were already announced via the TP1 reply -- no need for a
+            # second reply, the reaction alone is enough.
+            exit_price = sig["tp2"] if result == "win_tp2" else sig["sl"]
+            headline = "\U0001F3C6 <b>TP2 hit — WIN</b>" if result == "win_tp2" else "\U0001F62D <b>SL hit — LOSS</b>"
+            close_text = (f"{headline} — {sig['symbol']} {sig['direction'].upper()}\n"
+                          f"Exit: <code>{fmt_px_raw(exit_price)}</code>  |  P&L: {pnl_pct:+.2f}%")
+            reply_telegram(close_text, sig["msg_id"])
 
 
 # ==============================================================================
