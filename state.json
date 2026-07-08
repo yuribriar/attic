@@ -16,7 +16,7 @@
       "msg_id": 1789,
       "opened_ts": 1783454475.3420215,
       "tp1_hit": true,
-      "last_checked_ts_ms": 1783517447004
+      "last_checked_ts_ms": 1783518438640
     },
     {
       "id": "9fc5c3f9-7f39-40b1-b9d4-5c41866b061d",
@@ -32,7 +32,7 @@
       "msg_id": 1801,
       "opened_ts": 1783469748.2931051,
       "tp1_hit": true,
-      "last_checked_ts_ms": 1783517447004
+      "last_checked_ts_ms": 1783518438640
     },
     {
       "id": "0f271f85-4228-41ea-af7a-847e5ec6bae3",
@@ -48,7 +48,7 @@
       "msg_id": 1814,
       "opened_ts": 1783476083.5501025,
       "tp1_hit": false,
-      "last_checked_ts_ms": 1783517447004
+      "last_checked_ts_ms": 1783518438640
     },
     {
       "id": "56aae694-2a73-4b07-92df-29356c6136f4",
@@ -64,7 +64,7 @@
       "msg_id": 1817,
       "opened_ts": 1783476952.0886862,
       "tp1_hit": false,
-      "last_checked_ts_ms": 1783517447004
+      "last_checked_ts_ms": 1783518438640
     },
     {
       "id": "1fcfb596-5287-4baa-9824-4af6dd2fb34a",
@@ -80,7 +80,7 @@
       "msg_id": 1819,
       "opened_ts": 1783477870.2235096,
       "tp1_hit": false,
-      "last_checked_ts_ms": 1783517447004
+      "last_checked_ts_ms": 1783518438640
     },
     {
       "id": "35e3caaa-de5a-4acb-bd4e-60cd871c4d14",
@@ -96,7 +96,7 @@
       "msg_id": 1821,
       "opened_ts": 1783478759.8052862,
       "tp1_hit": false,
-      "last_checked_ts_ms": 1783517447004
+      "last_checked_ts_ms": 1783518438640
     },
     {
       "id": "8d828867-0e30-42c3-ab49-5ae3189bef54",
@@ -112,7 +112,7 @@
       "msg_id": 1839,
       "opened_ts": 1783496741.78644,
       "tp1_hit": false,
-      "last_checked_ts_ms": 1783517447004
+      "last_checked_ts_ms": 1783518438640
     },
     {
       "id": "cc45f518-ae39-42d5-830c-631b471f328e",
@@ -128,7 +128,7 @@
       "msg_id": 1859,
       "opened_ts": 1783501276.9448805,
       "tp1_hit": false,
-      "last_checked_ts_ms": 1783517447004
+      "last_checked_ts_ms": 1783518438640
     }
   ],
   "signal_history": [
@@ -2051,5 +2051,5 @@
       -1.01228e-05
     ]
   },
-  "bar_index": 84
+  "bar_index": 85
 }
