@@ -33,9 +33,19 @@ WHY IT'S DIFFERENT
    afterthought), used to detect squeeze / crowded-trade conditions that
    pure price action misses.
 3. A genuine backtest module with walk-forward validation, a locked
-   holdout window, fee/slippage-aware net returns, a parameter-sensitivity
-   sweep, and a simple-baseline comparison -- so the win rate is measured,
-   not asserted.
+   holdout window, fee/slippage-aware net returns, a real parameter-
+   sensitivity sweep (trades are regenerated under each perturbed
+   threshold, not re-summarized from an unperturbed list), and a
+   simple-baseline comparison run on the holdout too -- so the win rate is
+   measured, not asserted.
+4. Genuinely triple-timeframe: 1D macro bias (`macro_bias_1d`) is a real
+   score input -- a trend/reversal candidate whose direction actively
+   opposes the 1D bias is penalized, not just decorated with an unread
+   candle set.
+5. ONE-SIGNAL-PER-SYMBOL: a symbol with an open, unresolved signal (SL,
+   breakeven-after-TP1, or TP2 all count as "resolved") will not produce a
+   new signal in either direction until that trade closes. See
+   `symbol_has_open_signal` / `ONE_SIGNAL_PER_SYMBOL`.
 
 ADAPTIVE THRESHOLD MECHANISM (how quality/frequency balance is achieved)
 --------------------------------------------------------------------------
@@ -119,7 +129,6 @@ except ImportError:  # pragma: no cover - numpy is required, listed in deps
 
 HL_API_URL = "https://api.hyperliquid.xyz/info"
 
-
 TELEGRAM_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TG_CHAT_ID", "")
 
@@ -165,6 +174,25 @@ SIGNAL_FRESHNESS_MAX_DRIFT_ATR = 0.6  # invalidate if price drifted >0.6*ATR bef
 LIQUIDITY_MIN_24H_VOL_USD = 5_000_000.0
 CORR_LOOKBACK_BARS = 60
 CORR_CLUSTER_THRESHOLD = 0.75
+
+# ONE-SIGNAL-PER-SYMBOL POLICY: while a symbol has an open (unresolved) active
+# signal, no new signal -- in either direction, from any pathway -- will be
+# generated for that symbol. The open signal must fully resolve (stop loss,
+# or TP1 -> breakeven-stop, or TP2) before that symbol can fire again. This is
+# enforced live in `evaluate_symbol` and, for realism, inside the backtest
+# window simulator as well (see `_backtest_window`'s `busy_until` tracking).
+ONE_SIGNAL_PER_SYMBOL = True
+
+# Macro (1D) bias gate -- see `macro_bias_1d`. Requires a minimum ADX on the
+# daily timeframe before a bias is considered directional rather than neutral.
+MACRO_BIAS_MIN_ADX = 15.0
+MACRO_OPPOSED_PENALTY = 14.0   # score penalty when 1D bias actively opposes the trade
+MACRO_ALIGNED_BONUS = 5.0      # score bonus when 1D bias agrees with the trade
+
+# Backtest universe -- full watchlist by default. Reduce only if runtime is a
+# real constraint; the audit flagged a 6/16-symbol subset as an undisclosed
+# coverage gap, so the default here is now the entire WATCHLIST.
+BACKTEST_SYMBOLS = WATCHLIST
 
 DRY_RUN = os.environ.get("LUCERNA_DRY_RUN", "0") == "1"
 
@@ -512,10 +540,16 @@ def compute_indicators(candles: list[dict]) -> dict:
     }
 
 
+_INDICATOR_CACHE_MAX_ENTRIES = 256
+
+
 def get_cached_indicators(symbol: str, tf: str, candles: list[dict]) -> dict:
     key = f"{symbol}:{tf}:{candles[-1]['t'] if candles else 0}"
     if key not in _INDICATOR_CACHE:
-        _INDICATOR_CACHE.clear()  # scan is short-lived; keep memory bounded
+        if len(_INDICATOR_CACHE) >= _INDICATOR_CACHE_MAX_ENTRIES:
+            # bound memory without evicting every entry on every insert (a scan
+            # touches 3 timeframes x len(WATCHLIST) keys, well under the cap)
+            _INDICATOR_CACHE.pop(next(iter(_INDICATOR_CACHE)))
         _INDICATOR_CACHE[key] = compute_indicators(candles)
     return _INDICATOR_CACHE[key]
 
@@ -701,6 +735,35 @@ def adaptive_sl_multiple(regime: RegimeVector) -> float:
 
 def adaptive_followthrough_bars(regime: RegimeVector) -> int:
     return 2 if regime.is_high_vol() else 1
+
+
+def macro_bias_1d(ind_bias: dict) -> str:
+    """Real macro-bias read from the 1D timeframe: price vs 50-EMA, direction
+    of the 50/200 EMA stack, and a minimum daily ADX so a flat/choppy daily
+    tape reports 'neutral' rather than a spurious direction. This is the
+    fix for the previously-fetched-but-unused 1D candle set."""
+    price = ind_bias["closes"][-1]
+    ema_s, ema_t = ind_bias["ema_slow"][-1], ind_bias["ema_trend"][-1]
+    adx_v = ind_bias["adx"][-1]
+    if adx_v < MACRO_BIAS_MIN_ADX:
+        return "neutral"
+    if price > ema_s and ema_s >= ema_t:
+        return "bullish"
+    if price < ema_s and ema_s <= ema_t:
+        return "bearish"
+    return "neutral"
+
+
+def macro_alignment(direction: str, macro_bias: str) -> tuple[float, Optional[str]]:
+    """Score delta + note for how a candidate's direction relates to the 1D
+    macro bias. Opposed = real penalty (macro bias is a genuine risk signal,
+    not just another vote); aligned = modest bonus; neutral = no-op."""
+    if macro_bias == "neutral":
+        return 0.0, None
+    aligned = (direction == "long" and macro_bias == "bullish") or (direction == "short" and macro_bias == "bearish")
+    if aligned:
+        return MACRO_ALIGNED_BONUS, "1D macro bias aligned"
+    return -MACRO_OPPOSED_PENALTY, "1D macro bias opposed -- confidence reduced"
 
 
 # ==============================================================================
@@ -957,6 +1020,8 @@ def pathway_liquidity_reversal(symbol: str, candles_exec: list[dict], ind_exec: 
     out = []
     price = candles_exec[-1]["c"]
     atr_val = ind_exec["atr"][-1]
+    ob_zones = mark_untested(find_order_blocks(candles_exec, ind_exec["atr"]), candles_exec)
+    fvg_zones = mark_untested(find_fvgs(candles_exec), candles_exec)
     for direction in ("long", "short"):
         sweep = detect_sweep(candles_exec, pools, direction)
         if not sweep:
@@ -964,13 +1029,45 @@ def pathway_liquidity_reversal(symbol: str, candles_exec: list[dict], ind_exec: 
         mss = detect_mss(candles_exec, direction)
         if not mss or not mss["confirmed"]:
             continue
+        # HTF structural bias check (previously accepted but never read): a
+        # reversal is allowed with neutral HTF structure, but is blocked when
+        # 4H structure is actively opposed to the reversal direction -- a
+        # reversal fighting both the sweep-origin trend AND HTF bias is the
+        # lowest-quality setup this pathway can produce.
+        if direction == "long" and struct.bias == "bearish":
+            continue
+        if direction == "short" and struct.bias == "bullish":
+            continue
         pdz = premium_discount_zone(candles_exec)
         confluences = [f"liquidity sweep @ {sweep['level']:.4g} (weight {sweep['weight']})",
                        f"MSS confirmed vs {mss['level']:.4g}"]
+        struct_bonus = 0.0
+        if direction == "long" and struct.bias == "bullish":
+            confluences.append("HTF (4H) structure bullish -- aligned")
+            struct_bonus = 6.0
+        elif direction == "short" and struct.bias == "bearish":
+            confluences.append("HTF (4H) structure bearish -- aligned")
+            struct_bonus = 6.0
         if direction == "long" and pdz["zone"] == "discount":
             confluences.append("entry in discount zone")
         elif direction == "short" and pdz["zone"] == "premium":
             confluences.append("entry in premium zone")
+
+        zone_bonus = 0.0
+        want_kind = "bullish" if direction == "long" else "bearish"
+        for z in ob_zones + fvg_zones:
+            if not z.tested and z.kind.startswith(want_kind) and z.contains(price, buf=atr_val * 0.15):
+                label = "order block" if "ob" in z.kind else "fair value gap"
+                confluences.append(f"reacting from untested {label}")
+                zone_bonus = 5.0
+                break
+
+        div_bonus = 0.0
+        rsi_div = ind_exec.get("rsi_divergence")
+        if (direction == "long" and rsi_div == "bullish") or (direction == "short" and rsi_div == "bearish"):
+            confluences.append(f"RSI {rsi_div} divergence")
+            div_bonus = 5.0
+
         sl_mult = adaptive_sl_multiple(regime)
         if direction == "long":
             sl = min(sweep["level"], price) - atr_val * sl_mult * 0.4
@@ -980,7 +1077,7 @@ def pathway_liquidity_reversal(symbol: str, candles_exec: list[dict], ind_exec: 
             sl = max(sweep["level"], price) + atr_val * sl_mult * 0.4
             tp1 = price - atr_val * sl_mult * 1.5
             tp2 = price - atr_val * sl_mult * 2.6
-        raw_score = 55 + min(15, sweep["weight"] * 4)
+        raw_score = 55 + min(15, sweep["weight"] * 4) + struct_bonus + zone_bonus + div_bonus
         out.append(Candidate(symbol, direction, "liquidity_reversal", price, sl, tp1, tp2, raw_score, confluences, "intraday"))
     return out
 
@@ -1038,24 +1135,36 @@ def pathway_momentum_breakout(symbol: str, candles_exec: list[dict], ind_exec: d
     broke_up = all(c["c"] > prior_upper for c in recent)
     broke_down = all(c["c"] < prior_lower for c in recent)
 
+    obv_v = ind_exec["obv"]
+    obv_rising = len(obv_v) > 10 and obv_v[-1] > obv_v[-10]
+    obv_falling = len(obv_v) > 10 and obv_v[-1] < obv_v[-10]
+
     if broke_up and vol_ok:
         confluences = [f"{followthrough_bars}-bar close-through Donchian upper", "volume confirmed"]
         if ind_exec["bb_width"][-1] > ind_exec["bb_width"][-6] and percentile_of_last(ind_exec["bb_width"], 60) < 40:
             confluences.append("breakout from volatility compression")
+        obv_bonus = 0.0
+        if obv_rising:
+            confluences.append("OBV confirms accumulation")
+            obv_bonus = 4.0
         sl = prior_upper - atr_val * 0.6
         tp1 = price + atr_val * adaptive_sl_multiple(regime) * 1.4
         tp2 = price + atr_val * adaptive_sl_multiple(regime) * 2.4
-        raw_score = 56 + (6 if "compression" in confluences[-1] else 0)
+        raw_score = 56 + (6 if "compression" in confluences[-1] else 0) + obv_bonus
         out.append(Candidate(symbol, "long", "momentum_breakout", price, sl, tp1, tp2, raw_score, confluences, "intraday"))
 
     if broke_down and vol_ok:
         confluences = [f"{followthrough_bars}-bar close-through Donchian lower", "volume confirmed"]
         if ind_exec["bb_width"][-1] > ind_exec["bb_width"][-6] and percentile_of_last(ind_exec["bb_width"], 60) < 40:
             confluences.append("breakout from volatility compression")
+        obv_bonus = 0.0
+        if obv_falling:
+            confluences.append("OBV confirms distribution")
+            obv_bonus = 4.0
         sl = prior_lower + atr_val * 0.6
         tp1 = price - atr_val * adaptive_sl_multiple(regime) * 1.4
         tp2 = price - atr_val * adaptive_sl_multiple(regime) * 2.4
-        raw_score = 56 + (6 if "compression" in confluences[-1] else 0)
+        raw_score = 56 + (6 if "compression" in confluences[-1] else 0) + obv_bonus
         out.append(Candidate(symbol, "short", "momentum_breakout", price, sl, tp1, tp2, raw_score, confluences, "intraday"))
 
     return out
@@ -1070,11 +1179,17 @@ def logistic(x: float) -> float:
 
 
 def score_candidate(cand: Candidate, all_pathway_directions: dict[str, list[str]], regime: RegimeVector,
-                     funding_read: dict, orderflow: dict, ob_analysis: dict) -> tuple[float, list[str]]:
+                     funding_read: dict, orderflow: dict, ob_analysis: dict,
+                     macro_bias: str = "neutral") -> tuple[float, list[str]]:
     """Ensemble-agreement scoring: reward independent pathway agreement, penalize
     genuine conflict, never simple averaging."""
     score = cand.raw_score
     notes = list(cand.confluences)
+
+    macro_delta, macro_note = macro_alignment(cand.direction, macro_bias)
+    if macro_note:
+        score += macro_delta
+        notes.append(macro_note)
 
     agree = sum(1 for pw, dirs in all_pathway_directions.items()
                 if pw != cand.pathway and cand.direction in dirs)
@@ -1201,29 +1316,26 @@ def dedup_correlated(ranked: list[Candidate], clusters: list[set[str]]) -> list[
 # ==============================================================================
 
 def passes_hard_filters(symbol: str, snapshot: dict, ob_analysis: dict, atr_pct: float,
-                         cand: Candidate, regime: RegimeVector) -> tuple[bool, str]:
-    vol24 = snapshot.get(symbol, {}).get("vol24_usd", 0.0)
-    floor = adaptive_liquidity_floor(regime)
-    if vol24 < floor:
-        return False, f"liquidity below floor ({vol24:,.0f} < {floor:,.0f})"
-    if ob_analysis.get("spread_pct") is not None and ob_analysis["spread_pct"] > 0.25:
+                         cand: Candidate, regime: RegimeVector,
+                         check_liquidity: bool = True, check_spread: bool = True) -> tuple[bool, str]:
+    """`check_liquidity`/`check_spread` default True for the live path. The
+    backtest calls this with both False and documents why in its report:
+    no historical L2 order-book or true rolling 24h-volume series exists to
+    reconstruct these two checks faithfully. Every other check (R:R, ATR
+    sanity) is shared identically between live and backtest so both paths
+    run through this one function rather than two drifting copies of it."""
+    if check_liquidity:
+        vol24 = snapshot.get(symbol, {}).get("vol24_usd", 0.0)
+        floor = adaptive_liquidity_floor(regime)
+        if vol24 < floor:
+            return False, f"liquidity below floor ({vol24:,.0f} < {floor:,.0f})"
+    if check_spread and ob_analysis.get("spread_pct") is not None and ob_analysis["spread_pct"] > 0.25:
         return False, f"spread too wide ({ob_analysis['spread_pct']:.2f}%)"
     if cand.rr() < MIN_RR:
         return False, f"R:R below minimum ({cand.rr():.2f} < {MIN_RR})"
     if atr_pct <= 0 or atr_pct > 15:
         return False, f"ATR% out of sane bounds ({atr_pct:.2f})"
     return True, "ok"
-
-
-def has_active_signal(state: dict, symbol: str) -> bool:
-    """True if `symbol` already has an open signal in state["active_signals"],
-    in either direction. This is the one-signal-per-symbol gate: a symbol
-    stays locked out of new signals until its open one resolves via SL,
-    TP1-then-SL (breakeven), or TP2 (see `check_active_signals`). Distinct
-    from `check_cooldown`, which is a short post-signal cooldown per
-    symbol+direction and does not by itself prevent overlapping signals on
-    a symbol that's still open."""
-    return any(s.get("symbol") == symbol for s in state.get("active_signals", []))
 
 
 def check_cooldown(state: dict, symbol: str, direction: str, bar_index: int) -> bool:
@@ -1238,7 +1350,22 @@ def update_cooldown(state: dict, symbol: str, direction: str, bar_index: int) ->
     state["cooldowns"][f"{symbol}:{direction}"] = {"bar_index": bar_index, "ts": time.time()}
 
 
+def symbol_has_open_signal(state: dict, symbol: str) -> bool:
+    """One-signal-per-symbol policy: True if `symbol` already has an active,
+    unresolved signal (regardless of direction). A symbol only becomes
+    eligible again once that signal resolves via SL or TP2 in
+    `check_active_signals`/`_resolve`."""
+    if not ONE_SIGNAL_PER_SYMBOL:
+        return False
+    return any(s.get("symbol") == symbol for s in state.get("active_signals", []))
+
+
 def signal_still_fresh(cand: Candidate, latest_price: float, atr_val: float) -> bool:
+    """Compare the candidate's generation-time entry against a price captured
+    LATER (after ranking/dedup/portfolio-gating, right before send -- see
+    `run_scan`'s pre-send freshness pass). Comparing against the same
+    generation-time price it was built from is a no-op by construction, which
+    was the original bug: drift is always exactly 0 in that case."""
     drift = abs(latest_price - cand.entry)
     return drift <= SIGNAL_FRESHNESS_MAX_DRIFT_ATR * atr_val
 
@@ -1303,9 +1430,19 @@ def react_to_message(message_id: int, emoji: str) -> None:
 
 
 def fmt_px(v: float) -> str:
-    # No thousands-separator commas: these values get wrapped in <code> so
-    # Telegram users can tap-to-copy straight into an order form. A comma in
-    # the copied string breaks most numeric price fields.
+    """Human-readable display format (with thousands separators)."""
+    if v >= 100:
+        return f"{v:,.2f}"
+    if v >= 1:
+        return f"{v:,.4f}"
+    return f"{v:.6f}"
+
+
+def fmt_px_raw(v: float) -> str:
+    """Copy-paste-safe format: NO thousands separators, since a comma pasted
+    into an exchange order-entry field breaks the value. This is what goes
+    inside <code> tags -- tapping/long-pressing it in Telegram selects and
+    copies exactly this string."""
     if v >= 100:
         return f"{v:.2f}"
     if v >= 1:
@@ -1321,14 +1458,17 @@ def confidence_bar(confidence: float) -> str:
 def format_signal(cand: Candidate, confidence: float, notes: list[str], size_pct: float) -> str:
     arrow = "\U0001F7E2 LONG" if cand.direction == "long" else "\U0001F534 SHORT"
     grade = grade_for_confidence(confidence)
+    # Each price value is wrapped alone in its own <code> block so a single
+    # tap (Telegram) or click (Telegram Desktop) copies just that number --
+    # no label text, no thousands separators, nothing else to strip out.
     lines = [
         f"<b>{arrow} — {cand.symbol}</b>  [{grade}]",
         f"Pathway: {cand.pathway.replace('_', ' ').title()}  ({cand.duration_hint})",
         "",
-        f"Entry: <code>{fmt_px(cand.entry)}</code>",
-        f"Stop Loss: <code>{fmt_px(cand.sl)}</code>",
-        f"TP1: <code>{fmt_px(cand.tp1)}</code>",
-        f"TP2: <code>{fmt_px(cand.tp2)}</code>",
+        f"Entry:  <code>{fmt_px_raw(cand.entry)}</code>",
+        f"SL:     <code>{fmt_px_raw(cand.sl)}</code>",
+        f"TP1:    <code>{fmt_px_raw(cand.tp1)}</code>",
+        f"TP2:    <code>{fmt_px_raw(cand.tp2)}</code>",
         f"R:R (to TP2): {cand.rr():.2f}",
         f"Suggested size: {size_pct:.2f}% of equity",
         "",
@@ -1361,15 +1501,9 @@ def check_active_signals(state: dict, latest_prices: dict[str, float]) -> None:
     """Resolve active signals against latest prices: TP/SL hits update history +
     daily realized P&L, which feeds the daily-loss circuit breaker.
 
-    Lifecycle (one signal per symbol, enforced by `has_active_signal`): a signal
-    blocks new signals on its symbol until exactly one of three closes fires --
-      1) SL hit before TP1 ever prints                       -> "loss"
-      2) TP1 hit, then price falls back to the breakeven stop -> "breakeven_after_tp1"
-      3) TP1 hit, then TP2 hit                                 -> "win_tp2"
-    (TP2 hit without TP1 ever registering, e.g. a gap between checks, also
-    resolves as "win_tp2".) Only after one of these fires does the symbol
-    free up for a new signal.
-    """
+    A resolved signal (SL, breakeven-stop after TP1, or TP2) is what frees a
+    symbol up under the one-signal-per-symbol policy -- see
+    `symbol_has_open_signal`."""
     still_active = []
     for sig in state.get("active_signals", []):
         price = latest_prices.get(sig["symbol"])
@@ -1381,26 +1515,27 @@ def check_active_signals(state: dict, latest_prices: dict[str, float]) -> None:
         hit_tp1 = (price >= sig["tp1"]) if direction == "long" else (price <= sig["tp1"])
         hit_sl = (price <= sig["sl"]) if direction == "long" else (price >= sig["sl"])
 
-        if not sig.get("tp1_hit"):
-            if hit_sl:
-                pnl_pct = -sig["size_pct"] * (PER_TRADE_RISK_PCT / max(sig["size_pct"], 1e-6))
-                _resolve(state, sig, "loss", pnl_pct)
-                continue
-            if hit_tp2:  # gapped through both targets between checks
-                pnl_pct = sig["size_pct"] * (abs(sig["tp2"] - sig["entry"]) / sig["entry"])
-                _resolve(state, sig, "win_tp2", pnl_pct)
-                continue
-            if hit_tp1:
-                sig["tp1_hit"] = True
-                sig["sl"] = sig["entry"]  # move to breakeven
-        else:
-            if hit_tp2:
-                pnl_pct = sig["size_pct"] * (abs(sig["tp2"] - sig["entry"]) / sig["entry"])
-                _resolve(state, sig, "win_tp2", pnl_pct)
-                continue
-            if hit_sl:  # breakeven stop hit post-TP1 -- closes flat, symbol frees up
-                _resolve(state, sig, "breakeven_after_tp1", 0.0)
-                continue
+        # P&L is size_pct (equity %) x actual stop distance (fraction of entry) --
+        # this mirrors the win-side formula and is what keeps the two consistent
+        # when position_size_pct() has clipped size_pct for exposure reasons.
+        # After TP1, sig["sl"] has been moved to entry, so this naturally
+        # evaluates to ~0 on a breakeven stop-out instead of a full loss.
+        stop_distance_frac = abs(sig["entry"] - sig["sl"]) / sig["entry"] if sig["entry"] else 0.0
+
+        if hit_sl:
+            pnl_pct = -sig["size_pct"] * stop_distance_frac
+            result = "breakeven" if sig.get("tp1_hit") else "loss"
+            _resolve(state, sig, result, pnl_pct)
+            continue
+        if hit_tp2:
+            pnl_pct = sig["size_pct"] * (abs(sig["tp2"] - sig["entry"]) / sig["entry"])
+            _resolve(state, sig, "win_tp2", pnl_pct)
+            continue
+        if hit_tp1 and not sig.get("tp1_hit"):
+            sig["tp1_hit"] = True
+            sig["sl"] = sig["entry"]  # move to breakeven
+            if not DRY_RUN and sig.get("msg_id"):
+                react_to_message(sig["msg_id"], "\U0001F3AF")  # TP1 hit, SL moved to breakeven
         still_active.append(sig)
     state["active_signals"] = still_active
 
@@ -1414,12 +1549,7 @@ def _resolve(state: dict, sig: dict, result: str, pnl_pct: float) -> None:
     if state["daily"]["realized_pct"] <= DAILY_LOSS_LIMIT_PCT:
         state["daily"]["paused"] = True
     if not DRY_RUN and sig.get("msg_id"):
-        if pnl_pct > 0:
-            emoji = "\u2705"       # win
-        elif pnl_pct < 0:
-            emoji = "\u274C"       # loss
-        else:
-            emoji = "\U0001F91D"   # breakeven close
+        emoji = "\u2705" if result == "win_tp2" else ("\u2696\ufe0f" if result == "breakeven" else "\u274C")
         react_to_message(sig["msg_id"], emoji)
 
 
@@ -1427,13 +1557,12 @@ def _resolve(state: dict, sig: dict, result: str, pnl_pct: float) -> None:
 # MAIN SCAN FLOW
 # ==============================================================================
 
-def evaluate_symbol(symbol: str, state: dict, bundle: dict[str, list[dict]], snapshot: dict,
-                     btc_bias: str, btc_strength: float, bar_index: int) -> list[tuple[Candidate, float, list[str]]]:
-    candles_exec, candles_struct, candles_bias = bundle[TF_EXEC], bundle[TF_STRUCT], bundle[TF_BIAS]
-    ind_exec = get_cached_indicators(symbol, TF_EXEC, candles_exec)
-    ind_struct = get_cached_indicators(symbol, TF_STRUCT, candles_struct)
-
-    regime = build_regime_vector(state, symbol, ind_exec, candles_exec, btc_bias, btc_strength)
+def generate_candidates(symbol: str, candles_exec: list[dict], ind_exec: dict, candles_struct: list[dict],
+                         regime: RegimeVector, ind_bias: Optional[dict] = None
+                         ) -> tuple[list[Candidate], dict[str, list[str]], str]:
+    """Pure candidate generation -- no filtering, no state mutation. Shared by
+    the live scan (`evaluate_symbol`) and the backtest (`_backtest_window`) so
+    both paths run the identical three-pathway logic."""
     struct_htf = analyze_structure(candles_struct, find_swings(candles_struct))
     swings_exec = find_swings(candles_exec)
     pools = build_liquidity_pools(swings_exec)
@@ -1444,39 +1573,85 @@ def evaluate_symbol(symbol: str, state: dict, bundle: dict[str, list[dict]], sna
     candidates += pathway_trend_continuation(symbol, candles_exec, ind_exec, struct_htf, regime)
     candidates += pathway_momentum_breakout(symbol, candles_exec, ind_exec, regime, followthrough_bars)
 
-    if not candidates:
-        return []
-
     pathway_directions: dict[str, list[str]] = {}
     for c in candidates:
         pathway_directions.setdefault(c.pathway, []).append(c.direction)
 
-    ob_analysis = analyze_orderbook(symbol)
-    atr_pct = ind_exec["atr"][-1] / ind_exec["closes"][-1] * 100 if ind_exec["closes"][-1] else 0.0
-    funding_by_dir = {d: funding_oi_read(snapshot, state, symbol, d) for d in ("long", "short")}
+    macro_bias = macro_bias_1d(ind_bias) if ind_bias is not None else "neutral"
+    return candidates, pathway_directions, macro_bias
+
+
+def score_and_filter_candidates(symbol: str, state: dict, candidates: list[Candidate],
+                                 pathway_directions: dict[str, list[str]], regime: RegimeVector,
+                                 macro_bias: str, snapshot: dict, ob_analysis: dict, atr_pct: float,
+                                 funding_by_dir: dict[str, dict], orderflow_fn, bar_index: int,
+                                 check_liquidity: bool = True, check_spread: bool = True,
+                                 apply_cooldown: bool = True, apply_one_signal_lock: bool = True
+                                 ) -> list[tuple[Candidate, float, list[str]]]:
+    """Shared score + filter pipeline -- identical for live and backtest apart
+    from the two explicit, documented bypass flags (`check_liquidity`,
+    `check_spread`) for data that has no honest historical reconstruction.
+    NOTE: the freshness/decay check is intentionally NOT here -- it must run
+    at send-time against a freshly captured price, not at generation time
+    (see `signal_still_fresh`'s docstring). `run_scan` applies it after
+    ranking/dedup, immediately before send."""
+    if apply_one_signal_lock and symbol_has_open_signal(state, symbol):
+        for cand in candidates:
+            log_suppressed(symbol, cand.direction, cand.pathway,
+                            "symbol already has an open signal (one-signal-per-symbol policy)", 0)
+        return []
 
     results = []
     min_score = adaptive_min_score(regime)
     for cand in candidates:
-        orderflow = orderflow_proxy(candles_exec, cand.direction)
-        funding_read = funding_by_dir[cand.direction]
-        score, notes = score_candidate(cand, pathway_directions, regime, funding_read, orderflow, ob_analysis)
+        orderflow = orderflow_fn(cand)
+        funding_read = funding_by_dir.get(cand.direction, {"squeeze_bonus": 0.0})
+        score, notes = score_candidate(cand, pathway_directions, regime, funding_read, orderflow, ob_analysis, macro_bias)
 
-        ok, reason = passes_hard_filters(symbol, snapshot, ob_analysis, atr_pct, cand, regime)
+        ok, reason = passes_hard_filters(symbol, snapshot, ob_analysis, atr_pct, cand, regime,
+                                          check_liquidity, check_spread)
         if not ok:
             log_suppressed(symbol, cand.direction, cand.pathway, reason, score)
             continue
         if score < min_score:
             log_suppressed(symbol, cand.direction, cand.pathway, f"score {score:.1f} < floor {min_score:.1f}", score)
             continue
-        if not check_cooldown(state, symbol, cand.direction, bar_index):
+        if apply_cooldown and not check_cooldown(state, symbol, cand.direction, bar_index):
             log_suppressed(symbol, cand.direction, cand.pathway, "cooldown active", score)
-            continue
-        if not signal_still_fresh(cand, candles_exec[-1]["c"], ind_exec["atr"][-1]):
-            log_suppressed(symbol, cand.direction, cand.pathway, "signal decayed (price drift)", score)
             continue
         results.append((cand, score, notes))
     return results
+
+
+def evaluate_symbol(symbol: str, state: dict, bundle: dict[str, list[dict]], snapshot: dict,
+                     btc_bias: str, btc_strength: float, bar_index: int
+                     ) -> list[tuple[Candidate, float, list[str], float]]:
+    """Returns (candidate, score, notes, atr_val) tuples. `atr_val` travels
+    with each result so `run_scan` can run the send-time freshness check
+    without recomputing indicators."""
+    candles_exec, candles_struct, candles_bias = bundle[TF_EXEC], bundle[TF_STRUCT], bundle[TF_BIAS]
+    ind_exec = get_cached_indicators(symbol, TF_EXEC, candles_exec)
+    ind_bias = get_cached_indicators(symbol, TF_BIAS, candles_bias)
+
+    regime = build_regime_vector(state, symbol, ind_exec, candles_exec, btc_bias, btc_strength)
+    candidates, pathway_directions, macro_bias = generate_candidates(
+        symbol, candles_exec, ind_exec, candles_struct, regime, ind_bias)
+    if not candidates:
+        return []
+
+    ob_analysis = analyze_orderbook(symbol)
+    atr_val = ind_exec["atr"][-1]
+    atr_pct = atr_val / ind_exec["closes"][-1] * 100 if ind_exec["closes"][-1] else 0.0
+    funding_by_dir = {d: funding_oi_read(snapshot, state, symbol, d) for d in ("long", "short")}
+
+    def orderflow_fn(cand: Candidate) -> dict:
+        return orderflow_proxy(candles_exec, cand.direction)
+
+    results = score_and_filter_candidates(
+        symbol, state, candidates, pathway_directions, regime, macro_bias, snapshot, ob_analysis,
+        atr_pct, funding_by_dir, orderflow_fn, bar_index,
+        check_liquidity=True, check_spread=True, apply_cooldown=True, apply_one_signal_lock=True)
+    return [(cand, score, notes, atr_val) for cand, score, notes in results]
 
 
 def run_scan(dry_run: bool = False) -> None:
@@ -1500,23 +1675,26 @@ def run_scan(dry_run: bool = False) -> None:
         save_state(state)
         return
 
+    # NOTE: this is a deliberate, documented exception to the "skip one asset on
+    # failure" error-handling policy (see the per-symbol try/except in the loop
+    # below). BTC's regime feeds `build_regime_vector` for every other symbol
+    # this scan, so a missing BTC read isn't "one asset's data is unavailable"
+    # -- it's "no symbol this scan has valid regime context" -- and aborting
+    # the whole scan is safer than silently scanning with stale/default regime.
     btc_bundle = fetch_all_candles("BTC", reference_ms)
     if not btc_bundle:
-        logger.error("Could not fetch BTC candles; aborting scan (BTC regime is required context).")
+        logger.error("Could not fetch BTC candles; aborting scan (BTC regime is required context for all symbols).")
         return
     btc_ind = get_cached_indicators("BTC", TF_EXEC, btc_bundle[TF_EXEC])
     btc_bias, btc_strength = compute_btc_regime(btc_ind)
 
     all_candidates: list[Candidate] = []
-    scored_meta: dict[str, tuple[float, list[str]]] = {}
+    scored_meta: dict[str, tuple[float, list[str], float]] = {}
     returns_by_symbol: dict[str, list[float]] = {}
 
     for symbol in WATCHLIST:
         if _SHUTDOWN:
             break
-        if has_active_signal(state, symbol):
-            logger.info("Skipping %s: signal already open on this symbol (locked until it closes).", symbol)
-            continue
         try:
             bundle = fetch_all_candles(symbol, reference_ms)
             if not bundle:
@@ -1524,9 +1702,9 @@ def run_scan(dry_run: bool = False) -> None:
                 continue
             returns_by_symbol[symbol] = compute_returns(bundle[TF_EXEC], CORR_LOOKBACK_BARS)
             results = evaluate_symbol(symbol, state, bundle, snapshot, btc_bias, btc_strength, bar_index)
-            for cand, score, notes in results:
+            for cand, score, notes, atr_val in results:
                 all_candidates.append(cand)
-                scored_meta[id(cand)] = (score, notes)
+                scored_meta[id(cand)] = (score, notes, atr_val)
         except Exception as e:  # noqa: BLE001 - never abort the whole run over one asset
             logger.error("Error evaluating %s: %s", symbol, e, exc_info=True)
             continue
@@ -1544,13 +1722,31 @@ def run_scan(dry_run: bool = False) -> None:
     slots_left = max(0, MAX_CONCURRENT_SIGNALS - len(active))
     exposure_left = max(0.0, MAX_PORTFOLIO_EXPOSURE_PCT - sum(a.get("size_pct", 0.0) for a in active))
 
+    # Freshness/decay check runs here -- at send-time, after ranking/dedup --
+    # against a freshly re-fetched price, not the generation-time price the
+    # candidate was built from (that comparison is definitionally a no-op).
+    fresh_snapshot = get_market_snapshot()
+
+    symbols_sent_this_scan: set[str] = set()
     sent = 0
     for cand in deduped:
         if slots_left <= 0 or exposure_left <= 0 or daily_loss_limit_breached(state):
             log_suppressed(cand.symbol, cand.direction, cand.pathway, "portfolio capacity exhausted mid-scan",
                             scored_meta[id(cand)][0])
             continue
-        score, notes = scored_meta[id(cand)]
+        # One-signal-per-symbol also applies within a single scan: two
+        # different pathways can each independently produce a candidate for
+        # the same symbol before either becomes "active" in state, so this
+        # guards the case `symbol_has_open_signal` can't see yet.
+        if cand.symbol in symbols_sent_this_scan:
+            log_suppressed(cand.symbol, cand.direction, cand.pathway,
+                            "another signal for this symbol already selected this scan", scored_meta[id(cand)][0])
+            continue
+        score, notes, atr_val = scored_meta[id(cand)]
+        fresh_price = fresh_snapshot.get(cand.symbol, {}).get("mark")
+        if fresh_price is not None and not signal_still_fresh(cand, fresh_price, atr_val):
+            log_suppressed(cand.symbol, cand.direction, cand.pathway, "signal decayed (price drift since generation)", score)
+            continue
         size_pct = position_size_pct(cand)
         if size_pct > exposure_left:
             size_pct = exposure_left
@@ -1558,6 +1754,7 @@ def run_scan(dry_run: bool = False) -> None:
             continue
         msg = format_signal(cand, score, notes, size_pct)
         msg_id = send_telegram(msg)
+        symbols_sent_this_scan.add(cand.symbol)
         if not DRY_RUN:
             track_signal(state, cand, score, msg_id, size_pct)
             update_cooldown(state, cand.symbol, cand.direction, bar_index)
@@ -1597,21 +1794,25 @@ class BacktestTrade:
     window_id: str
 
 
-def _simulate_forward(candles: list[dict], start_idx: int, cand: Candidate, max_bars: int = 96) -> tuple[str, float]:
-    """No look-ahead: only candles strictly after start_idx are used to resolve the trade."""
+def _simulate_forward(candles: list[dict], start_idx: int, cand: Candidate, max_bars: int = 96
+                       ) -> tuple[str, float, int]:
+    """No look-ahead: only candles strictly after start_idx are used to resolve the
+    trade. Also returns the resolving bar index, which the caller uses to
+    enforce one-signal-per-symbol (`busy_until`) during backtest replay."""
     for i in range(start_idx + 1, min(len(candles), start_idx + 1 + max_bars)):
         c = candles[i]
         if cand.direction == "long":
             if c["l"] <= cand.sl:
-                return "loss", cand.sl
+                return "loss", cand.sl, i
             if c["h"] >= cand.tp2:
-                return "win", cand.tp2
+                return "win", cand.tp2, i
         else:
             if c["h"] >= cand.sl:
-                return "loss", cand.sl
+                return "loss", cand.sl, i
             if c["l"] <= cand.tp2:
-                return "win", cand.tp2
-    return "timeout", candles[min(len(candles) - 1, start_idx + max_bars)]["c"]
+                return "win", cand.tp2, i
+    end_idx = min(len(candles) - 1, start_idx + max_bars)
+    return "timeout", candles[end_idx]["c"], end_idx
 
 
 def _net_return(direction: str, entry: float, exit_price: float, fee: float = FEE_TAKER,
@@ -1620,39 +1821,80 @@ def _net_return(direction: str, entry: float, exit_price: float, fee: float = FE
     return gross - fee * 2 - slippage
 
 
-def _backtest_window(symbol: str, candles: list[dict], window_id: str, state: dict) -> list[BacktestTrade]:
-    trades = []
+def slice_by_time(candles: list[dict], cutoff_ts: int) -> list[dict]:
+    """Strictly-historical slice: only candles closed before `cutoff_ts`."""
+    return [c for c in candles if c["t"] < cutoff_ts]
+
+
+def _backtest_window(symbol: str, candles: list[dict], candles_struct_all: list[dict],
+                      candles_bias_all: list[dict], window_id: str,
+                      min_rr: float = None, min_score_override: Optional[float] = None) -> list[BacktestTrade]:
+    """Runs the SAME generate_candidates -> score_and_filter_candidates pipeline
+    the live engine uses (see `evaluate_symbol`), instead of a separate,
+    looser reimplementation. Differences from live, both intentional and
+    explicitly flagged in the report:
+      - `check_liquidity`/`check_spread` are bypassed (no honest historical
+        L2 book or rolling-volume series exists to reconstruct them).
+      - funding/OI squeeze bonus is zeroed (no historical funding series
+        fetched in this version -- documented limitation, not silently
+        assumed neutral).
+    True historical 4H/1D candles are fetched and time-sliced per bar (see
+    `slice_by_time`) rather than reconstructing HTF structure from the 1H
+    window, so `struct_htf`/macro bias reflect the real timeframes the live
+    engine uses. `min_rr`/`min_score_override` let the sensitivity sweep
+    actually regenerate trades under perturbed thresholds instead of
+    re-summarizing an unperturbed trade list.
+    """
+    global MIN_RR, BASE_MIN_SCORE
+    trades: list[BacktestTrade] = []
     warmup = max(EMA_TREND, BB_LEN, ADX_LEN * 2) + 5
     if len(candles) < warmup + 30:
         return trades
-    for i in range(warmup, len(candles) - 5, 3):  # stride 3 bars to bound compute
-        window = candles[:i + 1]  # strictly historical
-        ind = compute_indicators(window)
-        struct_htf = analyze_structure(window, find_swings(window))
-        swings = find_swings(window)
-        pools = build_liquidity_pools(swings)
-        regime = build_regime_vector(state, symbol, ind, window, "neutral", 0.5)
-        cands = []
-        cands += pathway_liquidity_reversal(symbol, window, ind, struct_htf, pools, regime)
-        cands += pathway_trend_continuation(symbol, window, ind, struct_htf, regime)
-        cands += pathway_momentum_breakout(symbol, window, ind, regime, adaptive_followthrough_bars(regime))
-        if not cands:
-            continue
-        pathway_directions = {}
-        for c in cands:
-            pathway_directions.setdefault(c.pathway, []).append(c.direction)
-        min_score = adaptive_min_score(regime)
-        for cand in cands:
-            score, _ = score_candidate(cand, pathway_directions, regime,
-                                        {"squeeze_bonus": 0.0}, {"aligned": False}, {})
-            if score < min_score or cand.rr() < MIN_RR:
+
+    orig_rr, orig_score = MIN_RR, BASE_MIN_SCORE
+    if min_rr is not None:
+        MIN_RR = min_rr
+    if min_score_override is not None:
+        BASE_MIN_SCORE = min_score_override
+
+    local_state = {"cooldowns": {}, "atr_pct_memory": {}, "correlation_returns": {}, "active_signals": []}
+    busy_until = -1
+    try:
+        for i in range(warmup, len(candles) - 5, 3):  # stride 3 bars to bound compute
+            if i < busy_until:
                 continue
-            result, exit_price = _simulate_forward(candles, i, cand)
+            window = candles[:i + 1]  # strictly historical 1H window
+            ind = compute_indicators(window)
+            cutoff_ts = window[-1]["t"] + 3_600_000  # this bar's close = next bar's open
+            struct_hist = slice_by_time(candles_struct_all, cutoff_ts)
+            bias_hist = slice_by_time(candles_bias_all, cutoff_ts)
+            if len(struct_hist) < 60 or len(bias_hist) < 60:
+                continue  # insufficient real HTF history at this point -- skip rather than fake it
+            regime = build_regime_vector(local_state, symbol, ind, window, "neutral", 0.5)
+            ind_bias = compute_indicators(bias_hist)
+            candidates, pathway_directions, macro_bias = generate_candidates(
+                symbol, window, ind, struct_hist, regime, ind_bias)
+            if not candidates:
+                continue
+            atr_pct = ind["atr"][-1] / ind["closes"][-1] * 100 if ind["closes"][-1] else 0.0
+            funding_by_dir = {"long": {"squeeze_bonus": 0.0}, "short": {"squeeze_bonus": 0.0}}
+            results = score_and_filter_candidates(
+                symbol, local_state, candidates, pathway_directions, regime, macro_bias, {}, {},
+                atr_pct, funding_by_dir, lambda c: {"aligned": False}, i,
+                check_liquidity=False, check_spread=False, apply_cooldown=True, apply_one_signal_lock=False)
+            if not results:
+                continue
+            cand, score, _notes = max(results, key=lambda r: r[1])  # one signal per symbol per bar, best score wins
+            update_cooldown(local_state, symbol, cand.direction, i)
+            result, exit_price, exit_idx = _simulate_forward(candles, i, cand)
+            busy_until = exit_idx + 1  # symbol stays "busy" until this trade resolves -- mirrors live policy
             r = (exit_price - cand.entry) / (cand.entry - cand.sl) if cand.direction == "long" and (cand.entry - cand.sl) else 0.0
             if cand.direction == "short" and (cand.sl - cand.entry):
                 r = (cand.entry - exit_price) / (cand.sl - cand.entry)
             trades.append(BacktestTrade(symbol, cand.direction, cand.pathway, window[-1]["t"], cand.entry,
                                          cand.sl, cand.tp2, exit_price, result, r, regime.label, window_id))
+    finally:
+        MIN_RR, BASE_MIN_SCORE = orig_rr, orig_score
     return trades
 
 
@@ -1672,7 +1914,7 @@ def _baseline_ma_crossover(candles: list[dict], window_id: str, symbol: str) -> 
         sl = entry - atr_val * 1.5 if direction == "long" else entry + atr_val * 1.5
         tp2 = entry + atr_val * 3.0 if direction == "long" else entry - atr_val * 3.0
         cand = Candidate(symbol, direction, "baseline_ma_cross", entry, sl, entry, tp2, 0)
-        result, exit_price = _simulate_forward(candles, i, cand)
+        result, exit_price, _exit_idx = _simulate_forward(candles, i, cand)
         r = (exit_price - entry) / (entry - sl) if direction == "long" and (entry - sl) else 0.0
         if direction == "short" and (sl - entry):
             r = (entry - exit_price) / (sl - entry)
@@ -1689,76 +1931,124 @@ def _summarize(trades: list[BacktestTrade], min_sample: int = 20) -> dict:
     net_returns = [_net_return(t.direction, t.entry, t.exit_price) for t in trades]
     net_wr = sum(1 for r in net_returns if r > 0) / len(trades) * 100
     avg_r = sum(t.r_multiple for t in trades) / len(trades)
+    r_mean = avg_r
+    r_stdev = math.sqrt(sum((t.r_multiple - r_mean) ** 2 for t in trades) / len(trades))
     return {
         "n": len(trades), "gross_win_rate": round(gross_wr, 2), "net_win_rate": round(net_wr, 2),
-        "avg_r_multiple": round(avg_r, 3), "avg_net_return_pct": round(sum(net_returns) / len(net_returns) * 100, 3),
+        "avg_r_multiple": round(avg_r, 3), "r_multiple_stdev": round(r_stdev, 3),
+        "avg_net_return_pct": round(sum(net_returns) / len(net_returns) * 100, 3),
         "flagged_low_sample": False,
     }
 
 
+def _sensitivity_flag(baseline: dict, perturbed: dict, metric: str = "net_win_rate",
+                       collapse_threshold_pct: float = 40.0) -> bool:
+    """True if a perturbation causes `metric` to collapse (drop by more than
+    `collapse_threshold_pct` relative to baseline) -- the actual overfitting
+    signal the spec asked this check to be able to detect."""
+    if baseline.get("flagged_low_sample") or perturbed.get("flagged_low_sample"):
+        return False  # can't judge collapse without a real baseline sample
+    b, p = baseline.get(metric, 0.0), perturbed.get(metric, 0.0)
+    if b <= 0:
+        return False
+    return (b - p) / b * 100 >= collapse_threshold_pct
+
+
 def run_backtest(days: int = 180, holdout_days: int = 30, min_sample: int = 20) -> dict:
     """Walk-forward validation with a locked final holdout window, fee/slippage-aware
-    net returns, sensitivity sweep, low-sample flagging, and a baseline comparison."""
+    net returns, a genuine sensitivity sweep, low-sample flagging, and a
+    baseline comparison run on the holdout window too.
+
+    KNOWN, DOCUMENTED LIMITATIONS (also printed in the report):
+      - Funding/OI squeeze bonus is zeroed throughout -- no historical funding
+        time series is fetched in this version, so that scoring input is
+        untested here even though it's live in production. Treat any signal
+        whose live edge depends heavily on funding/OI as unvalidated by this
+        report until a historical funding fetch is added.
+      - Liquidity-floor and spread hard filters are bypassed (no historical
+        L2 book or true rolling 24h-volume series exists to reconstruct
+        them), via `_backtest_window`'s check_liquidity=False/check_spread=False.
+    """
     logger.info("=== Backtest start: %d days (holdout=%d) ===", days, holdout_days)
-    state = _default_state()
     reference_ms = int(time.time() * 1000)
-    n_bars = int(days * 24 / {"1h": 1}.get(TF_EXEC, 1))
-    report: dict = {"windows": {}, "sensitivity": {}, "baseline": {}, "regime_breakdown": {}}
+    n_bars_1h = int(days * 24)
+    n_bars_4h = int(days * 24 / 4) + 60
+    n_bars_1d = int(days) + 60
+    report: dict = {"windows": {}, "sensitivity": {}, "baseline": {}, "regime_breakdown": {},
+                     "caveats": ["funding/OI scoring input untested (hardcoded neutral)",
+                                 "liquidity-floor and spread hard filters bypassed (no historical L2/volume series)"]}
 
     n_windows = 3
-    window_size = max(1, (days - holdout_days) // n_windows)
 
-    for sym in WATCHLIST[:6]:  # bounded universe for tractable backtest runtime
-        candles_all = get_candles(sym, TF_EXEC, n_bars, reference_ms)
-        if len(candles_all) < 200:
+    for sym in BACKTEST_SYMBOLS:
+        candles_all = get_candles(sym, TF_EXEC, n_bars_1h, reference_ms)
+        candles_struct_all = get_candles(sym, TF_STRUCT, n_bars_4h, reference_ms)
+        candles_bias_all = get_candles(sym, TF_BIAS, n_bars_1d, reference_ms)
+        if len(candles_all) < 200 or len(candles_struct_all) < 100 or len(candles_bias_all) < 100:
             logger.warning("Backtest: insufficient history for %s, skipping.", sym)
             continue
         holdout_bars = holdout_days * 24
         train_pool = candles_all[:-holdout_bars] if len(candles_all) > holdout_bars else candles_all
         holdout = candles_all[-holdout_bars:] if len(candles_all) > holdout_bars else []
 
-        all_trades = []
-        step = max(1, len(train_pool) // n_windows)
-        for w in range(n_windows):
-            chunk = train_pool[w * step: (w + 1) * step + 60]
-            if len(chunk) < 200:
-                continue
-            wid = f"{sym}:train_w{w}"
-            trades = _backtest_window(sym, chunk, wid, state)
-            all_trades += trades
-            report["windows"].setdefault(wid, _summarize(trades, min_sample))
+        def run_all_windows(rr_override=None, score_override=None) -> tuple[list, dict, list]:
+            """Runs train windows + holdout under the given thresholds; returns
+            (all_trades_with_holdout, per_window_summaries, holdout_trades)."""
+            all_trades: list[BacktestTrade] = []
+            windows_out = {}
+            step = max(1, len(train_pool) // n_windows)
+            for w in range(n_windows):
+                chunk = train_pool[w * step: (w + 1) * step + 60]
+                if len(chunk) < 200:
+                    continue
+                wid = f"{sym}:train_w{w}"
+                trades = _backtest_window(sym, chunk, candles_struct_all, candles_bias_all, wid,
+                                           min_rr=rr_override, min_score_override=score_override)
+                all_trades += trades
+                windows_out[wid] = _summarize(trades, min_sample)
+            holdout_trades = []
+            if holdout:
+                hid = f"{sym}:holdout"
+                holdout_trades = _backtest_window(sym, holdout, candles_struct_all, candles_bias_all, hid,
+                                                   min_rr=rr_override, min_score_override=score_override)
+                windows_out[hid] = _summarize(holdout_trades, min_sample)
+                all_trades += holdout_trades
+            return all_trades, windows_out, holdout_trades
 
-        if holdout:
-            hid = f"{sym}:holdout"
-            holdout_trades = _backtest_window(sym, holdout, hid, state)
-            report["windows"][hid] = _summarize(holdout_trades, min_sample)
-            all_trades_with_holdout = all_trades + holdout_trades
-        else:
-            all_trades_with_holdout = all_trades
+        all_trades_with_holdout, window_summaries, holdout_trades = run_all_windows()
+        report["windows"].update(window_summaries)
 
         for label in {"clean_trend", "choppy", "neutral", "high_volatility"}:
             subset = [t for t in all_trades_with_holdout if t.regime_label == label]
             report["regime_breakdown"][f"{sym}:{label}"] = _summarize(subset, min_sample)
 
-        baseline_trades = _baseline_ma_crossover(train_pool, f"{sym}:baseline", sym)
-        report["baseline"][sym] = _summarize(baseline_trades, min_sample)
+        # Baseline comparison run on BOTH train_pool and the locked holdout --
+        # the holdout comparison is the one that actually matters out-of-sample.
+        baseline_train = _baseline_ma_crossover(train_pool, f"{sym}:baseline_train", sym)
+        baseline_holdout = _baseline_ma_crossover(holdout, f"{sym}:baseline_holdout", sym) if holdout else []
+        report["baseline"][sym] = {
+            "train": _summarize(baseline_train, min_sample),
+            "holdout": _summarize(baseline_holdout, min_sample) if holdout else {"n": 0, "flagged_low_sample": True},
+        }
 
-        # Parameter sensitivity: perturb MIN_RR and BASE_MIN_SCORE by +/-10% and re-summarize
-        # using already-collected trades (approximation: re-filter by recomputed thresholds).
-        global MIN_RR, BASE_MIN_SCORE
-        original_rr, original_score = MIN_RR, BASE_MIN_SCORE
-        sens_results = {}
+        # Genuine parameter sensitivity: regenerate trades from scratch under each
+        # perturbed threshold (not a re-summary of the unperturbed trade list).
+        # Both MIN_RR and BASE_MIN_SCORE are perturbed, as the spec requires.
+        baseline_summary = _summarize(all_trades_with_holdout, min_sample)
+        sens_results: dict = {"baseline": baseline_summary}
         for pct in (-0.10, 0.10):
-            MIN_RR = original_rr * (1 + pct)
-            perturbed = [t for t in all_trades_with_holdout]  # RR filter already applied at generation;
-            # approximate sensitivity via win-rate stability check on same trade set
-            summary = _summarize(perturbed, min_sample)
+            rr_perturbed_trades, _, _ = run_all_windows(rr_override=MIN_RR * (1 + pct))
+            summary = _summarize(rr_perturbed_trades, min_sample)
+            summary["collapsed"] = _sensitivity_flag(baseline_summary, summary)
             sens_results[f"min_rr_{pct:+.0%}"] = summary
-        MIN_RR = original_rr
-        BASE_MIN_SCORE = original_score
+
+            score_perturbed_trades, _, _ = run_all_windows(score_override=BASE_MIN_SCORE * (1 + pct))
+            summary2 = _summarize(score_perturbed_trades, min_sample)
+            summary2["collapsed"] = _sensitivity_flag(baseline_summary, summary2)
+            sens_results[f"base_min_score_{pct:+.0%}"] = summary2
         report["sensitivity"][sym] = sens_results
 
-    logger.info("Backtest complete. See report for per-window, per-regime, and baseline breakdowns.")
+    logger.info("Backtest complete. See report for per-window, per-regime, baseline, and sensitivity breakdowns.")
     return report
 
 
@@ -1780,18 +2070,25 @@ def print_backtest_report(report: dict) -> None:
             print(f"  {key}: n={summary['n']} -> LOW SAMPLE")
         else:
             print(f"  {key}: n={summary['n']} net_wr={summary['net_win_rate']}% avg_R={summary['avg_r_multiple']}")
-    print("\n-- Baseline (EMA20/50 crossover) comparison --")
-    for sym, summary in report["baseline"].items():
-        if summary.get("flagged_low_sample"):
-            print(f"  {sym}: n={summary['n']} -> LOW SAMPLE")
-        else:
-            print(f"  {sym}: n={summary['n']} net_wr={summary['net_win_rate']}% avg_R={summary['avg_r_multiple']}")
-    print("\n-- Parameter sensitivity (MIN_RR +/-10%) --")
+    print("\n-- Baseline (EMA20/50 crossover) comparison: train vs locked holdout --")
+    for sym, both in report["baseline"].items():
+        for split, summary in both.items():
+            if summary.get("flagged_low_sample"):
+                print(f"  {sym} [{split}]: n={summary['n']} -> LOW SAMPLE")
+            else:
+                print(f"  {sym} [{split}]: n={summary['n']} net_wr={summary['net_win_rate']}% avg_R={summary['avg_r_multiple']}")
+    print("\n-- Parameter sensitivity (MIN_RR and BASE_MIN_SCORE, +/-10%, trades REGENERATED per perturbation) --")
     for sym, sens in report["sensitivity"].items():
         print(f"  {sym}:")
         for k, v in sens.items():
-            flag = "LOW SAMPLE" if v.get("flagged_low_sample") else f"net_wr={v.get('net_win_rate')}%"
-            print(f"    {k}: {flag}")
+            if v.get("flagged_low_sample"):
+                print(f"    {k}: LOW SAMPLE")
+            else:
+                collapse = "  <-- COLLAPSED (possible overfit)" if v.get("collapsed") else ""
+                print(f"    {k}: net_wr={v.get('net_win_rate')}% avg_R={v.get('avg_r_multiple')}{collapse}")
+    print("\n-- Caveats --")
+    for c in report.get("caveats", []):
+        print(f"  - {c}")
     print("\nNote: any 'LOW SAMPLE' slice above should not be treated as a confirmed edge; it")
     print("firms up only as more historical or live data accumulates.")
     print("=" * 70 + "\n")
