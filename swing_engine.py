@@ -4,7 +4,7 @@
  LUCERNA  //  Adaptive Confluence Signal Engine  //  v1.0.0
 ================================================================================
 
-# pip install requests numpy
+# pip install requests
 
 WHAT IS LUCERNA?
 -----------------
@@ -117,11 +117,6 @@ from typing import Optional
 
 import requests
 
-try:
-    import numpy as np
-except ImportError:  # pragma: no cover - numpy is required, listed in deps
-    np = None
-
 
 # ==============================================================================
 # CONFIGURATION
@@ -148,6 +143,7 @@ TF_BIAS = "1d"
 TF_STRUCT = "4h"
 TF_EXEC = "1h"
 CANDLE_COUNTS = {TF_BIAS: 220, TF_STRUCT: 300, TF_EXEC: 300}
+INTERVAL_MS = {TF_EXEC: 3_600_000, TF_STRUCT: 14_400_000, TF_BIAS: 86_400_000}
 
 # Indicator lengths
 RSI_LEN = 14
@@ -272,7 +268,7 @@ def hl_coin(symbol: str) -> str:
 
 
 def current_bar_open_ms(reference_ms: int, interval: str) -> int:
-    interval_ms = {"1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000}[interval]
+    interval_ms = INTERVAL_MS[interval]
     return (reference_ms // interval_ms) * interval_ms
 
 
@@ -283,7 +279,7 @@ def filter_closed_candles(candles: list[dict], interval: str, reference_ms: int)
 
 def get_candles(symbol: str, interval: str, n: int, reference_ms: Optional[int] = None) -> list[dict]:
     reference_ms = reference_ms or int(time.time() * 1000)
-    interval_ms = {"1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000}[interval]
+    interval_ms = INTERVAL_MS[interval]
     start = reference_ms - (n + 5) * interval_ms
     payload = {
         "type": "candleSnapshot",
@@ -375,8 +371,18 @@ def ema(vals: list[float], period: int) -> list[float]:
     if not vals:
         return []
     k = 2 / (period + 1)
-    out = [vals[0]]
-    for v in vals[1:]:
+    n = len(vals)
+    # Seed with the SMA of the first `period` values (or all available values,
+    # if fewer) rather than the single raw first close. Seeding with a raw
+    # price decays only geometrically -- e.g. for EMA_TREND=200 read on the
+    # 1D bias timeframe's 220-candle window, ~11% of the seed's weight is
+    # still present by the last bar -- which biases a headline macro-bias
+    # input toward whatever the price happened to be on an arbitrary
+    # start-of-window candle.
+    seed_len = min(period, n)
+    seed = sum(vals[:seed_len]) / seed_len
+    out = [seed] * seed_len
+    for v in vals[seed_len:]:
         out.append(v * k + out[-1] * (1 - k))
     return out
 
@@ -892,18 +898,38 @@ def build_liquidity_pools(swings: list[Swing]) -> dict:
 
 
 def detect_sweep(candles: list[dict], pools: dict, direction: str, lookback: int = 10) -> Optional[dict]:
-    """direction 'long' -> sweep of support (stop hunt below) then reclaim."""
+    """direction 'long' -> sweep of support (stop hunt below) then reclaim.
+
+    Scans every level and keeps the most recent qualifying sweep (ties broken
+    by nearest price to the last close), rather than returning the first
+    match found while iterating levels in ascending price order -- otherwise
+    this can pick the lowest support / highest resistance level touched
+    anywhere in the lookback, even when a more recent, closer sweep also
+    qualifies, producing an unnecessarily distant sweep level and an
+    oversized stop."""
     recent = candles[-lookback:]
+    if len(recent) < 2:
+        return None
     levels = pools["support"] if direction == "long" else pools["resistance"]
     if not levels:
         return None
+    last_close = recent[-1]["c"]
+    best: Optional[dict] = None
+    best_dist = None
     for level, weight in levels:
-        for i, c in enumerate(recent[:-1]):
-            wicked = (c["l"] < level) if direction == "long" else (c["h"] > level)
-            reclaimed = (recent[-1]["c"] > level) if direction == "long" else (recent[-1]["c"] < level)
-            if wicked and reclaimed:
-                return {"level": level, "weight": weight, "bars_ago": len(recent) - i}
-    return None
+        reclaimed = (last_close > level) if direction == "long" else (last_close < level)
+        if not reclaimed:
+            continue
+        wick_idxs = [i for i, c in enumerate(recent[:-1])
+                     if ((c["l"] < level) if direction == "long" else (c["h"] > level))]
+        if not wick_idxs:
+            continue
+        bars_ago = len(recent) - max(wick_idxs)  # most recent wick of this level
+        dist = abs(level - last_close)
+        if best is None or bars_ago < best["bars_ago"] or (bars_ago == best["bars_ago"] and dist < best_dist):
+            best = {"level": level, "weight": weight, "bars_ago": bars_ago}
+            best_dist = dist
+    return best
 
 
 def premium_discount_zone(candles: list[dict], lookback: int = 50) -> dict:
@@ -1020,8 +1046,12 @@ def pathway_liquidity_reversal(symbol: str, candles_exec: list[dict], ind_exec: 
     out = []
     price = candles_exec[-1]["c"]
     atr_val = ind_exec["atr"][-1]
-    ob_zones = mark_untested(find_order_blocks(candles_exec, ind_exec["atr"]), candles_exec)
-    fvg_zones = mark_untested(find_fvgs(candles_exec), candles_exec)
+    # Exclude the current/last candle from the "already tested" scan -- it's
+    # the same candle whose close is used as `price` below, so including it
+    # here would flip z.tested True on the exact first-touch reaction this
+    # pathway is meant to reward, before the `not z.tested` check ever runs.
+    ob_zones = mark_untested(find_order_blocks(candles_exec, ind_exec["atr"]), candles_exec[:-1])
+    fvg_zones = mark_untested(find_fvgs(candles_exec), candles_exec[:-1])
     for direction in ("long", "short"):
         sweep = detect_sweep(candles_exec, pools, direction)
         if not sweep:
@@ -1191,10 +1221,18 @@ def score_candidate(cand: Candidate, all_pathway_directions: dict[str, list[str]
         score += macro_delta
         notes.append(macro_note)
 
-    agree = sum(1 for pw, dirs in all_pathway_directions.items()
+    # Only pathways that fired a single, unambiguous direction can count as
+    # "agreeing" or "conflicting" -- a pathway that fired BOTH long and short
+    # in the same call (e.g. a choppy tape triggering both a support and a
+    # resistance sweep-reclaim) is internally contradictory and should be a
+    # red flag, not free confluence points for whichever direction someone
+    # else proposes.
+    unambiguous = {pw: dirs for pw, dirs in all_pathway_directions.items()
+                    if dirs and len(set(dirs)) == 1}
+    agree = sum(1 for pw, dirs in unambiguous.items()
                 if pw != cand.pathway and cand.direction in dirs)
-    conflict = sum(1 for pw, dirs in all_pathway_directions.items()
-                    if pw != cand.pathway and dirs and cand.direction not in dirs)
+    conflict = sum(1 for pw, dirs in unambiguous.items()
+                    if pw != cand.pathway and cand.direction not in dirs)
     if agree >= 1:
         score += 10 + 4 * (agree - 1)
         notes.append(f"{agree} independent pathway(s) agree")
@@ -1376,11 +1414,14 @@ def signal_still_fresh(cand: Candidate, latest_price: float, atr_val: float) -> 
 
 def position_size_pct(cand: Candidate, account_equity_pct: float = 100.0) -> float:
     """Returns suggested position notional as % of equity, based on fixed
-    per-trade risk % and stop distance."""
+    per-trade risk % and stop distance, scaled by the fraction of account
+    equity currently available (`account_equity_pct`; 100.0 = fully
+    available, matching prior behavior)."""
     risk_frac = abs(cand.entry - cand.sl) / cand.entry
     if risk_frac <= 1e-9:
         return 0.0
     size_pct = (PER_TRADE_RISK_PCT / 100.0) / risk_frac * 100.0
+    size_pct *= max(0.0, min(1.0, account_equity_pct / 100.0))
     return min(size_pct, MAX_PORTFOLIO_EXPOSURE_PCT / max(1, MAX_CONCURRENT_SIGNALS))
 
 
@@ -1488,32 +1529,99 @@ def format_signal(cand: Candidate, confidence: float, notes: list[str], size_pct
 # ==============================================================================
 
 def track_signal(state: dict, cand: Candidate, confidence: float, msg_id: Optional[int], size_pct: float) -> None:
+    now_ms = int(time.time() * 1000)
     state["active_signals"].append({
         "id": str(uuid.uuid4()), "symbol": cand.symbol, "direction": cand.direction,
         "pathway": cand.pathway, "entry": cand.entry, "sl": cand.sl, "tp1": cand.tp1, "tp2": cand.tp2,
         "confidence": confidence, "size_pct": size_pct, "msg_id": msg_id,
-        "opened_ts": time.time(), "tp1_hit": False,
+        "opened_ts": time.time(), "tp1_hit": False, "last_checked_ts_ms": now_ms,
     })
     state["daily"]["signal_count"] += 1
 
 
+def _apply_bar_to_signal(sig: dict, direction: str, lo: float, hi: float) -> Optional[str]:
+    """Applies a single price bar's [lo, hi] range to an active signal's
+    TP/SL state, in place. Returns 'loss', 'breakeven', or 'win_tp2' if the
+    signal should be closed as a result of this bar, else None (still
+    active -- though tp1_hit/sl may have just been updated for a breakeven
+    move, flagged via `_tp1_hit_this_check` for the caller to react to).
+    Within a single bar, SL is checked before TP2 (the conservative
+    assumption if one bar's range spans both), mirroring the backtest's
+    `_simulate_forward`."""
+    hit_sl = (lo <= sig["sl"]) if direction == "long" else (hi >= sig["sl"])
+    hit_tp2 = (hi >= sig["tp2"]) if direction == "long" else (lo <= sig["tp2"])
+    hit_tp1 = (hi >= sig["tp1"]) if direction == "long" else (lo <= sig["tp1"])
+
+    if hit_sl:
+        return "breakeven" if sig.get("tp1_hit") else "loss"
+    if hit_tp2:
+        return "win_tp2"
+    if hit_tp1 and not sig.get("tp1_hit"):
+        sig["tp1_hit"] = True
+        sig["sl"] = sig["entry"]  # move to breakeven
+        sig["_tp1_hit_this_check"] = True
+    return None
+
+
 def check_active_signals(state: dict, latest_prices: dict[str, float]) -> None:
-    """Resolve active signals against latest prices: TP/SL hits update history +
-    daily realized P&L, which feeds the daily-loss circuit breaker.
+    """Resolve active signals against price action since the last check --
+    not just a single current mark-price snapshot.
+
+    Resolution previously compared only the latest point-in-time mark price
+    against SL/TP, so a stop that was touched and price recovered before the
+    next 15-minute scan was invisible: it was never recorded as a loss, and
+    `state["daily"]["realized_pct"]` (which feeds the daily-loss circuit
+    breaker) silently under-counted real drawdown. This reconstructs the
+    high/low range from closed 1H candles since the signal's last check
+    (falling back to the current mark price only for the still-forming
+    candle) and walks that range chronologically, so an intra-cycle touch is
+    caught even if price has since moved away again.
 
     A resolved signal (SL, breakeven-stop after TP1, or TP2) is what frees a
     symbol up under the one-signal-per-symbol policy -- see
     `symbol_has_open_signal`."""
+    reference_ms = int(time.time() * 1000)
     still_active = []
     for sig in state.get("active_signals", []):
-        price = latest_prices.get(sig["symbol"])
-        if price is None:
+        symbol = sig["symbol"]
+        direction = sig["direction"]
+        since_ts_ms = sig.get("last_checked_ts_ms") or int(sig.get("opened_ts", time.time()) * 1000)
+
+        range_bars: list[tuple[float, float]] = []
+        candle_fetch_ok = False
+        try:
+            recent = get_candles(symbol, TF_EXEC, 30, reference_ms)
+            range_bars = [(c["l"], c["h"]) for c in recent if c["t"] + INTERVAL_MS[TF_EXEC] > since_ts_ms]
+            candle_fetch_ok = True
+        except Exception as e:  # noqa: BLE001 - a candle-fetch hiccup must never block resolution
+            logger.warning("check_active_signals: range fetch failed for %s: %s", symbol, e)
+
+        price = latest_prices.get(symbol)
+        if price is not None:
+            range_bars.append((price, price))  # current still-forming candle / latest mark
+
+        if not range_bars:
             still_active.append(sig)
             continue
-        direction = sig["direction"]
-        hit_tp2 = (price >= sig["tp2"]) if direction == "long" else (price <= sig["tp2"])
-        hit_tp1 = (price >= sig["tp1"]) if direction == "long" else (price <= sig["tp1"])
-        hit_sl = (price <= sig["sl"]) if direction == "long" else (price >= sig["sl"])
+
+        resolved_result = None
+        for lo, hi in range_bars:
+            sig.pop("_tp1_hit_this_check", None)
+            resolved_result = _apply_bar_to_signal(sig, direction, lo, hi)
+            if sig.pop("_tp1_hit_this_check", False) and not DRY_RUN and sig.get("msg_id"):
+                react_to_message(sig["msg_id"], "\U0001F3AF")  # TP1 hit, SL moved to breakeven
+            if resolved_result is not None:
+                break
+
+        if candle_fetch_ok:
+            # Only advance the watermark on a successful candle fetch, so a
+            # transient fetch failure doesn't silently skip the gap it left --
+            # the next successful fetch will still cover it.
+            sig["last_checked_ts_ms"] = reference_ms
+
+        if resolved_result is None:
+            still_active.append(sig)
+            continue
 
         # P&L is size_pct (equity %) x actual stop distance (fraction of entry) --
         # this mirrors the win-side formula and is what keeps the two consistent
@@ -1521,22 +1629,11 @@ def check_active_signals(state: dict, latest_prices: dict[str, float]) -> None:
         # After TP1, sig["sl"] has been moved to entry, so this naturally
         # evaluates to ~0 on a breakeven stop-out instead of a full loss.
         stop_distance_frac = abs(sig["entry"] - sig["sl"]) / sig["entry"] if sig["entry"] else 0.0
-
-        if hit_sl:
+        if resolved_result in ("loss", "breakeven"):
             pnl_pct = -sig["size_pct"] * stop_distance_frac
-            result = "breakeven" if sig.get("tp1_hit") else "loss"
-            _resolve(state, sig, result, pnl_pct)
-            continue
-        if hit_tp2:
+        else:  # "win_tp2"
             pnl_pct = sig["size_pct"] * (abs(sig["tp2"] - sig["entry"]) / sig["entry"])
-            _resolve(state, sig, "win_tp2", pnl_pct)
-            continue
-        if hit_tp1 and not sig.get("tp1_hit"):
-            sig["tp1_hit"] = True
-            sig["sl"] = sig["entry"]  # move to breakeven
-            if not DRY_RUN and sig.get("msg_id"):
-                react_to_message(sig["msg_id"], "\U0001F3AF")  # TP1 hit, SL moved to breakeven
-        still_active.append(sig)
+        _resolve(state, sig, resolved_result, pnl_pct)
     state["active_signals"] = still_active
 
 
@@ -1696,7 +1793,9 @@ def run_scan(dry_run: bool = False) -> None:
         if _SHUTDOWN:
             break
         try:
-            bundle = fetch_all_candles(symbol, reference_ms)
+            # BTC's bundle was already fetched above for the regime read --
+            # reuse it here instead of hitting the API for the same data again.
+            bundle = btc_bundle if symbol == "BTC" else fetch_all_candles(symbol, reference_ms)
             if not bundle:
                 logger.warning("Skipping %s: candle data unavailable this scan.", symbol)
                 continue
@@ -1776,6 +1875,7 @@ def run_scan(dry_run: bool = False) -> None:
 FEE_TAKER = 0.00045   # Hyperliquid taker fee (approx, both sides applied)
 FEE_MAKER = 0.00015
 SLIPPAGE_EST = 0.0006  # conservative round-trip slippage estimate for liquid perps
+SIM_FORWARD_MAX_BARS = 96  # _simulate_forward's resolution horizon (bars)
 
 
 @dataclass
@@ -1794,7 +1894,7 @@ class BacktestTrade:
     window_id: str
 
 
-def _simulate_forward(candles: list[dict], start_idx: int, cand: Candidate, max_bars: int = 96
+def _simulate_forward(candles: list[dict], start_idx: int, cand: Candidate, max_bars: int = SIM_FORWARD_MAX_BARS
                        ) -> tuple[str, float, int]:
     """No look-ahead: only candles strictly after start_idx are used to resolve the
     trade. Also returns the resolving bar index, which the caller uses to
@@ -1821,9 +1921,14 @@ def _net_return(direction: str, entry: float, exit_price: float, fee: float = FE
     return gross - fee * 2 - slippage
 
 
-def slice_by_time(candles: list[dict], cutoff_ts: int) -> list[dict]:
-    """Strictly-historical slice: only candles closed before `cutoff_ts`."""
-    return [c for c in candles if c["t"] < cutoff_ts]
+def slice_by_time(candles: list[dict], cutoff_ts: int, interval_ms: int = 0) -> list[dict]:
+    """Strictly-historical slice: only candles that have actually CLOSED
+    before `cutoff_ts`. `c["t"]` is a candle's OPEN time, not its close, so
+    `interval_ms` (the timeframe's own bar length) must be added before
+    comparing -- otherwise a candle that opened before cutoff_ts but whose
+    close is still in the future relative to the simulated point in time
+    would leak its high/low/close into the backtest."""
+    return [c for c in candles if c["t"] + interval_ms <= cutoff_ts]
 
 
 def _backtest_window(symbol: str, candles: list[dict], candles_struct_all: list[dict],
@@ -1863,11 +1968,19 @@ def _backtest_window(symbol: str, candles: list[dict], candles_struct_all: list[
         for i in range(warmup, len(candles) - 5, 3):  # stride 3 bars to bound compute
             if i < busy_until:
                 continue
-            window = candles[:i + 1]  # strictly historical 1H window
+            # Strictly historical 1H window, clipped to the same trailing length
+            # live always uses (CANDLE_COUNTS[TF_EXEC]) -- otherwise this grows
+            # unboundedly within a chunk and indicators end up computed over far
+            # more history than the live engine ever actually sees.
+            window = candles[max(0, i + 1 - CANDLE_COUNTS[TF_EXEC]):i + 1]
             ind = compute_indicators(window)
-            cutoff_ts = window[-1]["t"] + 3_600_000  # this bar's close = next bar's open
-            struct_hist = slice_by_time(candles_struct_all, cutoff_ts)
-            bias_hist = slice_by_time(candles_bias_all, cutoff_ts)
+            cutoff_ts = window[-1]["t"] + INTERVAL_MS[TF_EXEC]  # this bar's close = next bar's open
+            # Time-slice on each candle's true CLOSE (not open) so no future
+            # high/low/close leaks into struct/bias history, then cap to the
+            # same trailing length live uses (CANDLE_COUNTS), for the same
+            # reason as the 1H window above.
+            struct_hist = slice_by_time(candles_struct_all, cutoff_ts, INTERVAL_MS[TF_STRUCT])[-CANDLE_COUNTS[TF_STRUCT]:]
+            bias_hist = slice_by_time(candles_bias_all, cutoff_ts, INTERVAL_MS[TF_BIAS])[-CANDLE_COUNTS[TF_BIAS]:]
             if len(struct_hist) < 60 or len(bias_hist) < 60:
                 continue  # insufficient real HTF history at this point -- skip rather than fake it
             regime = build_regime_vector(local_state, symbol, ind, window, "neutral", 0.5)
@@ -1998,7 +2111,12 @@ def run_backtest(days: int = 180, holdout_days: int = 30, min_sample: int = 20) 
             windows_out = {}
             step = max(1, len(train_pool) // n_windows)
             for w in range(n_windows):
-                chunk = train_pool[w * step: (w + 1) * step + 60]
+                # Extend past the window's own end by at least the resolution
+                # horizon (SIM_FORWARD_MAX_BARS) so a trade generated near the
+                # tail of the window still has enough follow-on data within
+                # this chunk to resolve genuinely, instead of spuriously
+                # timing out purely because data ran out.
+                chunk = train_pool[w * step: (w + 1) * step + SIM_FORWARD_MAX_BARS]
                 if len(chunk) < 200:
                     continue
                 wid = f"{sym}:train_w{w}"
