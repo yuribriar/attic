@@ -161,6 +161,11 @@ BASE_MIN_SCORE = 62.0          # 0-100 confluence score floor in a neutral regim
 TREND_REGIME_SCORE_RELIEF = 8.0
 CHOP_REGIME_SCORE_PENALTY = 10.0
 MIN_RR = 1.5
+MIN_SL_ATR_MULT = 1.0          # hard floor: SL must sit at least this many ATRs from entry.
+                                 # Prevents a pathway from manufacturing a great-looking R:R by
+                                 # shrinking the stop instead of genuinely finding a better trade --
+                                 # a stop tighter than ~1 ATR sits inside normal wick/retest noise
+                                 # for the very structure (breakout level, sweep) it's referencing.
 MAX_CONCURRENT_SIGNALS = 8
 MAX_PORTFOLIO_EXPOSURE_PCT = 60.0   # % of notional account capital deployable at once
 PER_TRADE_RISK_PCT = 0.75           # % of account risked per trade (for position sizing)
@@ -1034,6 +1039,7 @@ class Candidate:
     raw_score: float
     confluences: list[str] = field(default_factory=list)
     duration_hint: str = "intraday"
+    raw_atr: float = 0.0  # ATR at generation time, used by passes_hard_filters' SL-floor check
 
     def rr(self) -> float:
         risk = abs(self.entry - self.sl)
@@ -1098,17 +1104,23 @@ def pathway_liquidity_reversal(symbol: str, candles_exec: list[dict], ind_exec: 
             confluences.append(f"RSI {rsi_div} divergence")
             div_bonus = 5.0
 
+        # SL buffer previously used only 0.4x sl_mult beyond the sweep/price level
+        # (~0.5-0.8 ATR), while TP1/TP2 used 1.5x/2.6x -- so the stop sat well
+        # inside the normal retest range of the very sweep level it was placed
+        # against, and got tagged by the retest itself rather than a genuine
+        # invalidation. Buffer is now the full sl_mult (same scale trend_continuation
+        # already used), with a hard floor enforced in passes_hard_filters.
         sl_mult = adaptive_sl_multiple(regime)
         if direction == "long":
-            sl = min(sweep["level"], price) - atr_val * sl_mult * 0.4
+            sl = min(sweep["level"], price) - atr_val * sl_mult
             tp1 = price + atr_val * sl_mult * 1.5
             tp2 = price + atr_val * sl_mult * 2.6
         else:
-            sl = max(sweep["level"], price) + atr_val * sl_mult * 0.4
+            sl = max(sweep["level"], price) + atr_val * sl_mult
             tp1 = price - atr_val * sl_mult * 1.5
             tp2 = price - atr_val * sl_mult * 2.6
         raw_score = 55 + min(15, sweep["weight"] * 4) + struct_bonus + zone_bonus + div_bonus
-        out.append(Candidate(symbol, direction, "liquidity_reversal", price, sl, tp1, tp2, raw_score, confluences, "intraday"))
+        out.append(Candidate(symbol, direction, "liquidity_reversal", price, sl, tp1, tp2, raw_score, confluences, "intraday", atr_val))
     return out
 
 
@@ -1133,7 +1145,7 @@ def pathway_trend_continuation(symbol: str, candles_exec: list[dict], ind_exec: 
         tp1 = price + atr_val * sl_mult * 1.6
         tp2 = price + atr_val * sl_mult * 2.8
         raw_score = 58 + (6 if "RSI pullback reset" in confluences else 0) + min(10, regime.trend_strength * 12)
-        out.append(Candidate(symbol, "long", "trend_continuation", price, sl, tp1, tp2, raw_score, confluences, "swing"))
+        out.append(Candidate(symbol, "long", "trend_continuation", price, sl, tp1, tp2, raw_score, confluences, "swing", atr_val))
 
     if struct_htf.bias == "bearish" and ema_f < ema_s < ema_t and price < ema_s and minus_di > plus_di:
         confluences = ["HTF structure bearish", "EMA stack aligned bearish", "ADX -DI leading"]
@@ -1144,7 +1156,7 @@ def pathway_trend_continuation(symbol: str, candles_exec: list[dict], ind_exec: 
         tp1 = price - atr_val * sl_mult * 1.6
         tp2 = price - atr_val * sl_mult * 2.8
         raw_score = 58 + (6 if "RSI pullback reset" in confluences else 0) + min(10, regime.trend_strength * 12)
-        out.append(Candidate(symbol, "short", "trend_continuation", price, sl, tp1, tp2, raw_score, confluences, "swing"))
+        out.append(Candidate(symbol, "short", "trend_continuation", price, sl, tp1, tp2, raw_score, confluences, "swing", atr_val))
 
     return out
 
@@ -1177,11 +1189,17 @@ def pathway_momentum_breakout(symbol: str, candles_exec: list[dict], ind_exec: d
         if obv_rising:
             confluences.append("OBV confirms accumulation")
             obv_bonus = 4.0
-        sl = prior_upper - atr_val * 0.6
-        tp1 = price + atr_val * adaptive_sl_multiple(regime) * 1.4
-        tp2 = price + atr_val * adaptive_sl_multiple(regime) * 2.4
+        # Previously a flat 0.6 ATR buffer below the breakout line, regardless of
+        # regime or the TP scale used a few lines down -- a retest of a just-broken
+        # Donchian level routinely wicks back further than that. Buffer now scales
+        # with the same sl_mult driving TP1/TP2, and the floor in passes_hard_filters
+        # backstops it.
+        sl_mult = adaptive_sl_multiple(regime)
+        sl = prior_upper - atr_val * sl_mult
+        tp1 = price + atr_val * sl_mult * 1.4
+        tp2 = price + atr_val * sl_mult * 2.4
         raw_score = 56 + (6 if "compression" in confluences[-1] else 0) + obv_bonus
-        out.append(Candidate(symbol, "long", "momentum_breakout", price, sl, tp1, tp2, raw_score, confluences, "intraday"))
+        out.append(Candidate(symbol, "long", "momentum_breakout", price, sl, tp1, tp2, raw_score, confluences, "intraday", atr_val))
 
     if broke_down and vol_ok:
         confluences = [f"{followthrough_bars}-bar close-through Donchian lower", "volume confirmed"]
@@ -1191,11 +1209,12 @@ def pathway_momentum_breakout(symbol: str, candles_exec: list[dict], ind_exec: d
         if obv_falling:
             confluences.append("OBV confirms distribution")
             obv_bonus = 4.0
-        sl = prior_lower + atr_val * 0.6
-        tp1 = price - atr_val * adaptive_sl_multiple(regime) * 1.4
-        tp2 = price - atr_val * adaptive_sl_multiple(regime) * 2.4
+        sl_mult = adaptive_sl_multiple(regime)
+        sl = prior_lower + atr_val * sl_mult
+        tp1 = price - atr_val * sl_mult * 1.4
+        tp2 = price - atr_val * sl_mult * 2.4
         raw_score = 56 + (6 if "compression" in confluences[-1] else 0) + obv_bonus
-        out.append(Candidate(symbol, "short", "momentum_breakout", price, sl, tp1, tp2, raw_score, confluences, "intraday"))
+        out.append(Candidate(symbol, "short", "momentum_breakout", price, sl, tp1, tp2, raw_score, confluences, "intraday", atr_val))
 
     return out
 
@@ -1373,6 +1392,10 @@ def passes_hard_filters(symbol: str, snapshot: dict, ob_analysis: dict, atr_pct:
         return False, f"R:R below minimum ({cand.rr():.2f} < {MIN_RR})"
     if atr_pct <= 0 or atr_pct > 15:
         return False, f"ATR% out of sane bounds ({atr_pct:.2f})"
+    if cand.raw_atr > 0:
+        sl_distance_atr = abs(cand.entry - cand.sl) / cand.raw_atr
+        if sl_distance_atr < MIN_SL_ATR_MULT:
+            return False, f"SL too tight ({sl_distance_atr:.2f} ATR < {MIN_SL_ATR_MULT} ATR floor)"
     return True, "ok"
 
 
