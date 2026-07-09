@@ -1777,21 +1777,56 @@ def format_signal(cand: Candidate) -> str:
         "trend_continuation": "Trend Continuation (FVG Fill)",
         "momentum_breakout": "Momentum Breakout (Breaker Retest)",
     }[cand.pathway]
-    confluences = ", ".join(sorted(set(cand.notes))) if cand.notes else "-"
+
+    # Notes the zone/pathway labels above already convey — don't repeat them below.
+    redundant_notes = {f"{cand.zone.kind}_zone", "fvg_fill", "range_breakout", "ltf_breaker_retest"}
+
+    plain_english = {
+        "trend_align": "Aligned with the higher timeframe trend",
+        "fvg_overlap": "Overlapping fair value gap",
+        "liquidity_pool": "Sitting near a liquidity pool",
+        "round_number": "At a round-number level",
+        "funding_squeeze_favorable": "Funding squeeze favors this trade",
+        "funding_crowding_risk": "Funding is crowded (added risk)",
+    }
+    pd_zone_english = {
+        "discount": "Price is in a discount zone",
+        "premium": "Price is in a premium zone",
+        "equilibrium": "Price is at equilibrium",
+    }
+
+    confluence_points = []
+    for note in cand.notes:
+        if note in redundant_notes:
+            continue
+        if note.startswith("pd="):
+            confluence_points.append(pd_zone_english.get(note.split("=", 1)[1]))
+        elif note.startswith("ensemble="):
+            confluence_points.append(f"{note.split('=', 1)[1]} timeframes agree")
+        else:
+            confluence_points.append(plain_english.get(note))
+
+    seen = set()
+    confluence_points = [c for c in confluence_points if c and not (c in seen or seen.add(c))]
+    confluence_block = "\n".join(f"\u2022 {c}" for c in confluence_points) if confluence_points else "\u2022 None"
 
     lines = [
+        f"{ENGINE_NAME} v{__version__}",
         f"{arrow}  |  {cand.symbol}-PERP",
-        f"Engine: {ENGINE_NAME} v{__version__}",
         "",
-        f"Entry:  {fmt_px(cand.entry)}",
-        f"SL:     {fmt_px(cand.sl)}",
-        f"TP:     {fmt_px(cand.tp)}",
+        f"Entry:  <code>{fmt_px(cand.entry)}</code>",
+        f"SL:     <code>{fmt_px(cand.sl)}</code>",
+        f"TP:     <code>{fmt_px(cand.tp)}</code>",
         f"R:R     {cand.rr():.2f}",
         "",
         f"Confidence: {cand.confidence:.0f}%  {confidence_bar(cand.confidence)}",
         f"Grade: {cand.grade}",
-        f"Setup: {pathway_label} @ {zone_label}",
-        f"Confluences: {confluences}",
+        "",
+        f"Setup: {pathway_label}",
+        f"Zone: {zone_label}",
+        "",
+        "Confluences:",
+        confluence_block,
     ]
     return "\n".join(lines)
 
@@ -1803,7 +1838,7 @@ def send_telegram(text: str):
     try:
         resp = _session.post(
             f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage",
-            json={"chat_id": TG_CHAT_ID, "text": text},
+            json={"chat_id": TG_CHAT_ID, "text": text, "parse_mode": "HTML"},
             timeout=10,
         )
         resp.raise_for_status()
@@ -1820,7 +1855,8 @@ def reply_telegram(text: str, reply_to_message_id):
     try:
         resp = _session.post(
             f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage",
-            json={"chat_id": TG_CHAT_ID, "text": text, "reply_to_message_id": reply_to_message_id},
+            json={"chat_id": TG_CHAT_ID, "text": text, "reply_to_message_id": reply_to_message_id,
+                  "parse_mode": "HTML"},
             timeout=10,
         )
         resp.raise_for_status()
