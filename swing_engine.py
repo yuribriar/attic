@@ -1528,6 +1528,26 @@ class FilterResult:
 def apply_five_filters(cand: Candidate, market_price: float, atr_val: float, spread_pct: Optional[float]) -> FilterResult:
     reasons = []
     ok = True
+    # 0. ALREADY INVALIDATED -- the setup is built from the last *closed*
+    #    candle on each timeframe, so by the time we're about to publish it,
+    #    live price may already have run through the SL (or past TP1) on the
+    #    still-forming candle. Without this check the engine would post a
+    #    signal that is dead (or already "won") on arrival. Compare against
+    #    the freshest live mark price available, not a candle close.
+    if cand.direction == "long":
+        if market_price <= cand.sl:
+            ok = False
+            reasons.append(f"live price {market_price:.6g} already at/through SL {cand.sl:.6g}")
+        elif cand.tp1 and market_price >= cand.tp1:
+            ok = False
+            reasons.append(f"live price {market_price:.6g} already at/through TP1 {cand.tp1:.6g}")
+    else:
+        if market_price >= cand.sl:
+            ok = False
+            reasons.append(f"live price {market_price:.6g} already at/through SL {cand.sl:.6g}")
+        elif cand.tp1 and market_price <= cand.tp1:
+            ok = False
+            reasons.append(f"live price {market_price:.6g} already at/through TP1 {cand.tp1:.6g}")
     # 1. LOCATION -- distance from live price
     dist_pct = abs(cand.entry - market_price) / market_price * 100.0
     if dist_pct > POI_MAX_PCT_OF_PRICE * 100.0 and dist_pct > POI_MAX_DIST_ATR_MULT * atr_val / market_price * 100.0:
@@ -2034,6 +2054,13 @@ def evaluate_symbol(symbol: str, reference_ms: int, state: dict, btc_bias: str, 
     row = snapshot.get(symbol, {})
     if row.get("oi", 0.0) < MIN_OI_USD and symbol not in MAJORS:
         return None
+    # Prefer the live exchange mark price (fetched fresh at the top of this
+    # scan) over any candle-close price. Candle closes used elsewhere in this
+    # function are, by construction, from the last *closed* bar and can lag
+    # live price by up to a full timeframe interval -- exactly the gap that
+    # let signals fire already past their own SL. Fall back to the mid-tf
+    # candle close only if the snapshot didn't have this symbol.
+    live_price = row.get("mark_px") or None
 
     ind_htf = get_cached_indicators(symbol, TF_HTF, candles[TF_HTF], reference_ms)
     ind_mid = get_cached_indicators(symbol, TF_MID, candles[TF_MID], reference_ms)
@@ -2059,7 +2086,8 @@ def evaluate_symbol(symbol: str, reference_ms: int, state: dict, btc_bias: str, 
             continue
         if is_recent_duplicate(state, symbol, cand.direction, cand.entry):
             continue
-        fr = apply_five_filters(cand, ind_mid["last"], ind_mid["atr"][-1], spread_pct)
+        current_price = live_price if live_price else ind_mid["last"]
+        fr = apply_five_filters(cand, current_price, ind_mid["atr"][-1], spread_pct)
         if not fr.passed:
             continue
         confidence, fo_notes, fo = score_candidate(cand, regime, state, snapshot, spread_pct)
@@ -2168,7 +2196,20 @@ def run_scan() -> None:
             update_cooldown(state, cand.symbol, cand.direction, item["bar_index"])
             log(f"SIGNAL {cand.symbol} {cand.direction} {cand.pathway} conf={confidence:.1f} grade={grade}")
 
-    market_prices = price_by_symbol
+    # Refresh mark prices right before checking SL/TP. price_by_symbol was
+    # captured from the breadth pre-pass (1h candle closes) before any of the
+    # per-symbol analysis ran, and a full scan across the watchlist can take
+    # a while -- using it here means a signal opened moments ago gets graded
+    # against a price snapshot that's already stale in either direction.
+    # A fresh metaAndAssetCtxs call gives every symbol's live mark price in
+    # one request; fall back to the pre-pass close for any symbol missing
+    # from it (e.g. a transient fetch failure).
+    fresh_snapshot = get_meta_and_asset_ctxs() or {}
+    market_prices = dict(price_by_symbol)
+    for sym, row in fresh_snapshot.items():
+        px = row.get("mark_px")
+        if px:
+            market_prices[sym] = px
     check_active_signals(state, market_prices)
     tune_pathway_weights(state)
     update_signal_ema(state)
