@@ -1886,7 +1886,8 @@ def _candle_hit(sig: dict, candle: dict):
 def _resolve_signal(state: dict, sig: dict, result: str, exit_price: float) -> None:
     r = _r_multiple(sig, exit_price)
     react_to_message(sig.get("msg_id"), REACT_TP if result == "TP" else REACT_SL)
-    reply_telegram(f"{'\U0001F3C6 TP hit' if result == 'TP' else '\U0001F62D SL hit'} on {sig['symbol']} "
+    result_label = "\U0001F3C6 TP hit" if result == "TP" else "\U0001F62D SL hit"
+    reply_telegram(f"{result_label} on {sig['symbol']} "
                     f"({sig['direction']}) — {r:+.2f}R", sig.get("msg_id"))
     state["resolved_signals"].append({**sig, "result": result, "r_multiple": r,
                                        "resolved_ts": time.time(), "resolved_price": exit_price})
