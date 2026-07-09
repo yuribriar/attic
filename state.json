@@ -16,7 +16,7 @@
       "msg_id": 1890,
       "opened_ts": 1783524678.4145844,
       "tp1_hit": false,
-      "last_checked_ts_ms": 1783571449154
+      "last_checked_ts_ms": 1783572319569
     },
     {
       "id": "6499f3ff-4673-4d5f-bc46-9cd62eadd24a",
@@ -32,7 +32,7 @@
       "msg_id": 1907,
       "opened_ts": 1783530089.1765723,
       "tp1_hit": false,
-      "last_checked_ts_ms": 1783571449154
+      "last_checked_ts_ms": 1783572319569
     },
     {
       "id": "b7eca97a-9fcd-4b8d-9531-2a8f6c3fa4ca",
@@ -48,7 +48,7 @@
       "msg_id": 1912,
       "opened_ts": 1783537276.4839478,
       "tp1_hit": false,
-      "last_checked_ts_ms": 1783571449154
+      "last_checked_ts_ms": 1783572319569
     },
     {
       "id": "600f343f-40be-475b-8ac7-eb080467f9d6",
@@ -64,7 +64,7 @@
       "msg_id": 1913,
       "opened_ts": 1783537277.1974962,
       "tp1_hit": false,
-      "last_checked_ts_ms": 1783571449154
+      "last_checked_ts_ms": 1783572319569
     },
     {
       "id": "066e7576-afb2-4645-86f8-1ccb5c1245b7",
@@ -80,7 +80,7 @@
       "msg_id": 1914,
       "opened_ts": 1783540880.2122889,
       "tp1_hit": false,
-      "last_checked_ts_ms": 1783571449154
+      "last_checked_ts_ms": 1783572319569
     },
     {
       "id": "99cc3e18-58df-4197-9f51-9638ec0cb213",
@@ -96,7 +96,7 @@
       "msg_id": 1920,
       "opened_ts": 1783551682.3800306,
       "tp1_hit": false,
-      "last_checked_ts_ms": 1783571449154
+      "last_checked_ts_ms": 1783572319569
     },
     {
       "id": "fef92e29-2228-4837-8be8-488679f70e78",
@@ -112,7 +112,7 @@
       "msg_id": 1922,
       "opened_ts": 1783555278.1617904,
       "tp1_hit": false,
-      "last_checked_ts_ms": 1783571449154
+      "last_checked_ts_ms": 1783572319569
     },
     {
       "id": "c1c90ee8-2313-48e3-9d6c-971382062d7f",
@@ -128,7 +128,7 @@
       "msg_id": 1932,
       "opened_ts": 1783562474.2767715,
       "tp1_hit": false,
-      "last_checked_ts_ms": 1783571449154
+      "last_checked_ts_ms": 1783572319569
     }
   ],
   "signal_history": [
@@ -2238,5 +2238,5 @@
       1.25e-05
     ]
   },
-  "bar_index": 53
+  "bar_index": 54
 }
