@@ -169,6 +169,28 @@ MAX_PORTFOLIO_EXPOSURE_PCT = 60.0   # sum of position_size_pct across open signa
 DAILY_LOSS_LIMIT_R = -6.0           # sum of realized R for the UTC day
 PER_TRADE_RISK_PCT = 1.0            # nominal risk-per-trade for sizing math
 
+# Stop-hunt guard: if a resting liquidity pool (equal highs/lows, PDH/PDL,
+# weekly high/low — i.e. where other traders' stops cluster) sits just beyond
+# our computed SL, a sweep that only needs to clear that pool will tag our
+# stop too, right before the reversal. When enabled, the SL is pushed past
+# the pool instead of sitting in front of it.
+STOP_HUNT_GUARD_ENABLED = True
+STOP_HUNT_MAX_EXTRA_ATR = 0.5   # only look for pools within this far beyond the computed SL
+
+# Adaptive SL buffer: the cushion placed beyond a swept level (either the
+# zone edge itself, or a liquidity pool caught by the stop-hunt guard above)
+# is sized off this symbol's own recent wick behavior rather than a flat
+# fraction of ATR, so it thickens automatically on symbols/regimes that are
+# actually printing bigger stop-hunt wicks right now.
+SL_BUFFER_WICK_LOOKBACK = 20        # candles of recent wick history to sample
+SL_BUFFER_WICK_MULT = 1.3           # buffer = avg_wick * this
+SL_BUFFER_FLOOR_ATR = 0.25          # never thinner than this, even if wicks have been tiny
+SL_BUFFER_CAP_ATR = 0.85            # never wider than this, even if wicks have been huge
+SL_BUFFER_HIGH_VOL_PCTILE = 80      # atr_pctile threshold considered "high vol"
+SL_BUFFER_ELEVATED_VOL_PCTILE = 60  # atr_pctile threshold considered "elevated"
+SL_BUFFER_HIGH_VOL_SCALE = 1.3
+SL_BUFFER_ELEVATED_VOL_SCALE = 1.15
+
 REACT_TP = "\U0001F3C6"
 REACT_SL = "\U0001F62D"
 DAILY_SUMMARY_HOUR_UTC = 8
@@ -1273,17 +1295,84 @@ class Candidate:
         return reward / risk if risk > 0 else 0.0
 
 
+def adaptive_sl_buffer(direction: str, candles_exec: list, atr_val: float, regime: RegimeVector) -> float:
+    """Cushion placed beyond a swept level, sized off this symbol's own
+    recent wick behavior on the relevant side (lower wicks for longs, since
+    that's the side a stop-hunt sweep would spike through; upper wicks for
+    shorts) rather than a flat fraction of ATR. Scales up further when
+    volatility is currently elevated — stop-hunt wicks get more violent, not
+    less, exactly when vol is expanding — and is floored/capped so it can
+    neither go paper-thin nor balloon risk on a single outsized wick."""
+    seg = candles_exec[-SL_BUFFER_WICK_LOOKBACK:]
+    if not seg:
+        return SL_BUFFER_FLOOR_ATR * atr_val
+
+    wicks = []
+    for c in seg:
+        body_low = min(c["o"], c["c"])
+        body_high = max(c["o"], c["c"])
+        if direction == "bullish":
+            wicks.append(max(0.0, body_low - c["l"]))   # lower wick
+        else:
+            wicks.append(max(0.0, c["h"] - body_high))  # upper wick
+
+    avg_wick = sum(wicks) / len(wicks)
+    buffer = avg_wick * SL_BUFFER_WICK_MULT
+
+    if regime.atr_pctile >= SL_BUFFER_HIGH_VOL_PCTILE:
+        buffer *= SL_BUFFER_HIGH_VOL_SCALE
+    elif regime.atr_pctile >= SL_BUFFER_ELEVATED_VOL_PCTILE:
+        buffer *= SL_BUFFER_ELEVATED_VOL_SCALE
+
+    floor = SL_BUFFER_FLOOR_ATR * atr_val
+    cap = SL_BUFFER_CAP_ATR * atr_val
+    return max(floor, min(cap, buffer))
+
+
+def _extend_sl_past_liquidity(direction: str, sl: float, atr_val: float,
+                               pools_bias: dict, buffer: float) -> float:
+    """If a resting liquidity pool sits just beyond our SL, push the SL past
+    it instead of leaving it sitting in front of the pool. Only searches a
+    bounded range (STOP_HUNT_MAX_EXTRA_ATR) so this can't silently balloon
+    risk on a trade with no nearby pools — it's a targeted fix for the
+    classic 'wick grabs stops just past structure, then reverses' pattern,
+    not a general SL-widening switch."""
+    side = "sellside" if direction == "bullish" else "buyside"
+    candidates = [lv for lv, _ in pools_bias.get(side, [])]
+    if not candidates:
+        return sl
+
+    if direction == "bullish":
+        search_limit = sl - STOP_HUNT_MAX_EXTRA_ATR * atr_val
+        nearby = [lv for lv in candidates if search_limit <= lv <= sl]
+        if not nearby:
+            return sl
+        deepest_pool = min(nearby)
+        return deepest_pool - buffer
+    else:
+        search_limit = sl + STOP_HUNT_MAX_EXTRA_ATR * atr_val
+        nearby = [lv for lv in candidates if sl <= lv <= search_limit]
+        if not nearby:
+            return sl
+        highest_pool = max(nearby)
+        return highest_pool + buffer
+
+
 def build_trade_plan(direction: str, entry: float, zone: Zone, atr_val: float,
-                      pools_bias: dict, regime: RegimeVector):
+                      pools_bias: dict, regime: RegimeVector, candles_exec: list):
+    sl_buffer = adaptive_sl_buffer(direction, candles_exec, atr_val, regime)
     sl_mult = adaptive_sl_atr_mult(regime)
     if direction == "bullish":
-        structural_sl = zone.low - 0.15 * atr_val
+        structural_sl = zone.low - sl_buffer
         atr_sl = entry - sl_mult * atr_val
         sl = min(structural_sl, atr_sl)
     else:
-        structural_sl = zone.high + 0.15 * atr_val
+        structural_sl = zone.high + sl_buffer
         atr_sl = entry + sl_mult * atr_val
         sl = max(structural_sl, atr_sl)
+
+    if STOP_HUNT_GUARD_ENABLED:
+        sl = _extend_sl_past_liquidity(direction, sl, atr_val, pools_bias, sl_buffer)
 
     risk = abs(entry - sl)
     side = "buyside" if direction == "bullish" else "sellside"
@@ -1362,7 +1451,7 @@ def pathway_liquidity_reversal(symbol, bundle, state, regime, snapshot_row, book
             continue
 
         entry = price
-        sl, tp = build_trade_plan(direction, entry, zone, atr_exec_val, pools_poi, regime)
+        sl, tp = build_trade_plan(direction, entry, zone, atr_exec_val, pools_poi, regime, candles_exec)
         rr_check = filter_rr(entry, sl, tp, regime)
         if not rr_check["passes"]:
             log_suppressed(symbol, direction, "liquidity_reversal",
@@ -1422,7 +1511,7 @@ def pathway_trend_continuation(symbol, bundle, state, regime, snapshot_row, book
             continue
 
         entry = price
-        sl, tp = build_trade_plan(direction, entry, zone, atr_exec_val, pools_poi, regime)
+        sl, tp = build_trade_plan(direction, entry, zone, atr_exec_val, pools_poi, regime, candles_exec)
         rr_check = filter_rr(entry, sl, tp, regime)
         if not rr_check["passes"]:
             continue
@@ -1498,7 +1587,7 @@ def pathway_momentum_breakout(symbol, bundle, state, regime, snapshot_row, book)
 
     entry = price
     pools_poi = build_liquidity_pools(swings_poi, bundle["1d"])
-    sl, tp = build_trade_plan(direction, entry, retest_zone, atr_exec_val, pools_poi, regime)
+    sl, tp = build_trade_plan(direction, entry, retest_zone, atr_exec_val, pools_poi, regime, candles_exec)
     rr_check = filter_rr(entry, sl, tp, regime)
     if not rr_check["passes"]:
         return []
