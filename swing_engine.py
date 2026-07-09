@@ -1316,8 +1316,8 @@ def build_risk_plan(direction: str, entry: float, invalidation: float, atr_val: 
         tp2 = tp1 - risk * 0.5
     rr1 = safe_div(abs(tp1 - entry), risk)
     rr2 = safe_div(abs(tp2 - entry), risk)
-    sl_reason = f"beyond {zone_desc} with a {buf / atr_val:.2f}xATR volatility-scaled buffer (vol pctile {vol_pctile:.0f})"
-    tp_reason = "TP1 at 2R clipped to nearest real liquidity/value-area level; TP2 extended toward the next opposing pool"
+    sl_reason = f"Beyond {zone_desc} · {buf / atr_val:.2f}x ATR buffer (vol {vol_pctile:.0f}pct)"
+    tp_reason = "TP1 @ 2R nearest liquidity/VA · TP2 next pool"
     return {"sl": sl, "tp1": tp1, "tp2": tp2, "rr1": rr1, "rr2": rr2, "risk": risk,
             "sl_reason": sl_reason, "tp_reason": tp_reason}
 
@@ -1380,7 +1380,7 @@ def build_pathway_liquidity_reversal(symbol: str, bundles: dict, regime: RegimeV
             symbol=symbol, direction=direction, pathway="liquidity_reversal",
             regime_label=regime.label, entry=entry, sl=plan["sl"], tp1=plan["tp1"], tp2=plan["tp2"],
             rr1=rr1, rr2=plan["rr2"],
-            reason=f"Liquidity sweep of {sweep['level']:.6g} followed by {TF_LTF} MSS" + (" and breaker retest" if breaker else ""),
+            reason=f"Sweep {sweep['level']:.6g} → {TF_LTF} MSS" + (" → breaker retest" if breaker else ""),
             sl_reason=plan["sl_reason"], tp_reason=plan["tp_reason"], confluences=confl,
             quality=min(1.0, 0.5 + 0.1 * len(confl)),
             trade_type=classify_trade_type("htf_poi", risk_pct), poi_kind="liquidity_reversal",
@@ -1445,7 +1445,7 @@ def build_pathway_trend_continuation(symbol: str, bundles: dict, regime: RegimeV
     return Candidate(
         symbol=symbol, direction=direction, pathway="trend_continuation", regime_label=regime.label,
         entry=entry, sl=plan["sl"], tp1=plan["tp1"], tp2=plan["tp2"], rr1=plan["rr1"], rr2=plan["rr2"],
-        reason=f"Pullback into {zone.kind.replace('_', ' ')} within established {regime.symbol_trend} trend",
+        reason=f"Pullback into {zone.kind.replace('_', ' ')} · {regime.symbol_trend} trend",
         sl_reason=plan["sl_reason"], tp_reason=plan["tp_reason"], confluences=confl,
         quality=zone.quality, trade_type=classify_trade_type("htf_poi", risk_pct), poi_kind="trend_continuation",
     )
@@ -1507,7 +1507,7 @@ def build_pathway_range_reversion(symbol: str, bundles: dict, regime: RegimeVect
     return Candidate(
         symbol=symbol, direction=direction, pathway="range_reversion", regime_label=regime.label,
         entry=entry, sl=plan["sl"], tp1=plan["tp1"], tp2=plan["tp2"], rr1=plan["rr1"], rr2=plan["rr2"],
-        reason=f"Mean-reversion fade at {edge_desc} of a {width / price * 100:.1f}%-wide range (ADX {regime.adx_htf:.0f})",
+        reason=f"Fade at {edge_desc} · {width / price * 100:.1f}% range (ADX {regime.adx_htf:.0f})",
         sl_reason=plan["sl_reason"], tp_reason=plan["tp_reason"], confluences=confl,
         quality=0.55, trade_type=classify_trade_type("range_edge", risk_pct), poi_kind="range_reversion",
     )
@@ -1789,6 +1789,9 @@ def format_signal(cand: Candidate, confidence: float, grade: str, fo_notes: list
     arrow = "🟢 LONG" if cand.direction == "long" else "🔴 SHORT"
     conf_str = "\n".join(f"• {md2_escape(c)}" for c in cand.confluences + fo_notes)
     header = f"*{md2_escape(ENGINE_NAME)}* — Signal"
+    # Each price sits in its own inline-code span so it can be tapped and
+    # copied individually in Telegram, instead of one shared code block
+    # where a tap/long-press copies all four lines at once.
     lines = [
         header,
         "",
@@ -1796,16 +1799,14 @@ def format_signal(cand: Candidate, confidence: float, grade: str, fo_notes: list
         f"Regime: `{cand.regime_label}`   Type: `{cand.trade_type}`   Grade: *{grade}* {confidence_bar(confidence)} \\({confidence:.0f}%\\)",
         f"Pathway: `{cand.pathway}`",
         "",
-        "```",
-        f"Entry : {fmt_px(cand.entry)}",
-        f"SL    : {fmt_px(cand.sl)}",
-        f"TP1   : {fmt_px(cand.tp1)}  (R {cand.rr1:.2f})",
-        f"TP2   : {fmt_px(cand.tp2)}  (R {cand.rr2:.2f})" if cand.tp2 else "",
-        "```",
+        f"Entry  `{fmt_px(cand.entry)}`",
+        f"SL     `{fmt_px(cand.sl)}`",
+        f"TP1    `{fmt_px(cand.tp1)}`  \\(R {cand.rr1:.2f}\\)",
+        f"TP2    `{fmt_px(cand.tp2)}`  \\(R {cand.rr2:.2f}\\)" if cand.tp2 else "",
         "",
         f"*Why:* {md2_escape(cand.reason)}",
-        f"*SL logic:* {md2_escape(cand.sl_reason)}",
-        f"*TP logic:* {md2_escape(cand.tp_reason)}",
+        f"*SL:* {md2_escape(cand.sl_reason)}",
+        f"*TP:* {md2_escape(cand.tp_reason)}",
     ]
     if conf_str:
         lines += ["", "*Confluence:*", conf_str]
