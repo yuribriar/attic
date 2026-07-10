@@ -94,8 +94,8 @@ def _env_int(name: str, default: int) -> int:
 
 HL_API_URL = os.environ.get("HYPERLIQUID_API_URL", "https://api.hyperliquid.xyz/info")
 
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+TELEGRAM_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.environ.get("TG_CHAT_ID", "")
 
 WATCHLIST = _env_list(
     "WATCHLIST",
