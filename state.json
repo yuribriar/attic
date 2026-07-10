@@ -109,7 +109,7 @@
   "daily_signal_counts": [
     0
   ],
-  "governor_adjustment": 0.0,
+  "governor_adjustment": -1.7999999999999998,
   "last_daily_summary_date": null,
   "cooldowns": {},
   "learning_log": [],
