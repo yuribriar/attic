@@ -1892,12 +1892,10 @@ def format_signal(cand: Candidate, confidence: float, grade: str, signal_id: int
         f"Grade: *{tg_escape(grade)}*  Confidence: {confidence:.0f}% {confidence_bar(confidence)}",
         f"Engine: {tg_escape(cand.engine.replace('_', ' ').title())}",
         "",
-        "```",
-        f"Entry   {fmt_px(cand.entry)}",
-        f"SL      {fmt_px(cand.sl)}",
-        f"TP1     {fmt_px(cand.tp1)}  (RR {cand.rr1:.2f})",
-        f"TP2     {fmt_px(cand.tp2)}  (RR {cand.rr2:.2f})",
-        "```",
+        f"Entry   `{fmt_px(cand.entry)}`",
+        f"SL      `{fmt_px(cand.sl)}`",
+        f"TP1     `{fmt_px(cand.tp1)}`  \\(RR {cand.rr1:.2f}\\)",
+        f"TP2     `{fmt_px(cand.tp2)}`  \\(RR {cand.rr2:.2f}\\)",
         "",
     ]
     if cand.confluence:
