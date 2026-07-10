@@ -94,8 +94,8 @@ def _env_int(name: str, default: int) -> int:
 
 HL_API_URL = os.environ.get("HYPERLIQUID_API_URL", "https://api.hyperliquid.xyz/info")
 
-TELEGRAM_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID = os.environ.get("TG_CHAT_ID", "")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
 WATCHLIST = _env_list(
     "WATCHLIST",
@@ -107,8 +107,6 @@ WATCHLIST = _env_list(
     "XLM", "UNI", "LTC", "APT", "PENDLE",
     ],
 )
-
-
 
 BASE_ASSET = "BTC"  # used for market regime / correlation beta
 
@@ -1590,7 +1588,7 @@ def load_state() -> dict:
 def save_state(state: dict):
     tmp = STATE_PATH.with_suffix(".tmp")
     try:
-        tmp.write_text(json.dumps(state, indent=None, default=str))
+        tmp.write_text(json.dumps(state, indent=2, default=str))
         tmp.replace(STATE_PATH)
     except OSError as exc:
         log.error("state save failed: %s", exc)
@@ -1863,6 +1861,15 @@ def tg_escape(value) -> str:
     return text
 
 
+def tg_signed(value: float) -> str:
+    """Format a signed float (e.g. R-multiples) and escape it for MarkdownV2.
+
+    Values like +1.25 or -0.50 contain '+'/'-'/'.' which are all reserved
+    MarkdownV2 characters and must be escaped just like any other text.
+    """
+    return tg_escape(f"{value:+.2f}")
+
+
 def fmt_px(v: float) -> str:
     if v >= 1000:
         return f"{v:,.2f}"
@@ -1880,9 +1887,9 @@ def format_signal(cand: Candidate, confidence: float, grade: str, signal_id: int
     arrow = "🟢 LONG" if cand.direction == "long" else "🔴 SHORT"
     lines = [
         f"*{tg_escape(ENGINE_TAG)}*",
-        f"#{signal_id} · {tg_escape(cand.symbol)}\\-PERP · {arrow}",
+        f"\\#{signal_id} · {tg_escape(cand.symbol)}\\-PERP · {arrow}",
         "",
-        f"Grade: *{grade}*  Confidence: {confidence:.0f}% {confidence_bar(confidence)}",
+        f"Grade: *{tg_escape(grade)}*  Confidence: {confidence:.0f}% {confidence_bar(confidence)}",
         f"Engine: {tg_escape(cand.engine.replace('_', ' ').title())}",
         "",
         "```",
@@ -1892,9 +1899,10 @@ def format_signal(cand: Candidate, confidence: float, grade: str, signal_id: int
         f"TP2     {fmt_px(cand.tp2)}  (RR {cand.rr2:.2f})",
         "```",
         "",
-        "Confluence: " + tg_escape(", ".join(cand.confluence)) if cand.confluence else "",
     ]
-    return "\n".join(l for l in lines if l != "")
+    if cand.confluence:
+        lines.append("Confluence: " + tg_escape(", ".join(cand.confluence)))
+    return "\n".join(lines)
 
 
 def send_telegram(text: str) -> Optional[int]:
@@ -2036,7 +2044,7 @@ def _close_signal(state: dict, sig: dict, result: str, price: float):
     emoji_key = {"TP2": "TP2", "SL": "SL", "BREAKEVEN": "BREAKEVEN"}.get(result, None)
     label = {"TP2": "TP2 hit 🏆", "SL": "Stopped out 💔", "BREAKEVEN": "Closed at breakeven 🤝"}.get(
         result, f"Closed ({result})")
-    text = f"*#{sig['id']} {tg_escape(sig['symbol'])}* — {label}\nResult: {r_multiple:+.2f}R"
+    text = f"*\\#{sig['id']} {tg_escape(sig['symbol'])}* — {label}\nResult: {tg_signed(r_multiple)}R"
     reply_telegram(text, sig.get("msg_id"))
     if emoji_key:
         react_telegram(sig.get("msg_id"), REACTIONS[emoji_key])
