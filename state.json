@@ -1,4 +1,5 @@
 {
+  "engine_version": "1.0.0",
   "open_signals": [
     {
       "seq": 1,
@@ -97,8 +98,17 @@
       "tp1_hit": false
     }
   ],
-  "closed_signals": [],
+  "signal_history": [],
   "engine_stats": {},
+  "regime_stats": {},
+  "asset_stats": {},
+  "timeframe_stats": {},
+  "confidence_calibration": {},
+  "daily_signal_counts": [
+    0
+  ],
+  "governor_adjustment": 0.0,
+  "last_daily_summary_date": "2026-07-10",
   "cooldowns": {
     "PENGUUSDT:short": 1783704647.87283,
     "ETHUSDT:long": 1783700370.6365707,
@@ -106,6 +116,8 @@
     "ADAUSDT:short": 1783702854.2355497,
     "BTCUSDT:long": 1783702854.8826232
   },
+  "learning_log": [],
+  "closed_signals": [],
   "recent_prices": {},
   "atr_pct_memory": {
     "BTCUSDT": [
@@ -310,7 +322,7 @@
     ]
   },
   "threshold": 62.0,
-  "last_daily_summary_date": "2026-07-10",
   "signal_seq": 6,
-  "last_scan_ts": 1783704647.8728669
+  "last_scan_ts": 1783704647.8728669,
+  "_last_count_date": "2026-07-10"
 }
