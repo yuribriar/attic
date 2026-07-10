@@ -1,1 +1,117 @@
-{}
+{
+  "engine_version": "1.0.0",
+  "open_signals": [],
+  "signal_history": [],
+  "engine_stats": {
+    "smc": {
+      "wins": 0,
+      "losses": 0,
+      "rr_sum": 0.0,
+      "hold_time_sum_s": 0.0,
+      "count": 0
+    },
+    "trend_continuation": {
+      "wins": 0,
+      "losses": 0,
+      "rr_sum": 0.0,
+      "hold_time_sum_s": 0.0,
+      "count": 0
+    },
+    "breakout": {
+      "wins": 0,
+      "losses": 0,
+      "rr_sum": 0.0,
+      "hold_time_sum_s": 0.0,
+      "count": 0
+    },
+    "pullback": {
+      "wins": 0,
+      "losses": 0,
+      "rr_sum": 0.0,
+      "hold_time_sum_s": 0.0,
+      "count": 0
+    },
+    "liquidity_sweep": {
+      "wins": 0,
+      "losses": 0,
+      "rr_sum": 0.0,
+      "hold_time_sum_s": 0.0,
+      "count": 0
+    },
+    "order_block": {
+      "wins": 0,
+      "losses": 0,
+      "rr_sum": 0.0,
+      "hold_time_sum_s": 0.0,
+      "count": 0
+    },
+    "breaker_block": {
+      "wins": 0,
+      "losses": 0,
+      "rr_sum": 0.0,
+      "hold_time_sum_s": 0.0,
+      "count": 0
+    },
+    "fair_value_gap": {
+      "wins": 0,
+      "losses": 0,
+      "rr_sum": 0.0,
+      "hold_time_sum_s": 0.0,
+      "count": 0
+    },
+    "momentum": {
+      "wins": 0,
+      "losses": 0,
+      "rr_sum": 0.0,
+      "hold_time_sum_s": 0.0,
+      "count": 0
+    },
+    "reversal": {
+      "wins": 0,
+      "losses": 0,
+      "rr_sum": 0.0,
+      "hold_time_sum_s": 0.0,
+      "count": 0
+    },
+    "mean_reversion": {
+      "wins": 0,
+      "losses": 0,
+      "rr_sum": 0.0,
+      "hold_time_sum_s": 0.0,
+      "count": 0
+    },
+    "range_trading": {
+      "wins": 0,
+      "losses": 0,
+      "rr_sum": 0.0,
+      "hold_time_sum_s": 0.0,
+      "count": 0
+    },
+    "volatility_expansion": {
+      "wins": 0,
+      "losses": 0,
+      "rr_sum": 0.0,
+      "hold_time_sum_s": 0.0,
+      "count": 0
+    },
+    "vwap_reversion": {
+      "wins": 0,
+      "losses": 0,
+      "rr_sum": 0.0,
+      "hold_time_sum_s": 0.0,
+      "count": 0
+    }
+  },
+  "regime_stats": {},
+  "asset_stats": {},
+  "timeframe_stats": {},
+  "confidence_calibration": {},
+  "daily_signal_counts": [
+    0
+  ],
+  "governor_adjustment": 0.0,
+  "last_daily_summary_date": null,
+  "cooldowns": {},
+  "learning_log": [],
+  "_last_count_date": "2026-07-10"
+}
