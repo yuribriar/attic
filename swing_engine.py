@@ -89,9 +89,10 @@ MAX_SIGNALS_PER_SCAN = int(os.environ.get("MAX_SIGNALS_PER_SCAN", "3"))
 # Hyperliquid perpetual majors/alts; overridable via WATCHLIST env var so
 # the same file works for any account without code changes.
 _DEFAULT_WATCHLIST = [
-    "BTC", "ETH", "HYPE", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX",
-    "LINK", "SUI", "NEAR", "DOT", "AAVE", "LTC", "APT", "ONDO", "TAO",
-    "UNI", "TRX", "BCH", "XLM", "PENDLE",
+    "BTC", "ETH", "HYPE", "ZEC", "NEAR", "ONDO", "SUI", "PENGU", "BNB", "SOL",
+    "TRX", "BCH", "DOGE", "ADA", "DOT", "TAO", "AVAX", "LINK", "AAVE", "XRP",
+    "XLM", "UNI", "LTC", "APT", "PENDLE",
+
 ]
 WATCHLIST = [s.strip().upper() for s in os.environ.get(
     "WATCHLIST", ",".join(_DEFAULT_WATCHLIST)).split(",") if s.strip()]
