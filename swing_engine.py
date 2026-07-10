@@ -94,7 +94,7 @@ _DEFAULT_WATCHLIST = [
     "XLM", "UNI", "LTC", "APT", "PENDLE",
 ]
 
-]
+
 WATCHLIST = [s.strip().upper() for s in os.environ.get(
     "WATCHLIST", ",".join(_DEFAULT_WATCHLIST)).split(",") if s.strip()]
 
