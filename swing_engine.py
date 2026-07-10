@@ -89,12 +89,10 @@ MAX_SIGNALS_PER_SCAN = int(os.environ.get("MAX_SIGNALS_PER_SCAN", "3"))
 # Hyperliquid perpetual majors/alts; overridable via WATCHLIST env var so
 # the same file works for any account without code changes.
 _DEFAULT_WATCHLIST = [
-    "BTC", "ETH", "HYPE", "ZEC", "NEAR", "ONDO", "SUI", "PENGU", "BNB", "SOL",
-    "TRX", "BCH", "DOGE", "ADA", "DOT", "TAO", "AVAX", "LINK", "AAVE", "XRP",
-    "XLM", "UNI", "LTC", "APT", "PENDLE",
+    "BTC", "ETH", "HYPE", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX",
+    "LINK", "SUI", "NEAR", "DOT", "AAVE", "LTC", "APT", "ONDO", "TAO",
+    "UNI", "TRX", "BCH", "XLM", "PENDLE",
 ]
-
-
 WATCHLIST = [s.strip().upper() for s in os.environ.get(
     "WATCHLIST", ",".join(_DEFAULT_WATCHLIST)).split(",") if s.strip()]
 
@@ -1470,14 +1468,52 @@ def _tg_call(method: str, payload: dict) -> Optional[dict]:
         return None
 
 
+_CONFLUENCE_LABELS = {
+    "order_block_retest": "Order block retest",
+    "ema20_pullback": "EMA20 pullback",
+    "ema_stack_aligned": "EMA stack aligned",
+    "range_breakout": "Range breakout",
+    "volume_expansion": "Volume expansion",
+    "fib_retracement_zone": "Fib retracement zone",
+    "liquidity_pool_sweep": "Liquidity sweep",
+    "fresh_order_block": "Fresh order block",
+    "breaker_block_retest": "Breaker block retest",
+    "fvg_fill_entry": "FVG fill",
+    "rsi_momentum": "RSI momentum",
+    "rate_of_change": "Rate of change",
+    "rsi_divergence": "RSI divergence",
+    "bollinger_band_extreme": "Bollinger Band extreme",
+    "range_boundary_bounce": "Range boundary bounce",
+    "volatility_squeeze_release": "Volatility squeeze release",
+    "vwap_extension": "VWAP extension",
+}
+_REGIME_TREND = {"trending": "Trending", "ranging": "Ranging", "consolidation": "Consolidating"}
+_REGIME_DIR = {"bull": "bullish", "bear": "bearish", "neutral": "neutral"}
+_REGIME_VOL = {"high": "high vol", "low": "low vol", "normal": "normal vol", "expansion": "vol expansion"}
+
+
+def humanize_confluence(tag: str) -> str:
+    if tag.startswith("regime:"):
+        parts = tag.split(":", 1)[1].split("_")
+        trend, direction, vol = (parts + ["", "", ""])[:3]
+        return f"{_REGIME_TREND.get(trend, trend.title())} {_REGIME_DIR.get(direction, direction)} ({_REGIME_VOL.get(vol, vol)})"
+    if tag.startswith("mtf_bias:"):
+        return f"{tag.split(':', 1)[1].title()} MTF bias"
+    return _CONFLUENCE_LABELS.get(tag, tag.replace("_", " ").capitalize())
+
+
 def format_signal_message(sig: Signal, grade: str) -> str:
     arrow = "\U0001F7E2 LONG" if sig.direction == "long" else "\U0001F534 SHORT"
+    confl_lines = "\n".join(f"\u2022 {humanize_confluence(c)}" for c in sig.confluences)
     return (
         f"<b>{ENGINE_NAME} v{ENGINE_VERSION}</b>\n"
         f"{arrow}  <b>{sig.symbol}</b>  ({sig.engine})\n"
         f"Grade: {grade}  |  Confidence: {sig.confidence:.0f}%  |  RR: {sig.expected_rr:.2f}\n"
-        f"<pre>Entry : {sig.entry}\nSL    : {sig.sl}\nTP1   : {sig.tp1}\nTP2   : {sig.tp2}</pre>\n"
-        f"Confluences: {', '.join(sig.confluences)}\n"
+        f"Entry : <code>{sig.entry}</code>\n"
+        f"SL    : <code>{sig.sl}</code>\n"
+        f"TP1   : <code>{sig.tp1}</code>\n"
+        f"TP2   : <code>{sig.tp2}</code>\n"
+        f"{confl_lines}\n"
         f"<i>Signal only -- not financial advice. Verify independently before acting.</i>"
     )
 
