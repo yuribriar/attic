@@ -100,7 +100,7 @@ TELEGRAM_CHAT_ID = os.environ.get("TG_CHAT_ID", "")
 WATCHLIST = _env_list(
     "WATCHLIST",
     [
-         "BTC", "ETH", "HYPE", "ZEC", "NEAR",
+    "BTC", "ETH", "HYPE", "ZEC", "NEAR",
     "ONDO", "SUI", "PENGU", "BNB", "SOL",
     "TRX", "BCH", "DOGE", "ADA", "DOT",
     "TAO", "AVAX", "LINK", "AAVE", "XRP",
