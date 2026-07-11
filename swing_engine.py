@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-OBSIDIAN v1.0.0
+OBSIDIAN v1.1.1
 Adaptive multi-engine signal system for Hyperliquid perpetuals. Single
 self-contained file. Scan-per-run model, driven by an external scheduler
 (e.g. GitHub Actions cron); state persists to state.json between runs.
@@ -31,7 +31,7 @@ except ImportError:  # pragma: no cover
 # ══════════════════════════════════════════════════════════════════════════
 
 ENGINE_NAME = "OBSIDIAN"
-ENGINE_VERSION = "1.0.0"
+ENGINE_VERSION = "1.1.1"
 
 def _env_str(name: str, default: Optional[str] = None) -> Optional[str]:
     v = os.getenv(name)
@@ -1231,17 +1231,23 @@ class TelegramNotifier:
 
     def send_signal(self, s: Signal) -> Optional[int]:
         # No reaction on the original post itself -- reactions mark *outcomes*
-        # (TP1 / win / breakeven / loss), same as AXIS ENGINE's react_telegram.
+        # (TP1 / win / loss), same as AXIS ENGINE's react_telegram.
         return self.send_message(self.format_signal(s))
 
-    def send_status_update(self, original_message_id: int, symbol: str, status: str) -> None:
-        # Mirrors AXIS ENGINE's react_telegram emoji scheme: 🔥 on TP1,
-        # 👍 on a win or a breakeven stop-out (tp1 already banked), 👎 on a
-        # straight loss. "Closed"/"Cancelled" are kept for statuses this
-        # engine may use elsewhere.
-        emoji_map = {"TP1": "🔥", "TP2": "👍", "SL": "👎", "Break-even": "👍",
-                     "Closed": "🏆", "Cancelled": "🤷‍♂️"}
+    def send_status_update(self, original_message_id: int, symbol: str, status: str,
+                            detail: Optional[str] = None) -> None:
+        # Mirrors AXIS ENGINE's react_telegram emoji scheme: 🔥 on TP1 hit,
+        # 👍 on any win (TP2, or TP1 secured even if SL is touched later),
+        # 👎 on a straight loss (SL with no TP1 ever banked). "Closed"/
+        # "Cancelled" are kept for statuses this engine may use elsewhere.
+        # There is no "breakeven stop-out" status anymore: SL is never moved
+        # off its original level, and a later SL touch after TP1 is a WIN,
+        # not a separate breakeven outcome.
+        emoji_map = {"TP1": "🔥", "TP2 hit — WIN": "👍", "TP1 secured — WIN": "👍",
+                     "SL hit — LOSS": "👎", "Closed": "🏆", "Cancelled": "🤷‍♂️"}
         text = f"<b>{symbol}-PERP</b> update: <b>{status}</b>"
+        if detail:
+            text += f"\n{detail}"
         mid = self.send_message(text, reply_to=original_message_id)
         if mid and status in emoji_map:
             self.react(mid, emoji_map[status])
@@ -1290,27 +1296,50 @@ def evaluate_open_signals(state: StateStore, client: HyperliquidClient, notifier
         candles = client.get_candles(symbol, TF_ENTRY, lookback=20)
         if not candles:
             continue
-        last = candles[-1]
+        # Don't trust candles[-1] blindly -- if the exchange includes the
+        # still-forming candle in the response (its h/l/c can still change),
+        # evaluating it would either skip real SL/TP touches from the candle
+        # that actually just closed, or evaluate a partial range too early.
+        # Pick the most recent candle that is guaranteed to have closed.
+        interval_ms = _interval_to_ms(TF_ENTRY)
+        now_ms = int(time.time() * 1000)
+        closed_candles = [c for c in candles if c.ts + interval_ms <= now_ms]
+        if not closed_candles:
+            continue
+        last = closed_candles[-1]
         direction = rec["direction"]
         outcome = None
+        # NOTE: SL is intentionally NEVER repositioned when TP1 is hit -- it stays at
+        # its original level for internal tracking/resolution. If price later returns
+        # to that original SL after TP1 was already banked, that is scored as a WIN
+        # (see below), not a loss, so a normal pullback toward entry after a partial
+        # take-profit can't prematurely kill a trade that may still reach TP2.
         if direction == "long":
             if last.l <= rec["sl"]:
-                outcome = "sl"
+                outcome = "tp1" if rec.get("tp1_hit") else "sl"
             elif last.h >= rec["tp2"]:
                 outcome = "tp2"
             elif last.h >= rec["tp1"] and not rec.get("tp1_hit"):
                 rec["tp1_hit"] = True
                 if notifier.enabled and rec.get("message_id"):
-                    notifier.send_status_update(rec["message_id"], symbol, "TP1")
+                    notifier.send_status_update(
+                        rec["message_id"], symbol, "TP1",
+                        detail=f"SL stays at {rec['sl']} — unchanged. "
+                               f"(You can manually move your own stop to entry if you want to lock in breakeven yourself.)",
+                    )
         else:
             if last.h >= rec["sl"]:
-                outcome = "sl"
+                outcome = "tp1" if rec.get("tp1_hit") else "sl"
             elif last.l <= rec["tp2"]:
                 outcome = "tp2"
             elif last.l <= rec["tp1"] and not rec.get("tp1_hit"):
                 rec["tp1_hit"] = True
                 if notifier.enabled and rec.get("message_id"):
-                    notifier.send_status_update(rec["message_id"], symbol, "TP1")
+                    notifier.send_status_update(
+                        rec["message_id"], symbol, "TP1",
+                        detail=f"SL stays at {rec['sl']} — unchanged. "
+                               f"(You can manually move your own stop to entry if you want to lock in breakeven yourself.)",
+                    )
 
         if outcome:
             entry = rec["entry"]
@@ -1324,13 +1353,18 @@ def evaluate_open_signals(state: StateStore, client: HyperliquidClient, notifier
             state.data["signal_history"] = state.data["signal_history"][-2000:]
             update_learning_from_closed_trade(state, closed_trade)
             if notifier.enabled and rec.get("message_id"):
+                detail = None
                 if outcome == "tp2":
-                    close_status = "TP2"
-                elif rec.get("tp1_hit"):
-                    close_status = "Break-even"  # TP1 already banked before SL was hit
+                    close_status = "TP2 hit — WIN"
+                elif outcome == "tp1":
+                    # TP1 was banked earlier; SL (at its original, never-moved level)
+                    # was hit afterward. Still a WIN -- TP1's R is what gets credited,
+                    # never the negative R from the later SL touch.
+                    close_status = "TP1 secured — WIN"
+                    detail = "SL was hit afterward, but the trade still counts as a win with TP1's R credited."
                 else:
-                    close_status = "SL"
-                notifier.send_status_update(rec["message_id"], symbol, close_status)
+                    close_status = "SL hit — LOSS"
+                notifier.send_status_update(rec["message_id"], symbol, close_status, detail=detail)
             to_close.append(sig_id)
 
     for sig_id in to_close:
