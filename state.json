@@ -49,6 +49,31 @@
       "tp2": 50.354062,
       "ts": 1783758600000
     },
+    "ONDO-TrendContinuation-1783761300000": {
+      "confidence": 0.9,
+      "confluences": [
+        "Trend-aligned structure"
+      ],
+      "direction": "long",
+      "engine": "TrendContinuation",
+      "entry": 0.33226,
+      "ev": 1.2750000000000001,
+      "expected_rr": 2.0,
+      "message_id": 2219,
+      "opened_at": "2026-07-11T09:15:35.370507+00:00",
+      "regime_suitability": [
+        "trending",
+        "expansion"
+      ],
+      "score": 1.2750000000000001,
+      "sl": 0.313115,
+      "symbol": "ONDO",
+      "timeframe": "15M",
+      "tp1": 0.37055,
+      "tp1_hit": false,
+      "tp2": 0.399268,
+      "ts": 1783761300000
+    },
     "SUI-TrendContinuation-1783760400000": {
       "confidence": 0.761,
       "confluences": [
@@ -104,22 +129,23 @@
   "cooldowns": {
     "BNB": 1783765899.58031,
     "LTC": 1783765899.221753,
+    "ONDO": 1783768535.370519,
     "SUI": 1783767660.397611,
     "TRX": 1783767660.741829
   },
   "daily_counts": {
-    "2026-07-11": 4
+    "2026-07-11": 5
   },
   "engine_name": "OBSIDIAN",
   "engine_stats": {},
   "engine_version": "1.0.0",
   "engine_weights": {},
-  "ev_threshold": 0.33,
+  "ev_threshold": 0.32,
   "last_daily_summary_date": "2026-07-11",
   "run_stats": {
-    "last_run_ts": "2026-07-11T09:01:00.741841+00:00",
-    "total_runs": 3,
-    "total_signals": 4
+    "last_run_ts": "2026-07-11T09:15:35.370528+00:00",
+    "total_runs": 4,
+    "total_signals": 5
   },
   "schema_version": 1,
   "signal_history": []
