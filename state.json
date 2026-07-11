@@ -99,6 +99,31 @@
       "tp2": 0.084242,
       "ts": 1783776600000
     },
+    "ETH-TrendContinuation-1783781100000": {
+      "confidence": 0.9,
+      "confluences": [
+        "Trend-aligned structure"
+      ],
+      "direction": "long",
+      "engine": "TrendContinuation",
+      "entry": 1813.2929,
+      "ev": 1.615,
+      "expected_rr": 2.0,
+      "message_id": 2277,
+      "opened_at": "2026-07-11T14:45:34.753913+00:00",
+      "regime_suitability": [
+        "trending",
+        "expansion"
+      ],
+      "score": 1.615,
+      "sl": 1729.883929,
+      "symbol": "ETH",
+      "timeframe": "15M",
+      "tp1": 1980.110843,
+      "tp1_hit": false,
+      "tp2": 2105.2243,
+      "ts": 1783781100000
+    },
     "LINK-TrendContinuation-1783774800000": {
       "confidence": 0.832,
       "confluences": [
@@ -263,6 +288,7 @@
     "APT": 1783782052.689253,
     "BNB": 1783765899.58031,
     "DOGE": 1783783849.274639,
+    "ETH": 1783788334.753936,
     "LINK": 1783782053.033177,
     "LTC": 1783765899.221753,
     "ONDO": 1783768535.370519,
@@ -272,7 +298,7 @@
     "UNI": 1783777537.915332
   },
   "daily_counts": {
-    "2026-07-11": 11
+    "2026-07-11": 12
   },
   "engine_name": "OBSIDIAN",
   "engine_stats": {
@@ -288,12 +314,12 @@
   "engine_weights": {
     "BreakerBlock": 1.04
   },
-  "ev_threshold": 0.32,
+  "ev_threshold": 0.33,
   "last_daily_summary_date": "2026-07-11",
   "run_stats": {
-    "last_run_ts": "2026-07-11T14:30:49.701175+00:00",
-    "total_runs": 25,
-    "total_signals": 11
+    "last_run_ts": "2026-07-11T14:45:34.753945+00:00",
+    "total_runs": 26,
+    "total_signals": 12
   },
   "schema_version": 1,
   "signal_history": [
