@@ -1,1 +1,74 @@
-{}
+{
+  "active_signals": {
+    "BNB-FairValueGap-1783758600000": {
+      "confidence": 0.625,
+      "confluences": [
+        "Bullish FVG fill"
+      ],
+      "direction": "long",
+      "engine": "FairValueGap",
+      "entry": 577.68,
+      "ev": 0.6234375,
+      "expected_rr": 2.0,
+      "message_id": 2214,
+      "opened_at": "2026-07-11T08:31:39.580297+00:00",
+      "regime_suitability": [
+        "trending"
+      ],
+      "score": 0.6234375,
+      "sl": 567.667679,
+      "symbol": "BNB",
+      "timeframe": "15M",
+      "tp1": 597.704643,
+      "tp1_hit": false,
+      "tp2": 612.723125,
+      "ts": 1783758600000
+    },
+    "LTC-TrendContinuation-1783758600000": {
+      "confidence": 0.9,
+      "confluences": [
+        "Trend-aligned structure"
+      ],
+      "direction": "long",
+      "engine": "TrendContinuation",
+      "entry": 45.069,
+      "ev": 1.615,
+      "expected_rr": 2.0,
+      "message_id": 2213,
+      "opened_at": "2026-07-11T08:31:39.221705+00:00",
+      "regime_suitability": [
+        "trending",
+        "expansion"
+      ],
+      "score": 1.615,
+      "sl": 43.558982,
+      "symbol": "LTC",
+      "timeframe": "15M",
+      "tp1": 48.089036,
+      "tp1_hit": false,
+      "tp2": 50.354062,
+      "ts": 1783758600000
+    }
+  },
+  "confidence_calibration": {},
+  "cooldowns": {
+    "BNB": 1783765899.58031,
+    "LTC": 1783765899.221753
+  },
+  "daily_counts": {
+    "2026-07-11": 2
+  },
+  "engine_name": "OBSIDIAN",
+  "engine_stats": {},
+  "engine_version": "1.0.0",
+  "engine_weights": {},
+  "ev_threshold": 0.35,
+  "last_daily_summary_date": "2026-07-11",
+  "run_stats": {
+    "last_run_ts": "2026-07-11T08:31:39.580319+00:00",
+    "total_runs": 1,
+    "total_signals": 2
+  },
+  "schema_version": 1,
+  "signal_history": []
+}
