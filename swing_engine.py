@@ -84,6 +84,12 @@ MAX_CANDIDATES_PER_SCAN = _env_int("MAX_CANDIDATES_PER_SCAN", 2)
 MIN_RR = _env_float("MIN_RR", 1.5)
 SCAN_INTERVAL_MINUTES = 15
 
+# Entry offset — keeps the reported entry from ever landing exactly on the
+# live market price (the raw last-close). Offset = max(fraction of ATR,
+# floor % of price), applied against price in the trade's direction.
+ENTRY_BUFFER_ATR_FRACTION = _env_float("ENTRY_BUFFER_ATR_FRACTION", 0.05)
+MIN_ENTRY_BUFFER_PCT = _env_float("MIN_ENTRY_BUFFER_PCT", 0.0005)
+
 LOG_LEVEL = _env_str("LOG_LEVEL", "INFO")
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),
@@ -671,23 +677,36 @@ def structure_based_stop(direction: str, ctx: StructuralContext, entry: float, c
         return max(candidate, entry + atr_floor * 0.5)
 
 
-def clip_target_to_liquidity(direction: str, entry: float, raw_target: float, ctx: StructuralContext) -> float:
+def clip_target_to_liquidity(direction: str, lower_bound: float, raw_target: float,
+                              ctx: StructuralContext) -> float:
     """Clip a raw R-multiple target to the nearest real opposing liquidity
-    pool / order block edge if one sits inside the raw target's path,
-    otherwise keep the raw target."""
+    pool / order block edge that sits strictly beyond `lower_bound` and
+    within the raw target's path; otherwise keep the raw target.
+
+    `lower_bound` is the entry when clipping TP1, but TP1 itself when
+    clipping TP2 — this guarantees TP2 can never clip to the same zone
+    TP1 already claimed (or to anything nearer than TP1)."""
     candidates = [z.top if direction == "long" else z.bottom for z in
                   (ctx.liquidity_pools + ctx.order_blocks + ctx.breaker_blocks)]
     if direction == "long":
-        in_path = [p for p in candidates if entry < p <= raw_target]
+        in_path = [p for p in candidates if lower_bound < p <= raw_target]
         return min(in_path) if in_path else raw_target
     else:
-        in_path = [p for p in candidates if raw_target <= p < entry]
+        in_path = [p for p in candidates if raw_target <= p < lower_bound]
         return max(in_path) if in_path else raw_target
 
 
-def build_trade_plan(direction: str, entry: float, ctx: StructuralContext, candles: list[Candle],
-                      min_rr: float) -> Optional[tuple[float, float, float]]:
-    atr_v = atr(candles) or (entry * 0.01)
+def build_trade_plan(direction: str, raw_price: float, ctx: StructuralContext, candles: list[Candle],
+                      min_rr: float) -> Optional[tuple[float, float, float, float]]:
+    atr_v = atr(candles) or (raw_price * 0.01)
+
+    # Nudge the reported entry away from the raw last-close so it is never
+    # exactly the live market price — a "market price" entry offers no edge,
+    # is stale the instant price ticks again, and (for reaction engines) would
+    # otherwise sit flush with the very zone boundary that triggered the signal.
+    entry_buffer = max(atr_v * ENTRY_BUFFER_ATR_FRACTION, raw_price * MIN_ENTRY_BUFFER_PCT)
+    entry = raw_price - entry_buffer if direction == "long" else raw_price + entry_buffer
+
     sl = structure_based_stop(direction, ctx, entry, candles, atr_v)
     risk = abs(entry - sl)
     if risk <= 0:
@@ -695,11 +714,14 @@ def build_trade_plan(direction: str, entry: float, ctx: StructuralContext, candl
     raw_tp1 = entry + risk * 2.0 if direction == "long" else entry - risk * 2.0
     raw_tp2 = entry + risk * 3.5 if direction == "long" else entry - risk * 3.5
     tp1 = clip_target_to_liquidity(direction, entry, raw_tp1, ctx)
-    tp2 = clip_target_to_liquidity(direction, entry, raw_tp2, ctx)
+    # TP2 is clipped relative to TP1, not entry again — otherwise both targets
+    # can snap to the same nearest liquidity zone and TP2 collapses onto TP1
+    # (or, on the exchange-facing checks, effectively sits "no farther" than TP1).
+    tp2 = clip_target_to_liquidity(direction, tp1, raw_tp2, ctx)
     rr1 = abs(tp1 - entry) / risk
     if rr1 < min_rr:
         return None
-    return round(sl, 6), round(tp1, 6), round(tp2, 6)
+    return round(entry, 6), round(sl, 6), round(tp1, 6), round(tp2, 6)
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -714,12 +736,12 @@ def _confidence(components: dict[str, float]) -> float:
     return max(0.0, min(1.0, sum(components.values()) / len(components)))
 
 
-def _make_signal(engine: str, symbol: str, direction: str, entry: float, plan: tuple[float, float, float],
+def _make_signal(engine: str, symbol: str, direction: str, plan: tuple[float, float, float, float],
                   confidence: float, regimes: list[str], confluences: list[str], tf: str, ts: int) -> Signal:
-    sl, tp1, tp2 = plan
+    entry, sl, tp1, tp2 = plan
     risk = abs(entry - sl)
     rr = abs(tp1 - entry) / risk if risk else 0.0
-    return Signal(engine, symbol, direction, round(entry, 6), sl, tp1, tp2, round(confidence, 3),
+    return Signal(engine, symbol, direction, entry, sl, tp1, tp2, round(confidence, 3),
                   round(rr, 2), regimes, confluences, tf, ts)
 
 
@@ -739,7 +761,7 @@ def engine_smc(sym, candles, ctx, regime, min_rr):
     if not plan or conf < 0.4:
         return None
     confl = ["CHoCH" if last_event.kind == "CHoCH" else "BOS"] + (["Order Block confluence"] if ob_align else [])
-    return _make_signal("SMC", sym, direction, entry, plan, conf, ["trending", "reversal"], confl, TF_ENTRY, candles[-1].ts)
+    return _make_signal("SMC", sym, direction, plan, conf, ["trending", "reversal"], confl, TF_ENTRY, candles[-1].ts)
 
 
 def engine_trend_continuation(sym, candles, ctx, regime, min_rr):
@@ -755,7 +777,7 @@ def engine_trend_continuation(sym, candles, ctx, regime, min_rr):
     plan = build_trade_plan(direction, entry, ctx, candles, min_rr)
     if not plan or conf < 0.45:
         return None
-    return _make_signal("TrendContinuation", sym, direction, entry, plan, conf, ["trending", "expansion"],
+    return _make_signal("TrendContinuation", sym, direction, plan, conf, ["trending", "expansion"],
                          ["Trend-aligned structure"], TF_ENTRY, candles[-1].ts)
 
 
@@ -778,7 +800,7 @@ def engine_breakout(sym, candles, ctx, regime, min_rr):
     plan = build_trade_plan(direction, last.c, ctx, candles, min_rr)
     if not plan or conf < 0.45:
         return None
-    return _make_signal("Breakout", sym, direction, last.c, plan, conf, ["expansion", "trending"],
+    return _make_signal("Breakout", sym, direction, plan, conf, ["expansion", "trending"],
                          ["Range breakout", "Volume surge"], TF_ENTRY, last.ts)
 
 
@@ -796,7 +818,7 @@ def engine_pullback(sym, candles, ctx, regime, min_rr):
     if not plan or conf < 0.4:
         return None
     zone_label = "Discount zone" if direction == "long" else "Premium zone"
-    return _make_signal("Pullback", sym, direction, entry, plan, conf, ["trending"], [zone_label], TF_ENTRY, candles[-1].ts)
+    return _make_signal("Pullback", sym, direction, plan, conf, ["trending"], [zone_label], TF_ENTRY, candles[-1].ts)
 
 
 def engine_liquidity_sweep(sym, candles, ctx, regime, min_rr):
@@ -808,7 +830,7 @@ def engine_liquidity_sweep(sym, candles, ctx, regime, min_rr):
     plan = build_trade_plan(direction, entry, ctx, candles, min_rr)
     if not plan:
         return None
-    return _make_signal("LiquiditySweep", sym, direction, entry, plan, conf, ["reversal", "ranging"],
+    return _make_signal("LiquiditySweep", sym, direction, plan, conf, ["reversal", "ranging"],
                          ["Liquidity pool swept"], TF_ENTRY, candles[-1].ts)
 
 
@@ -820,13 +842,13 @@ def engine_order_block(sym, candles, ctx, regime, min_rr):
             plan = build_trade_plan("long", last.c, ctx, candles, min_rr)
             if plan:
                 conf = _confidence({"ob_reaction": 0.75, "regime": 0.6})
-                return _make_signal("OrderBlock", sym, "long", last.c, plan, conf, ["trending", "reversal"],
+                return _make_signal("OrderBlock", sym, "long", plan, conf, ["trending", "reversal"],
                                      ["Price reacted at bullish OB"], TF_ENTRY, last.ts)
         if z.direction == "short" and z.bottom <= last.h <= z.top:
             plan = build_trade_plan("short", last.c, ctx, candles, min_rr)
             if plan:
                 conf = _confidence({"ob_reaction": 0.75, "regime": 0.6})
-                return _make_signal("OrderBlock", sym, "short", last.c, plan, conf, ["trending", "reversal"],
+                return _make_signal("OrderBlock", sym, "short", plan, conf, ["trending", "reversal"],
                                      ["Price reacted at bearish OB"], TF_ENTRY, last.ts)
     return None
 
@@ -838,13 +860,13 @@ def engine_breaker_block(sym, candles, ctx, regime, min_rr):
             plan = build_trade_plan("long", last.c, ctx, candles, min_rr)
             if plan:
                 conf = _confidence({"breaker_reaction": 0.8, "regime": 0.6})
-                return _make_signal("BreakerBlock", sym, "long", last.c, plan, conf, ["trending", "reversal"],
+                return _make_signal("BreakerBlock", sym, "long", plan, conf, ["trending", "reversal"],
                                      ["Bullish breaker retest"], TF_ENTRY, last.ts)
         if z.direction == "short" and z.bottom <= last.h <= z.top:
             plan = build_trade_plan("short", last.c, ctx, candles, min_rr)
             if plan:
                 conf = _confidence({"breaker_reaction": 0.8, "regime": 0.6})
-                return _make_signal("BreakerBlock", sym, "short", last.c, plan, conf, ["trending", "reversal"],
+                return _make_signal("BreakerBlock", sym, "short", plan, conf, ["trending", "reversal"],
                                      ["Bearish breaker retest"], TF_ENTRY, last.ts)
     return None
 
@@ -858,13 +880,13 @@ def engine_fair_value_gap(sym, candles, ctx, regime, min_rr):
             plan = build_trade_plan("long", last.c, ctx, candles, min_rr)
             if plan:
                 conf = _confidence({"fvg_fill": 0.7, "regime": 0.55})
-                return _make_signal("FairValueGap", sym, "long", last.c, plan, conf, ["trending"],
+                return _make_signal("FairValueGap", sym, "long", plan, conf, ["trending"],
                                      ["Bullish FVG fill"], TF_ENTRY, last.ts)
         if z.direction == "short" and z.bottom <= last.h <= z.top:
             plan = build_trade_plan("short", last.c, ctx, candles, min_rr)
             if plan:
                 conf = _confidence({"fvg_fill": 0.7, "regime": 0.55})
-                return _make_signal("FairValueGap", sym, "short", last.c, plan, conf, ["trending"],
+                return _make_signal("FairValueGap", sym, "short", plan, conf, ["trending"],
                                      ["Bearish FVG fill"], TF_ENTRY, last.ts)
     return None
 
@@ -886,7 +908,7 @@ def engine_momentum(sym, candles, ctx, regime, min_rr):
     plan = build_trade_plan(direction, candles[-1].c, ctx, candles, min_rr)
     if not plan or conf < 0.4:
         return None
-    return _make_signal("Momentum", sym, direction, candles[-1].c, plan, conf, ["trending", "expansion"],
+    return _make_signal("Momentum", sym, direction, plan, conf, ["trending", "expansion"],
                          ["RSI momentum + volume"], TF_ENTRY, candles[-1].ts)
 
 
@@ -906,7 +928,7 @@ def engine_reversal(sym, candles, ctx, regime, min_rr):
     plan = build_trade_plan(direction, candles[-1].c, ctx, candles, min_rr)
     if not plan:
         return None
-    return _make_signal("Reversal", sym, direction, candles[-1].c, plan, conf, ["reversal"],
+    return _make_signal("Reversal", sym, direction, plan, conf, ["reversal"],
                          ["RSI extreme + liquidity sweep"], TF_ENTRY, candles[-1].ts)
 
 
@@ -930,7 +952,7 @@ def engine_mean_reversion(sym, candles, ctx, regime, min_rr):
     plan = build_trade_plan(direction, last, ctx, candles, min_rr)
     if not plan:
         return None
-    return _make_signal("MeanReversion", sym, direction, last, plan, conf, ["ranging", "consolidation"],
+    return _make_signal("MeanReversion", sym, direction, plan, conf, ["ranging", "consolidation"],
                          ["Deviation from SMA20"], TF_ENTRY, candles[-1].ts)
 
 
@@ -951,7 +973,7 @@ def engine_range_trading(sym, candles, ctx, regime, min_rr):
     plan = build_trade_plan(direction, last.c, ctx, candles, min_rr)
     if not plan:
         return None
-    return _make_signal("RangeTrading", sym, direction, last.c, plan, conf, ["ranging"],
+    return _make_signal("RangeTrading", sym, direction, plan, conf, ["ranging"],
                          ["Range boundary reaction"], TF_ENTRY, last.ts)
 
 
@@ -965,7 +987,7 @@ def engine_volatility_expansion(sym, candles, ctx, regime, min_rr):
     plan = build_trade_plan(direction, last.c, ctx, candles, min_rr)
     if not plan or conf < 0.4:
         return None
-    return _make_signal("VolatilityExpansion", sym, direction, last.c, plan, conf, ["expansion"],
+    return _make_signal("VolatilityExpansion", sym, direction, plan, conf, ["expansion"],
                          ["Volatility expansion breakout candle"], TF_ENTRY, last.ts)
 
 
