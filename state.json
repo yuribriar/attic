@@ -76,6 +76,30 @@
       "tp2": 0.717521,
       "ts": 1783774800000
     },
+    "AVAX-FairValueGap-1783810800000": {
+      "confidence": 0.625,
+      "confluences": [
+        "Bearish FVG fill"
+      ],
+      "direction": "short",
+      "engine": "FairValueGap",
+      "entry": 6.68394,
+      "ev": 0.4921875,
+      "expected_rr": 2.0,
+      "message_id": 2364,
+      "opened_at": "2026-07-11T23:00:56.986905+00:00",
+      "regime_suitability": [
+        "trending"
+      ],
+      "score": 0.4921875,
+      "sl": 6.842271,
+      "symbol": "AVAX",
+      "timeframe": "15M",
+      "tp1": 6.367278,
+      "tp1_hit": false,
+      "tp2": 6.129781,
+      "ts": 1783810800000
+    },
     "BNB-FairValueGap-1783758600000": {
       "confidence": 0.625,
       "confluences": [
@@ -338,6 +362,7 @@
     "AAVE": 1783778454.667982,
     "ADA": 1783790133.707163,
     "APT": 1783782052.689253,
+    "AVAX": 1783818056.986919,
     "BNB": 1783765899.58031,
     "DOGE": 1783783849.274639,
     "ETH": 1783788334.753936,
@@ -351,7 +376,7 @@
     "ZEC": 1783801851.07823
   },
   "daily_counts": {
-    "2026-07-11": 14
+    "2026-07-11": 15
   },
   "engine_name": "OBSIDIAN",
   "engine_stats": {
@@ -367,12 +392,12 @@
   "engine_weights": {
     "BreakerBlock": 1.04
   },
-  "ev_threshold": 0.35,
+  "ev_threshold": 0.36,
   "last_daily_summary_date": "2026-07-11",
   "run_stats": {
-    "last_run_ts": "2026-07-11T22:45:37.570410+00:00",
-    "total_runs": 58,
-    "total_signals": 14
+    "last_run_ts": "2026-07-11T23:00:56.986930+00:00",
+    "total_runs": 59,
+    "total_signals": 15
   },
   "schema_version": 1,
   "signal_history": [
