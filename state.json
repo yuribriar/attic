@@ -344,8 +344,8 @@
   "ev_threshold": 0.34,
   "last_daily_summary_date": "2026-07-11",
   "run_stats": {
-    "last_run_ts": "2026-07-11T18:00:51.020490+00:00",
-    "total_runs": 39,
+    "last_run_ts": "2026-07-11T18:15:37.100234+00:00",
+    "total_runs": 40,
     "total_signals": 13
   },
   "schema_version": 1,
