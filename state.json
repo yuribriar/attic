@@ -300,6 +300,31 @@
       "tp1_hit": false,
       "tp2": 4.795171,
       "ts": 1783770300000
+    },
+    "ZEC-TrendContinuation-1783794600000": {
+      "confidence": 0.804,
+      "confluences": [
+        "Trend-aligned structure"
+      ],
+      "direction": "long",
+      "engine": "TrendContinuation",
+      "entry": 511.28423,
+      "ev": 1.3414000000000001,
+      "expected_rr": 2.0,
+      "message_id": 2329,
+      "opened_at": "2026-07-11T18:30:51.078210+00:00",
+      "regime_suitability": [
+        "trending",
+        "expansion"
+      ],
+      "score": 1.3414000000000001,
+      "sl": 476.939643,
+      "symbol": "ZEC",
+      "timeframe": "15M",
+      "tp1": 579.973404,
+      "tp1_hit": false,
+      "tp2": 631.490285,
+      "ts": 1783794600000
     }
   },
   "confidence_calibration": {
@@ -322,10 +347,11 @@
     "PENDLE": 1783779335.511777,
     "SUI": 1783767660.397611,
     "TRX": 1783767660.741829,
-    "UNI": 1783777537.915332
+    "UNI": 1783777537.915332,
+    "ZEC": 1783801851.07823
   },
   "daily_counts": {
-    "2026-07-11": 13
+    "2026-07-11": 14
   },
   "engine_name": "OBSIDIAN",
   "engine_stats": {
@@ -341,12 +367,12 @@
   "engine_weights": {
     "BreakerBlock": 1.04
   },
-  "ev_threshold": 0.34,
+  "ev_threshold": 0.35,
   "last_daily_summary_date": "2026-07-11",
   "run_stats": {
-    "last_run_ts": "2026-07-11T18:15:37.100234+00:00",
-    "total_runs": 40,
-    "total_signals": 13
+    "last_run_ts": "2026-07-11T18:30:51.078242+00:00",
+    "total_runs": 41,
+    "total_signals": 14
   },
   "schema_version": 1,
   "signal_history": [
