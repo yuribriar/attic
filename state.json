@@ -350,6 +350,32 @@
       "tp2": 0.872484,
       "ts": 1783760400000
     },
+    "TAO-SMC-1783813500000": {
+      "confidence": 0.7,
+      "confluences": [
+        "BOS",
+        "Order Block confluence"
+      ],
+      "direction": "short",
+      "engine": "SMC",
+      "entry": 209.38464,
+      "ev": 0.825,
+      "expected_rr": 2.0,
+      "message_id": 2384,
+      "opened_at": "2026-07-11T23:45:34.179650+00:00",
+      "regime_suitability": [
+        "trending",
+        "reversal"
+      ],
+      "score": 0.825,
+      "sl": 216.500357,
+      "symbol": "TAO",
+      "timeframe": "15M",
+      "tp1": 195.153206,
+      "tp1_hit": false,
+      "tp2": 184.47963,
+      "ts": 1783813500000
+    },
     "UNI-SMC-1783770300000": {
       "confidence": 0.7,
       "confluences": [
@@ -424,12 +450,13 @@
     "PENGU": 1783819955.483243,
     "SOL": 1783819955.187387,
     "SUI": 1783767660.397611,
+    "TAO": 1783820734.179668,
     "TRX": 1783767660.741829,
     "UNI": 1783777537.915332,
     "ZEC": 1783801851.07823
   },
   "daily_counts": {
-    "2026-07-11": 17
+    "2026-07-11": 18
   },
   "engine_name": "OBSIDIAN",
   "engine_stats": {
@@ -445,12 +472,12 @@
   "engine_weights": {
     "BreakerBlock": 1.04
   },
-  "ev_threshold": 0.37,
+  "ev_threshold": 0.38,
   "last_daily_summary_date": "2026-07-11",
   "run_stats": {
-    "last_run_ts": "2026-07-11T23:32:35.483257+00:00",
-    "total_runs": 61,
-    "total_signals": 17
+    "last_run_ts": "2026-07-11T23:45:34.179678+00:00",
+    "total_runs": 62,
+    "total_signals": 18
   },
   "schema_version": 1,
   "signal_history": [
