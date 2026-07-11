@@ -1,5 +1,30 @@
 {
   "active_signals": {
+    "AAVE-BreakerBlock-1783771200000": {
+      "confidence": 0.7,
+      "confluences": [
+        "Bullish breaker retest"
+      ],
+      "direction": "long",
+      "engine": "BreakerBlock",
+      "entry": 97.422264,
+      "ev": 0.8150999999999998,
+      "expected_rr": 2.0,
+      "message_id": 2256,
+      "opened_at": "2026-07-11T12:00:54.667966+00:00",
+      "regime_suitability": [
+        "trending",
+        "reversal"
+      ],
+      "score": 0.8150999999999998,
+      "sl": 88.163964,
+      "symbol": "AAVE",
+      "timeframe": "15M",
+      "tp1": 115.938865,
+      "tp1_hit": false,
+      "tp2": 129.826315,
+      "ts": 1783771200000
+    },
     "BNB-FairValueGap-1783758600000": {
       "confidence": 0.625,
       "confluences": [
@@ -134,6 +159,7 @@
     }
   },
   "cooldowns": {
+    "AAVE": 1783778454.667982,
     "BNB": 1783765899.58031,
     "LTC": 1783765899.221753,
     "ONDO": 1783768535.370519,
@@ -142,7 +168,7 @@
     "UNI": 1783777537.915332
   },
   "daily_counts": {
-    "2026-07-11": 6
+    "2026-07-11": 7
   },
   "engine_name": "OBSIDIAN",
   "engine_stats": {
@@ -161,9 +187,9 @@
   "ev_threshold": 0.32,
   "last_daily_summary_date": "2026-07-11",
   "run_stats": {
-    "last_run_ts": "2026-07-11T11:45:37.915342+00:00",
-    "total_runs": 14,
-    "total_signals": 6
+    "last_run_ts": "2026-07-11T12:00:54.667993+00:00",
+    "total_runs": 15,
+    "total_signals": 7
   },
   "schema_version": 1,
   "signal_history": [
