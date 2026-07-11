@@ -107,11 +107,12 @@
   "timeframe_stats": {},
   "confidence_calibration": {},
   "daily_signal_counts": [
+    0,
     0
   ],
-  "governor_adjustment": -5.998850512611716,
+  "governor_adjustment": -5.9991953588282,
   "last_daily_summary_date": null,
   "cooldowns": {},
   "learning_log": [],
-  "_last_count_date": "2026-07-10"
+  "_last_count_date": "2026-07-11"
 }
