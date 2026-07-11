@@ -120,7 +120,7 @@
       "symbol": "TRX",
       "timeframe": "15M",
       "tp1": 0.329439,
-      "tp1_hit": false,
+      "tp1_hit": true,
       "tp2": 0.329701,
       "ts": 1783760400000
     }
@@ -143,8 +143,8 @@
   "ev_threshold": 0.32,
   "last_daily_summary_date": "2026-07-11",
   "run_stats": {
-    "last_run_ts": "2026-07-11T09:30:46.319528+00:00",
-    "total_runs": 5,
+    "last_run_ts": "2026-07-11T09:45:35.099769+00:00",
+    "total_runs": 6,
     "total_signals": 5
   },
   "schema_version": 1,
