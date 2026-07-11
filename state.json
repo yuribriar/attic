@@ -25,6 +25,31 @@
       "tp2": 129.826315,
       "ts": 1783771200000
     },
+    "APT-TrendContinuation-1783774800000": {
+      "confidence": 0.9,
+      "confluences": [
+        "Trend-aligned structure"
+      ],
+      "direction": "long",
+      "engine": "TrendContinuation",
+      "entry": 0.64028,
+      "ev": 1.615,
+      "expected_rr": 2.0,
+      "message_id": 2263,
+      "opened_at": "2026-07-11T13:00:52.689236+00:00",
+      "regime_suitability": [
+        "trending",
+        "expansion"
+      ],
+      "score": 1.615,
+      "sl": 0.618211,
+      "symbol": "APT",
+      "timeframe": "15M",
+      "tp1": 0.684418,
+      "tp1_hit": false,
+      "tp2": 0.717521,
+      "ts": 1783774800000
+    },
     "BNB-FairValueGap-1783758600000": {
       "confidence": 0.625,
       "confluences": [
@@ -48,6 +73,31 @@
       "tp1_hit": false,
       "tp2": 612.723125,
       "ts": 1783758600000
+    },
+    "LINK-TrendContinuation-1783774800000": {
+      "confidence": 0.832,
+      "confluences": [
+        "Trend-aligned structure"
+      ],
+      "direction": "long",
+      "engine": "TrendContinuation",
+      "entry": 8.024086,
+      "ev": 1.4212,
+      "expected_rr": 2.0,
+      "message_id": 2264,
+      "opened_at": "2026-07-11T13:00:53.033159+00:00",
+      "regime_suitability": [
+        "trending",
+        "expansion"
+      ],
+      "score": 1.4212,
+      "sl": 7.670279,
+      "symbol": "LINK",
+      "timeframe": "15M",
+      "tp1": 8.731701,
+      "tp1_hit": false,
+      "tp2": 9.262412,
+      "ts": 1783774800000
     },
     "LTC-TrendContinuation-1783758600000": {
       "confidence": 0.9,
@@ -185,7 +235,9 @@
   },
   "cooldowns": {
     "AAVE": 1783778454.667982,
+    "APT": 1783782052.689253,
     "BNB": 1783765899.58031,
+    "LINK": 1783782053.033177,
     "LTC": 1783765899.221753,
     "ONDO": 1783768535.370519,
     "PENDLE": 1783779335.511777,
@@ -194,7 +246,7 @@
     "UNI": 1783777537.915332
   },
   "daily_counts": {
-    "2026-07-11": 8
+    "2026-07-11": 10
   },
   "engine_name": "OBSIDIAN",
   "engine_stats": {
@@ -213,9 +265,9 @@
   "ev_threshold": 0.32,
   "last_daily_summary_date": "2026-07-11",
   "run_stats": {
-    "last_run_ts": "2026-07-11T12:45:33.576751+00:00",
-    "total_runs": 18,
-    "total_signals": 8
+    "last_run_ts": "2026-07-11T13:00:53.033188+00:00",
+    "total_runs": 19,
+    "total_signals": 10
   },
   "schema_version": 1,
   "signal_history": [
