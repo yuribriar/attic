@@ -62,11 +62,11 @@
   "engine_stats": {},
   "engine_version": "1.0.0",
   "engine_weights": {},
-  "ev_threshold": 0.35,
+  "ev_threshold": 0.34,
   "last_daily_summary_date": "2026-07-11",
   "run_stats": {
-    "last_run_ts": "2026-07-11T08:31:39.580319+00:00",
-    "total_runs": 1,
+    "last_run_ts": "2026-07-11T08:45:34.276893+00:00",
+    "total_runs": 2,
     "total_signals": 2
   },
   "schema_version": 1,
