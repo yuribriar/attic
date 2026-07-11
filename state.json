@@ -110,8 +110,8 @@
     0,
     0
   ],
-  "governor_adjustment": -5.999999981863918,
-  "last_daily_summary_date": null,
+  "governor_adjustment": -5.999999987304742,
+  "last_daily_summary_date": "2026-07-11",
   "cooldowns": {},
   "learning_log": [],
   "_last_count_date": "2026-07-11"
