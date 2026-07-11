@@ -99,7 +99,76 @@
       "tp2": 0.872484,
       "ts": 1783760400000
     },
-    "TRX-BreakerBlock-1783760400000": {
+    "UNI-SMC-1783770300000": {
+      "confidence": 0.7,
+      "confluences": [
+        "BOS",
+        "Order Block confluence"
+      ],
+      "direction": "long",
+      "engine": "SMC",
+      "entry": 3.608295,
+      "ev": 1.045,
+      "expected_rr": 2.0,
+      "message_id": 2253,
+      "opened_at": "2026-07-11T11:45:37.915315+00:00",
+      "regime_suitability": [
+        "trending",
+        "reversal"
+      ],
+      "score": 1.045,
+      "sl": 3.269188,
+      "symbol": "UNI",
+      "timeframe": "15M",
+      "tp1": 4.28651,
+      "tp1_hit": false,
+      "tp2": 4.795171,
+      "ts": 1783770300000
+    }
+  },
+  "confidence_calibration": {
+    "70-80": {
+      "n": 1,
+      "predicted_sum": 0.7,
+      "realized_sum": 1.0
+    }
+  },
+  "cooldowns": {
+    "BNB": 1783765899.58031,
+    "LTC": 1783765899.221753,
+    "ONDO": 1783768535.370519,
+    "SUI": 1783767660.397611,
+    "TRX": 1783767660.741829,
+    "UNI": 1783777537.915332
+  },
+  "daily_counts": {
+    "2026-07-11": 6
+  },
+  "engine_name": "OBSIDIAN",
+  "engine_stats": {
+    "BreakerBlock": {
+      "losses": 0,
+      "n": 1,
+      "sum_conf_error": 0.30000000000000004,
+      "sum_rr": 3.491428571429117,
+      "wins": 1
+    }
+  },
+  "engine_version": "1.0.0",
+  "engine_weights": {
+    "BreakerBlock": 1.04
+  },
+  "ev_threshold": 0.32,
+  "last_daily_summary_date": "2026-07-11",
+  "run_stats": {
+    "last_run_ts": "2026-07-11T11:45:37.915342+00:00",
+    "total_runs": 14,
+    "total_signals": 6
+  },
+  "schema_version": 1,
+  "signal_history": [
+    {
+      "closed_at": "2026-07-11T11:45:18.923951+00:00",
       "confidence": 0.7,
       "confluences": [
         "Bullish breaker retest"
@@ -109,8 +178,11 @@
       "entry": 0.32909,
       "ev": 1.0383499999999999,
       "expected_rr": 1.99,
+      "hold_minutes": 164.3,
       "message_id": 2218,
       "opened_at": "2026-07-11T09:01:00.741812+00:00",
+      "outcome": "tp2",
+      "realized_rr": 3.491428571429117,
       "regime_suitability": [
         "trending",
         "reversal"
@@ -124,29 +196,5 @@
       "tp2": 0.329701,
       "ts": 1783760400000
     }
-  },
-  "confidence_calibration": {},
-  "cooldowns": {
-    "BNB": 1783765899.58031,
-    "LTC": 1783765899.221753,
-    "ONDO": 1783768535.370519,
-    "SUI": 1783767660.397611,
-    "TRX": 1783767660.741829
-  },
-  "daily_counts": {
-    "2026-07-11": 5
-  },
-  "engine_name": "OBSIDIAN",
-  "engine_stats": {},
-  "engine_version": "1.0.0",
-  "engine_weights": {},
-  "ev_threshold": 0.32,
-  "last_daily_summary_date": "2026-07-11",
-  "run_stats": {
-    "last_run_ts": "2026-07-11T11:30:45.853571+00:00",
-    "total_runs": 13,
-    "total_signals": 5
-  },
-  "schema_version": 1,
-  "signal_history": []
+  ]
 }
