@@ -274,6 +274,57 @@
       "tp2": 1.929771,
       "ts": 1783772100000
     },
+    "PENGU-SMC-1783812600000": {
+      "confidence": 0.7,
+      "confluences": [
+        "BOS",
+        "Order Block confluence"
+      ],
+      "direction": "short",
+      "engine": "SMC",
+      "entry": 0.00606,
+      "ev": 1.045,
+      "expected_rr": 2.0,
+      "message_id": 2380,
+      "opened_at": "2026-07-11T23:32:35.483224+00:00",
+      "regime_suitability": [
+        "trending",
+        "reversal"
+      ],
+      "score": 1.045,
+      "sl": 0.006369,
+      "symbol": "PENGU",
+      "timeframe": "15M",
+      "tp1": 0.005442,
+      "tp1_hit": false,
+      "tp2": 0.004978,
+      "ts": 1783812600000
+    },
+    "SOL-TrendContinuation-1783812600000": {
+      "confidence": 0.799,
+      "confluences": [
+        "Trend-aligned structure"
+      ],
+      "direction": "short",
+      "engine": "TrendContinuation",
+      "entry": 76.866414,
+      "ev": 1.3271500000000003,
+      "expected_rr": 2.0,
+      "message_id": 2379,
+      "opened_at": "2026-07-11T23:32:35.187371+00:00",
+      "regime_suitability": [
+        "trending",
+        "expansion"
+      ],
+      "score": 1.3271500000000003,
+      "sl": 79.718911,
+      "symbol": "SOL",
+      "timeframe": "15M",
+      "tp1": 71.161421,
+      "tp1_hit": false,
+      "tp2": 66.882676,
+      "ts": 1783812600000
+    },
     "SUI-TrendContinuation-1783760400000": {
       "confidence": 0.761,
       "confluences": [
@@ -370,13 +421,15 @@
     "LTC": 1783765899.221753,
     "ONDO": 1783768535.370519,
     "PENDLE": 1783779335.511777,
+    "PENGU": 1783819955.483243,
+    "SOL": 1783819955.187387,
     "SUI": 1783767660.397611,
     "TRX": 1783767660.741829,
     "UNI": 1783777537.915332,
     "ZEC": 1783801851.07823
   },
   "daily_counts": {
-    "2026-07-11": 15
+    "2026-07-11": 17
   },
   "engine_name": "OBSIDIAN",
   "engine_stats": {
@@ -392,12 +445,12 @@
   "engine_weights": {
     "BreakerBlock": 1.04
   },
-  "ev_threshold": 0.36,
+  "ev_threshold": 0.37,
   "last_daily_summary_date": "2026-07-11",
   "run_stats": {
-    "last_run_ts": "2026-07-11T23:15:33.415592+00:00",
-    "total_runs": 60,
-    "total_signals": 15
+    "last_run_ts": "2026-07-11T23:32:35.483257+00:00",
+    "total_runs": 61,
+    "total_signals": 17
   },
   "schema_version": 1,
   "signal_history": [
