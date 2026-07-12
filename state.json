@@ -1,49 +1,64 @@
 {
-  "active_signals": {
-    "ZEC-TrendContinuation-1783870200000": {
-      "confidence": 0.9,
-      "confluences": [
-        "Trend-aligned structure"
-      ],
-      "direction": "long",
-      "engine": "TrendContinuation",
-      "entry": 531.81396,
-      "ev": 1.615,
-      "expected_rr": 2.0,
-      "message_id": 2521,
-      "opened_at": "2026-07-12T15:30:51.918834+00:00",
-      "regime_suitability": [
-        "trending",
-        "expansion"
-      ],
-      "score": 1.615,
-      "sl": 493.633214,
-      "symbol": "ZEC",
-      "timeframe": "15M",
-      "tp1": 608.175451,
-      "tp1_hit": false,
-      "tp2": 665.44657,
-      "ts": 1783870200000
-    }
+  "schema_version": 2,
+  "engine_name": "Odyssey Adaptive Signal Engine",
+  "engine_version": "v1.0.0",
+  "tier1": {
+    "engine_weights": {
+      "smc": 1.0,
+      "trend_continuation": 1.0,
+      "breakout": 1.0,
+      "pullback": 1.0,
+      "liquidity_sweep": 1.0,
+      "order_block": 1.0,
+      "breaker_block": 1.0,
+      "fair_value_gap": 1.0,
+      "momentum": 1.0,
+      "reversal": 1.0,
+      "mean_reversion": 1.0,
+      "range_trading": 1.0,
+      "volatility_expansion": 1.0
+    },
+    "confidence_calibration": {
+      "smc": 0.0,
+      "trend_continuation": 0.0,
+      "breakout": 0.0,
+      "pullback": 0.0,
+      "liquidity_sweep": 0.0,
+      "order_block": 0.0,
+      "breaker_block": 0.0,
+      "fair_value_gap": 0.0,
+      "momentum": 0.0,
+      "reversal": 0.0,
+      "mean_reversion": 0.0,
+      "range_trading": 0.0,
+      "volatility_expansion": 0.0
+    },
+    "filter_thresholds": {
+      "min_confidence": 0.55,
+      "min_score": 0.5
+    },
+    "segment_stats": {
+      "by_asset": {},
+      "by_regime": {},
+      "by_timeframe": {},
+      "by_engine": {}
+    },
+    "filter_funnel": {},
+    "circuit_breaker": {
+      "tripped": false,
+      "tripped_at": null,
+      "reason": null
+    },
+    "rolling_live_trades": [],
+    "active_baseline": {
+      "win_rate": 0.46,
+      "profit_factor": 1.35,
+      "avg_rr": 1.7
+    },
+    "last_daily_summary_date": null
   },
-  "confidence_calibration": {},
-  "cooldowns": {
-    "ZEC": 1783877451.918846
-  },
-  "daily_counts": {
-    "2026-07-12": 1
-  },
-  "engine_name": "OBSIDIAN",
-  "engine_stats": {},
-  "engine_version": "1.1.1",
-  "engine_weights": {},
-  "ev_threshold": 0.35,
-  "last_daily_summary_date": null,
-  "run_stats": {
-    "last_run_ts": "2026-07-12T16:30:58.930328+00:00",
-    "total_runs": 6,
-    "total_signals": 1
-  },
-  "schema_version": 1,
-  "signal_history": []
+  "tier2_trade_log": [],
+  "pending_signals": [],
+  "active_signals": [],
+  "last_run_ts": null
 }
