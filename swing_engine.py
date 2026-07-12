@@ -1807,6 +1807,25 @@ class TradeLifecycleManager:
 # SECTION P — TELEGRAM INTEGRATION
 # ==============================================================================
 
+_ACRONYMS = {"htf", "ltf", "mtf", "tf", "rsi", "adx", "fvg", "ob", "bos", "tp", "sl", "ema"}
+
+
+def _pretty(tag: str) -> str:
+    """Turns snake_case tags into readable labels, e.g. htf_bias_bullish ->
+    HTF Bias Bullish, choch -> CHoCH."""
+    words = tag.replace("_", " ").split(" ")
+    out = []
+    for w in words:
+        lw = w.lower()
+        if lw in _ACRONYMS:
+            out.append(w.upper())
+        elif lw == "choch":
+            out.append("CHoCH")
+        else:
+            out.append(w.capitalize())
+    return " ".join(out)
+
+
 class TelegramNotifier:
     def __init__(self, token: str = TG_BOT_TOKEN, chat_id: str = TG_CHAT_ID):
         self.token = token
@@ -1835,20 +1854,20 @@ class TelegramNotifier:
 
     def send_new_signal(self, rec: dict):
         dir_emoji = "🟢" if rec["direction"] == "long" else "🔴"
-        pending_note = "\n_Pending entry — awaiting fill, expires in {}h_".format(
+        pending_note = "\n_Pending — expires in {}h_".format(
             round(rec.get("pending_expiry_bars", 0) * 0.25, 1)
         ) if rec["entry_kind"] == "pending" else ""
         text = (
             f"*{ENGINE_NAME} {ENGINE_VERSION}*\n"
-            f"*{rec['symbol']} — {rec['direction'].upper()} {dir_emoji}*\n"
+            f"*{rec['symbol']} — {rec['direction'].upper()} {dir_emoji}*\n\n"
             f"Setup: {rec['setup_type'].replace('_', ' ').title()}  |  Tier: {rec['tier']}\n"
-            f"Regime: {rec['regime_at_signal']}  |  Confidence: {rec['confidence']:.0%}\n"
+            f"Regime: {_pretty(rec['regime_at_signal'])}  |  Confidence: {rec['confidence']:.0%}\n\n"
             f"{self._price_line('Entry', rec['entry'])}\n"
             f"{self._price_line('SL', rec['sl'])}\n"
             f"{self._price_line('TP1', rec['tp1'])}\n"
-            f"{self._price_line('TP2', rec['tp2'])}\n"
-            f"RR: {rec['rr_tp1']:.2f} / {rec['rr_tp2']:.2f}\n"
-            f"Confluences: {', '.join(rec['confluences'])}"
+            f"{self._price_line('TP2', rec['tp2'])}\n\n"
+            f"RR: {rec['rr_tp1']:.2f} / {rec['rr_tp2']:.2f}\n\n"
+            f"Confluences: {', '.join(_pretty(c) for c in rec['confluences'])}"
             f"{pending_note}"
         )
         mid = self.send(text)
@@ -1856,38 +1875,32 @@ class TelegramNotifier:
 
     def send_status_update(self, rec: dict, status: str):
         text = (
-            f"*{ENGINE_NAME} {ENGINE_VERSION} — {rec['symbol']} {status} hit*\n"
+            f"*{rec['symbol']} — {status} hit*\n\n"
             f"{self._price_line('Entry', rec['entry'])}\n"
             f"{self._price_line('SL', rec['sl'])}\n"
             f"{self._price_line('TP1', rec['tp1'])}\n"
-            f"{self._price_line('TP2', rec['tp2'])}\n"
-            f"SL remains at its original level, unchanged — this engine never "
-            f"auto-repositions SL to breakeven. You may choose to manually move "
-            f"your own stop to entry if you want to lock in breakeven yourself."
+            f"{self._price_line('TP2', rec['tp2'])}\n\n"
+            f"_SL unchanged — no auto-breakeven. Move it yourself if you want to lock it in._"
         )
         self.send(text, reply_to=rec.get("telegram_message_id"))
 
     def send_resolution(self, rec: dict, outcome: str, r_realized: float, reason: str):
         if reason == "tp1_then_sl_still_win":
             headline = f"*{rec['symbol']} — TP1 secured, SL later hit → WIN*"
-            detail = "TP1 was secured before price later returned to the original SL. Counted as a WIN with TP1's realized R."
+            detail = "TP1 secured before price returned to SL. Counted as a WIN."
         elif outcome == "WIN":
             headline = f"*{rec['symbol']} — TP2 hit → WIN*"
             detail = "Full extension to TP2."
         else:
             headline = f"*{rec['symbol']} — SL hit, no TP1 → LOSS*"
-            detail = "Stopped out before TP1 was reached."
-        text = (
-            f"*{ENGINE_NAME} {ENGINE_VERSION}*\n{headline}\n{detail}\n"
-            f"Realized R: {r_realized:+.2f}"
-        )
+            detail = "Stopped out before TP1."
+        text = f"{headline}\n{detail}\n\nRealized R: {r_realized:+.2f}"
         self.send(text, reply_to=rec.get("telegram_message_id"))
 
     def send_expired(self, rec: dict):
         text = (
-            f"*{ENGINE_NAME} {ENGINE_VERSION} — {rec['symbol']} EXPIRED (no fill)*\n"
-            f"Pending entry never filled within {rec.get('pending_expiry_bars', 0)} bars and was cancelled. "
-            f"Excluded from win/loss statistics."
+            f"*{rec['symbol']} — EXPIRED (no fill)*\n"
+            f"Never filled within {rec.get('pending_expiry_bars', 0)} bars. Cancelled, excluded from stats."
         )
         self.send(text, reply_to=rec.get("telegram_message_id"))
 
@@ -1909,24 +1922,24 @@ class TelegramNotifier:
         conf_acc = (conf_acc_num / total_n) if total_n else 0.0
 
         engine_lines = "\n".join(
-            f"  {k}: {v['wins']}/{v['n']} ({(v['wins']/v['n']*100 if v['n'] else 0):.0f}%)"
+            f"  {_pretty(k)}: {v['wins']}/{v['n']} ({(v['wins']/v['n']*100 if v['n'] else 0):.0f}%)"
             for k, v in sorted(by_engine.items())
         ) or "  (no resolved trades yet)"
         regime_lines = "\n".join(
-            f"  {k}: {v['wins']}/{v['n']} ({(v['wins']/v['n']*100 if v['n'] else 0):.0f}%)"
+            f"  {_pretty(k)}: {v['wins']}/{v['n']} ({(v['wins']/v['n']*100 if v['n'] else 0):.0f}%)"
             for k, v in sorted(by_regime.items())
         ) or "  (no resolved trades yet)"
 
         text = (
-            f"*{ENGINE_NAME} {ENGINE_VERSION} — Daily Summary*\n"
+            f"*{ENGINE_NAME} {ENGINE_VERSION} — Daily Summary*\n\n"
             f"Total signals: {total_n}\n"
             f"Wins/Losses: {total_wins}/{total_n - total_wins}\n"
             f"Win rate: {wr:.1%}\n"
             f"Profit factor: {pf:.2f}\n"
             f"Average RR: {avg_rr:.2f}\n"
-            f"Confidence calibration accuracy: {conf_acc:.1%}\n"
-            f"By regime:\n{regime_lines}\n"
-            f"By engine:\n{engine_lines}\n"
+            f"Confidence calibration accuracy: {conf_acc:.1%}\n\n"
+            f"By regime:\n{regime_lines}\n\n"
+            f"By engine:\n{engine_lines}\n\n"
             f"Circuit breaker: {'TRIPPED — ' + str(store.data['tier1']['circuit_breaker'].get('reason')) if store.is_circuit_breaker_tripped() else 'nominal'}"
         )
         self.send(text)
