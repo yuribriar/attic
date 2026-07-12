@@ -25,32 +25,6 @@
       "tp2": 129.826315,
       "ts": 1783771200000
     },
-    "ADA-SMC-1783782900000": {
-      "confidence": 0.7,
-      "confluences": [
-        "BOS",
-        "Order Block confluence"
-      ],
-      "direction": "long",
-      "engine": "SMC",
-      "entry": 0.171104,
-      "ev": 0.6874999999999999,
-      "expected_rr": 2.0,
-      "message_id": 2286,
-      "opened_at": "2026-07-11T15:15:33.707146+00:00",
-      "regime_suitability": [
-        "trending",
-        "reversal"
-      ],
-      "score": 0.6874999999999999,
-      "sl": 0.16476,
-      "symbol": "ADA",
-      "timeframe": "15M",
-      "tp1": 0.183794,
-      "tp1_hit": false,
-      "tp2": 0.19331,
-      "ts": 1783782900000
-    },
     "APT-TrendContinuation-1783774800000": {
       "confidence": 0.9,
       "confluences": [
@@ -454,6 +428,32 @@
       "tp2": 0.156658,
       "ts": 1783814400000
     },
+    "XRP-SMC-1783815300000": {
+      "confidence": 0.7,
+      "confluences": [
+        "BOS",
+        "Order Block confluence"
+      ],
+      "direction": "short",
+      "engine": "SMC",
+      "entry": 1.093947,
+      "ev": 1.0031999999999999,
+      "expected_rr": 2.0,
+      "message_id": 2407,
+      "opened_at": "2026-07-12T00:22:07.082776+00:00",
+      "regime_suitability": [
+        "trending",
+        "reversal"
+      ],
+      "score": 1.0031999999999999,
+      "sl": 1.119968,
+      "symbol": "XRP",
+      "timeframe": "15M",
+      "tp1": 1.041904,
+      "tp1_hit": false,
+      "tp2": 1.002873,
+      "ts": 1783815300000
+    },
     "ZEC-TrendContinuation-1783794600000": {
       "confidence": 0.804,
       "confluences": [
@@ -482,8 +482,8 @@
   },
   "confidence_calibration": {
     "70-80": {
-      "n": 1,
-      "predicted_sum": 0.7,
+      "n": 2,
+      "predicted_sum": 1.4,
       "realized_sum": 1.0
     }
   },
@@ -507,11 +507,12 @@
     "TRX": 1783767660.741829,
     "UNI": 1783777537.915332,
     "XLM": 1783821761.366603,
+    "XRP": 1783822927.082787,
     "ZEC": 1783801851.07823
   },
   "daily_counts": {
     "2026-07-11": 18,
-    "2026-07-12": 2
+    "2026-07-12": 3
   },
   "engine_name": "OBSIDIAN",
   "engine_stats": {
@@ -521,18 +522,26 @@
       "sum_conf_error": 0.30000000000000004,
       "sum_rr": 3.491428571429117,
       "wins": 1
+    },
+    "SMC": {
+      "losses": 1,
+      "n": 1,
+      "sum_conf_error": 0.7,
+      "sum_rr": 0.0,
+      "wins": 0
     }
   },
   "engine_version": "1.0.0",
   "engine_weights": {
-    "BreakerBlock": 1.04
+    "BreakerBlock": 1.04,
+    "SMC": 0.96
   },
   "ev_threshold": 0.39,
   "last_daily_summary_date": "2026-07-11",
   "run_stats": {
-    "last_run_ts": "2026-07-12T00:02:41.666818+00:00",
-    "total_runs": 63,
-    "total_signals": 20
+    "last_run_ts": "2026-07-12T00:22:07.082796+00:00",
+    "total_runs": 64,
+    "total_signals": 21
   },
   "schema_version": 1,
   "signal_history": [
@@ -564,6 +573,36 @@
       "tp1_hit": true,
       "tp2": 0.329701,
       "ts": 1783760400000
+    },
+    {
+      "closed_at": "2026-07-12T00:21:51.359188+00:00",
+      "confidence": 0.7,
+      "confluences": [
+        "BOS",
+        "Order Block confluence"
+      ],
+      "direction": "long",
+      "engine": "SMC",
+      "entry": 0.171104,
+      "ev": 0.6874999999999999,
+      "expected_rr": 2.0,
+      "hold_minutes": 546.3,
+      "message_id": 2286,
+      "opened_at": "2026-07-11T15:15:33.707146+00:00",
+      "outcome": "sl",
+      "realized_rr": -1.0,
+      "regime_suitability": [
+        "trending",
+        "reversal"
+      ],
+      "score": 0.6874999999999999,
+      "sl": 0.16476,
+      "symbol": "ADA",
+      "timeframe": "15M",
+      "tp1": 0.183794,
+      "tp1_hit": false,
+      "tp2": 0.19331,
+      "ts": 1783782900000
     }
   ]
 }
