@@ -1,8 +1,38 @@
 {
-  "active_signals": {},
+  "active_signals": {
+    "ZEC-TrendContinuation-1783870200000": {
+      "confidence": 0.9,
+      "confluences": [
+        "Trend-aligned structure"
+      ],
+      "direction": "long",
+      "engine": "TrendContinuation",
+      "entry": 531.81396,
+      "ev": 1.615,
+      "expected_rr": 2.0,
+      "message_id": 2521,
+      "opened_at": "2026-07-12T15:30:51.918834+00:00",
+      "regime_suitability": [
+        "trending",
+        "expansion"
+      ],
+      "score": 1.615,
+      "sl": 493.633214,
+      "symbol": "ZEC",
+      "timeframe": "15M",
+      "tp1": 608.175451,
+      "tp1_hit": false,
+      "tp2": 665.44657,
+      "ts": 1783870200000
+    }
+  },
   "confidence_calibration": {},
-  "cooldowns": {},
-  "daily_counts": {},
+  "cooldowns": {
+    "ZEC": 1783877451.918846
+  },
+  "daily_counts": {
+    "2026-07-12": 1
+  },
   "engine_name": "OBSIDIAN",
   "engine_stats": {},
   "engine_version": "1.1.1",
@@ -10,9 +40,9 @@
   "ev_threshold": 0.35,
   "last_daily_summary_date": null,
   "run_stats": {
-    "last_run_ts": "2026-07-12T15:15:37.304489+00:00",
-    "total_runs": 1,
-    "total_signals": 0
+    "last_run_ts": "2026-07-12T15:30:51.918855+00:00",
+    "total_runs": 2,
+    "total_signals": 1
   },
   "schema_version": 1,
   "signal_history": []
