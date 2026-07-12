@@ -1848,8 +1848,9 @@ class TelegramNotifier:
     @staticmethod
     def _price_line(label: str, value: float) -> str:
         # Bare number only inside the monospace span; label stays outside so a
-        # single tap copies exactly that number.
-        formatted = f"{value:.6f}".rstrip("0").rstrip(".") if value else "0"
+        # single tap copies exactly that number. 10dp covers sub-penny assets
+        # without losing precision.
+        formatted = f"{value:.10f}".rstrip("0").rstrip(".") if value else "0"
         return f"{label}: `{formatted}`"
 
     def send_new_signal(self, rec: dict):
@@ -1916,7 +1917,7 @@ class TelegramNotifier:
         rolling = store.data["tier1"]["rolling_live_trades"]
         loss_r = -sum(t["r"] for t in rolling if t["r"] < 0)
         gain_r = sum(t["r"] for t in rolling if t["r"] > 0)
-        pf = (gain_r / loss_r) if loss_r > 0 else float("inf")
+        pf_str = f"{gain_r / loss_r:.2f}" if loss_r > 0 else ("—" if not rolling else "∞")
 
         conf_acc_num = sum(s["sum_conf_correct"] for s in by_engine.values())
         conf_acc = (conf_acc_num / total_n) if total_n else 0.0
@@ -1935,7 +1936,7 @@ class TelegramNotifier:
             f"Total signals: {total_n}\n"
             f"Wins/Losses: {total_wins}/{total_n - total_wins}\n"
             f"Win rate: {wr:.1%}\n"
-            f"Profit factor: {pf:.2f}\n"
+            f"Profit factor: {pf_str}\n"
             f"Average RR: {avg_rr:.2f}\n"
             f"Confidence calibration accuracy: {conf_acc:.1%}\n\n"
             f"By regime:\n{regime_lines}\n\n"
