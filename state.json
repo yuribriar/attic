@@ -124,6 +124,32 @@
       "tp2": 612.723125,
       "ts": 1783758600000
     },
+    "BTC-SMC-1783836900000": {
+      "confidence": 0.7,
+      "confluences": [
+        "BOS",
+        "Order Block confluence"
+      ],
+      "direction": "short",
+      "engine": "SMC",
+      "entry": 63753.861,
+      "ev": 0.6599999999999999,
+      "expected_rr": 2.0,
+      "message_id": 2449,
+      "opened_at": "2026-07-12T06:17:56.723009+00:00",
+      "regime_suitability": [
+        "trending",
+        "reversal"
+      ],
+      "score": 0.6599999999999999,
+      "sl": 64712.732143,
+      "symbol": "BTC",
+      "timeframe": "15M",
+      "tp1": 61836.118714,
+      "tp1_hit": false,
+      "tp2": 60397.812,
+      "ts": 1783836900000
+    },
     "DOGE-TrendContinuation-1783776600000": {
       "confidence": 0.9,
       "confluences": [
@@ -148,6 +174,31 @@
       "tp1_hit": false,
       "tp2": 0.084242,
       "ts": 1783776600000
+    },
+    "DOT-TrendContinuation-1783836900000": {
+      "confidence": 0.9,
+      "confluences": [
+        "Trend-aligned structure"
+      ],
+      "direction": "short",
+      "engine": "TrendContinuation",
+      "entry": 0.845112,
+      "ev": 1.0625,
+      "expected_rr": 2.0,
+      "message_id": 2448,
+      "opened_at": "2026-07-12T06:17:56.393321+00:00",
+      "regime_suitability": [
+        "trending",
+        "expansion"
+      ],
+      "score": 1.0625,
+      "sl": 0.894418,
+      "symbol": "DOT",
+      "timeframe": "15M",
+      "tp1": 0.746501,
+      "tp1_hit": false,
+      "tp2": 0.672542,
+      "ts": 1783836900000
     },
     "ETH-TrendContinuation-1783781100000": {
       "confidence": 0.9,
@@ -519,7 +570,9 @@
     "APT": 1783782052.689253,
     "AVAX": 1783818056.986919,
     "BNB": 1783765899.58031,
+    "BTC": 1783844276.723029,
     "DOGE": 1783783849.274639,
+    "DOT": 1783844276.39334,
     "ETH": 1783788334.753936,
     "LINK": 1783782053.033177,
     "LTC": 1783765899.221753,
@@ -538,7 +591,7 @@
   },
   "daily_counts": {
     "2026-07-11": 18,
-    "2026-07-12": 4
+    "2026-07-12": 6
   },
   "engine_name": "OBSIDIAN",
   "engine_stats": {
@@ -562,12 +615,12 @@
     "BreakerBlock": 1.04,
     "SMC": 0.96
   },
-  "ev_threshold": 0.4,
+  "ev_threshold": 0.41,
   "last_daily_summary_date": "2026-07-11",
   "run_stats": {
-    "last_run_ts": "2026-07-12T06:02:32.760029+00:00",
-    "total_runs": 87,
-    "total_signals": 22
+    "last_run_ts": "2026-07-12T06:17:56.723039+00:00",
+    "total_runs": 88,
+    "total_signals": 24
   },
   "schema_version": 1,
   "signal_history": [
