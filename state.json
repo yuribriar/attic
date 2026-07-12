@@ -604,10 +604,10 @@
     "TrendContinuation": 0.96
   },
   "ev_threshold": 0.41,
-  "last_daily_summary_date": "2026-07-11",
+  "last_daily_summary_date": "2026-07-12",
   "run_stats": {
-    "last_run_ts": "2026-07-12T07:45:37.245724+00:00",
-    "total_runs": 94,
+    "last_run_ts": "2026-07-12T08:01:00.275007+00:00",
+    "total_runs": 95,
     "total_signals": 24
   },
   "schema_version": 1,
