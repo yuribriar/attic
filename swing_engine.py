@@ -1848,9 +1848,14 @@ class TelegramNotifier:
     @staticmethod
     def _price_line(label: str, value: float) -> str:
         # Bare number only inside the monospace span; label stays outside so a
-        # single tap copies exactly that number. 10dp covers sub-penny assets
-        # without losing precision.
-        formatted = f"{value:.10f}".rstrip("0").rstrip(".") if value else "0"
+        # single tap copies exactly that number. Precision scales with price
+        # magnitude: fewer decimals for BTC-sized prices, more for sub-$1 alts.
+        if not value:
+            formatted = "0"
+        else:
+            av = abs(value)
+            dp = 2 if av >= 100 else 4 if av >= 1 else 6
+            formatted = f"{value:.{dp}f}".rstrip("0").rstrip(".")
         return f"{label}: `{formatted}`"
 
     def send_new_signal(self, rec: dict):
