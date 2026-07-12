@@ -761,9 +761,14 @@ def build_sl_tp_from_structure(direction: str, entry: float, structural_stop: fl
     if direction == "long":
         sl = structural_stop
         tp1_floor = entry + TP1_RR_MIN * risk
-        tp1_ceiling = entry + TP1_RR_SOFT_CEILING * risk
         if target_pool is not None and target_pool > entry:
-            tp1 = min(max(target_pool, tp1_floor), tp1_ceiling * 1.15)
+            # Buffer applied to the risk-distance (not the absolute price) so a
+            # 15% allowance stays a 15% allowance regardless of how large entry
+            # is relative to risk. Previously `tp1_ceiling * 1.15` scaled the
+            # whole price, letting TP1 run out to whatever pool existed with
+            # almost no effective cap -> could end up past TP2.
+            tp1_cap = entry + TP1_RR_SOFT_CEILING * risk * 1.15
+            tp1 = min(max(target_pool, tp1_floor), tp1_cap)
             tp1 = max(tp1, tp1_floor)
         else:
             tp1 = tp1_floor
@@ -772,9 +777,15 @@ def build_sl_tp_from_structure(direction: str, entry: float, structural_stop: fl
     else:
         sl = structural_stop
         tp1_floor = entry - TP1_RR_MIN * risk
-        tp1_ceiling = entry - TP1_RR_SOFT_CEILING * risk
         if target_pool is not None and target_pool < entry:
-            tp1 = max(min(target_pool, tp1_floor), tp1_ceiling * 1.15)
+            # Mirrors the long-side fix: buffer applied to the risk-distance,
+            # not the absolute price. Previously `tp1_ceiling * 1.15` scaled
+            # the whole price, which for short signals pushed the "cap" far
+            # above entry and caused the final `min(tp1, tp1_floor)` to almost
+            # always clamp TP1 back to the bare 1.5R floor -- silently
+            # discarding a valid, farther liquidity-pool target.
+            tp1_cap = entry - TP1_RR_SOFT_CEILING * risk * 1.15
+            tp1 = max(min(target_pool, tp1_floor), tp1_cap)
             tp1 = min(tp1, tp1_floor)
         else:
             tp1 = tp1_floor
