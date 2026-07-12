@@ -25,6 +25,32 @@
       "tp2": 129.826315,
       "ts": 1783771200000
     },
+    "ADA-SMC-1783816200000": {
+      "confidence": 0.7,
+      "confluences": [
+        "BOS",
+        "Order Block confluence"
+      ],
+      "direction": "short",
+      "engine": "SMC",
+      "entry": 0.163182,
+      "ev": 1.0031999999999999,
+      "expected_rr": 2.0,
+      "message_id": 2408,
+      "opened_at": "2026-07-12T00:32:39.289290+00:00",
+      "regime_suitability": [
+        "trending",
+        "reversal"
+      ],
+      "score": 1.0031999999999999,
+      "sl": 0.174793,
+      "symbol": "ADA",
+      "timeframe": "15M",
+      "tp1": 0.139958,
+      "tp1_hit": false,
+      "tp2": 0.12254,
+      "ts": 1783816200000
+    },
     "APT-TrendContinuation-1783774800000": {
       "confidence": 0.9,
       "confluences": [
@@ -489,7 +515,7 @@
   },
   "cooldowns": {
     "AAVE": 1783778454.667982,
-    "ADA": 1783790133.707163,
+    "ADA": 1783823559.289302,
     "APT": 1783782052.689253,
     "AVAX": 1783818056.986919,
     "BNB": 1783765899.58031,
@@ -512,7 +538,7 @@
   },
   "daily_counts": {
     "2026-07-11": 18,
-    "2026-07-12": 3
+    "2026-07-12": 4
   },
   "engine_name": "OBSIDIAN",
   "engine_stats": {
@@ -536,12 +562,12 @@
     "BreakerBlock": 1.04,
     "SMC": 0.96
   },
-  "ev_threshold": 0.39,
+  "ev_threshold": 0.4,
   "last_daily_summary_date": "2026-07-11",
   "run_stats": {
-    "last_run_ts": "2026-07-12T00:22:07.082796+00:00",
-    "total_runs": 64,
-    "total_signals": 21
+    "last_run_ts": "2026-07-12T00:32:39.289312+00:00",
+    "total_runs": 65,
+    "total_signals": 22
   },
   "schema_version": 1,
   "signal_history": [
