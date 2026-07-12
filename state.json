@@ -1,1 +1,19 @@
-{}
+{
+  "active_signals": {},
+  "confidence_calibration": {},
+  "cooldowns": {},
+  "daily_counts": {},
+  "engine_name": "OBSIDIAN",
+  "engine_stats": {},
+  "engine_version": "1.1.1",
+  "engine_weights": {},
+  "ev_threshold": 0.35,
+  "last_daily_summary_date": null,
+  "run_stats": {
+    "last_run_ts": "2026-07-12T15:15:37.304489+00:00",
+    "total_runs": 1,
+    "total_signals": 0
+  },
+  "schema_version": 1,
+  "signal_history": []
+}
