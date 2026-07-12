@@ -40,8 +40,8 @@
   "ev_threshold": 0.35,
   "last_daily_summary_date": null,
   "run_stats": {
-    "last_run_ts": "2026-07-12T15:45:37.105355+00:00",
-    "total_runs": 3,
+    "last_run_ts": "2026-07-12T16:01:05.407155+00:00",
+    "total_runs": 4,
     "total_signals": 1
   },
   "schema_version": 1,
