@@ -46,6 +46,14 @@
           "sum_r": -1.0,
           "sum_conf": 0.65,
           "sum_conf_correct": 0.0
+        },
+        "ZEC": {
+          "n": 1,
+          "wins": 0,
+          "losses": 1,
+          "sum_r": -1.0,
+          "sum_conf": 0.65,
+          "sum_conf_correct": 0.0
         }
       },
       "by_regime": {
@@ -56,10 +64,8 @@
           "sum_r": -1.0,
           "sum_conf": 0.65,
           "sum_conf_correct": 0.0
-        }
-      },
-      "by_timeframe": {
-        "15m": {
+        },
+        "bull_trend": {
           "n": 1,
           "wins": 0,
           "losses": 1,
@@ -68,32 +74,42 @@
           "sum_conf_correct": 0.0
         }
       },
+      "by_timeframe": {
+        "15m": {
+          "n": 2,
+          "wins": 0,
+          "losses": 2,
+          "sum_r": -2.0,
+          "sum_conf": 1.3,
+          "sum_conf_correct": 0.0
+        }
+      },
       "by_engine": {
         "momentum": {
-          "n": 1,
+          "n": 2,
           "wins": 0,
-          "losses": 1,
-          "sum_r": -1.0,
-          "sum_conf": 0.65,
+          "losses": 2,
+          "sum_r": -2.0,
+          "sum_conf": 1.3,
           "sum_conf_correct": 0.0
         }
       }
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 243,
-        "rejected": 152
+        "seen": 262,
+        "rejected": 165
       },
       "liquidity_sanity": {
-        "seen": 91,
-        "rejected": 2
+        "seen": 97,
+        "rejected": 3
       },
       "min_confidence": {
-        "seen": 89,
-        "rejected": 58
+        "seen": 94,
+        "rejected": 61
       },
       "min_score": {
-        "seen": 31,
+        "seen": 33,
         "rejected": 13
       }
     },
@@ -103,6 +119,10 @@
       "reason": null
     },
     "rolling_live_trades": [
+      {
+        "r": -1.0,
+        "win": false
+      },
       {
         "r": -1.0,
         "win": false
@@ -154,6 +174,45 @@
       "outcome": "loss",
       "r_realized": -1.0,
       "forensic_tag": "stopped_out_before_mtf_confirmation"
+    },
+    {
+      "setup_type": "momentum",
+      "symbol": "ZEC",
+      "direction": "long",
+      "entry": 545.055,
+      "sl": 539.1998082883641,
+      "tp1": 553.8377875674537,
+      "tp2": 562.6205751349074,
+      "confidence": 0.65,
+      "rr_tp1": 1.5,
+      "rr_tp2": 3.0,
+      "confluences": [
+        "rsi_momentum",
+        "adx_confirmed"
+      ],
+      "regime_at_signal": "bull_trend",
+      "entry_kind": "market",
+      "timeframe": "15m",
+      "created_ts": 1783879249535,
+      "entry_filled": true,
+      "pending_bars": 0,
+      "pending_expiry_bars": 0,
+      "signal_id": "8189decb7bab",
+      "tier": "B",
+      "score": 0.53625,
+      "status": "closed_loss",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": -0.7847736207968092,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1783885500000,
+      "bars_pending": 0,
+      "fill_ts": 1783879249535,
+      "telegram_message_id": 2542,
+      "resolved_ts": 1783885500000,
+      "outcome": "loss",
+      "r_realized": -1.0,
+      "forensic_tag": "correct_read_poor_rr"
     }
   ],
   "pending_signals": [],
@@ -192,41 +251,6 @@
       "bars_pending": 2,
       "telegram_message_id": 2541,
       "fill_ts": 1783881000000
-    },
-    {
-      "setup_type": "momentum",
-      "symbol": "ZEC",
-      "direction": "long",
-      "entry": 545.055,
-      "sl": 539.1998082883641,
-      "tp1": 553.8377875674537,
-      "tp2": 562.6205751349074,
-      "confidence": 0.65,
-      "rr_tp1": 1.5,
-      "rr_tp2": 3.0,
-      "confluences": [
-        "rsi_momentum",
-        "adx_confirmed"
-      ],
-      "regime_at_signal": "bull_trend",
-      "entry_kind": "market",
-      "timeframe": "15m",
-      "created_ts": 1783879249535,
-      "entry_filled": true,
-      "pending_bars": 0,
-      "pending_expiry_bars": 0,
-      "signal_id": "8189decb7bab",
-      "tier": "B",
-      "score": 0.53625,
-      "status": "active",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": -0.7847736207968092,
-      "mfe_r": 0.0,
-      "last_checked_ts": 1783884600000,
-      "bars_pending": 0,
-      "fill_ts": 1783879249535,
-      "telegram_message_id": 2542
     },
     {
       "setup_type": "trend_continuation",
@@ -291,9 +315,9 @@
       "status": "active",
       "tp1_hit": false,
       "tp1_r": null,
-      "mae_r": -0.4785690779787175,
+      "mae_r": -0.5256414463044943,
       "mfe_r": 0.0,
-      "last_checked_ts": 1783884600000,
+      "last_checked_ts": 1783885500000,
       "bars_pending": 0,
       "fill_ts": 1783881066290,
       "telegram_message_id": 2554
@@ -362,8 +386,8 @@
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": -0.2759031296415873,
-      "mfe_r": 0.14213191526986899,
-      "last_checked_ts": 1783883700000,
+      "mfe_r": 0.47655995119904593,
+      "last_checked_ts": 1783885500000,
       "bars_pending": 0,
       "fill_ts": 1783881071473,
       "telegram_message_id": 2556
@@ -396,9 +420,9 @@
       "status": "active",
       "tp1_hit": false,
       "tp1_r": null,
-      "mae_r": 0.0,
+      "mae_r": -0.3382677736985086,
       "mfe_r": 0.5660807641485269,
-      "last_checked_ts": 1783883700000,
+      "last_checked_ts": 1783885500000,
       "bars_pending": 0,
       "fill_ts": 1783881044926,
       "telegram_message_id": 2557
@@ -433,10 +457,45 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1783883700000,
-      "bars_pending": 1,
+      "last_checked_ts": 1783884600000,
+      "bars_pending": 2,
       "telegram_message_id": 2561
+    },
+    {
+      "setup_type": "momentum",
+      "symbol": "ZEC",
+      "direction": "short",
+      "entry": 537.025,
+      "sl": 541.9163851079336,
+      "tp1": 525.7748142517527,
+      "tp2": 461.54,
+      "confidence": 0.6021463989516409,
+      "rr_tp1": 2.2999999999999976,
+      "rr_tp2": 15.432234087961413,
+      "confluences": [
+        "rsi_momentum",
+        "adx_confirmed"
+      ],
+      "regime_at_signal": "bull_trend",
+      "entry_kind": "market",
+      "timeframe": "15m",
+      "created_ts": 1783885527187,
+      "entry_filled": true,
+      "pending_bars": 0,
+      "pending_expiry_bars": 0,
+      "signal_id": "f61595d63158",
+      "tier": "A",
+      "score": 0.7399980755125128,
+      "status": "active",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1783885527187,
+      "bars_pending": 0,
+      "fill_ts": 1783885527187,
+      "telegram_message_id": 2565
     }
   ],
-  "last_run_ts": 1783884662091
+  "last_run_ts": 1783885552155
 }
