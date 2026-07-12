@@ -918,7 +918,7 @@ class LiquiditySweepEngine(SpecializedEngine):
         sweep = ctx.sweep
         if not sweep:
             return []
-        direction = sweep["direction"]
+        direction = "long" if sweep["direction"] == "bullish" else "short"
         last = ltf[-1]
         entry = last["c"]
         if direction == "long":
