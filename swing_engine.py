@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ODYSSEY ADAPTIVE SIGNAL ENGINE — v1.0.0
+ODYSSEY ADAPTIVE SIGNAL ENGINE — v1.1.0
 ========================================
 Institutional-grade, self-learning, multi-strategy crypto signal engine for
 Hyperliquid perpetuals. Single-file, dependency-light, GitHub-Actions-ready.
@@ -17,6 +17,23 @@ Key components:
     driving fully automatic, bounded, incremental learning.
   - Live-performance circuit breaker against a documented pre-deployment
     baseline.
+
+v1.1.0 changes (signal-quality learning):
+  - active_baseline now actually updates from live results once enough
+    trades resolve (previously frozen at BASELINE_NOTE forever — the old
+    docstring claimed it self-updated but no code path ever did it).
+  - New confluence-level learning: each confluence tag (e.g.
+    "liquidity_sweep", "fvg_reclaim") gets its own tracked win rate / avg-R
+    and a learned quality multiplier, gated by the same MIN_SAMPLE_SIZE and
+    ADAPT_MAX_STEP damping as everything else. The old confluence_bonus was
+    purely a count of tags with zero notion of which tags actually predict
+    wins — this replaces that with real per-tag learning.
+  - New per-asset quality multiplier, same treatment, using the by_asset
+    segment stats that were already being tracked but never fed back into
+    scoring.
+  - final_score now multiplies in engine_weight * confluence_quality_mult *
+    asset_quality_mult, so signal quality is shaped by everything the
+    engine has actually learned about what wins, not just its type.
 
 Scan-per-run model: an external scheduler (GitHub Actions, cron, etc.)
 invokes this script every 15 minutes. All persistence lives in state.json
@@ -46,7 +63,7 @@ import numpy as np
 # ==============================================================================
 
 ENGINE_NAME = "Odyssey Adaptive Signal Engine"
-ENGINE_VERSION = "v1.0.0"
+ENGINE_VERSION = "v1.1.0"
 
 # Same watchlist across all six reference engines -> reused verbatim.
 WATCHLIST: List[str] = [
@@ -105,6 +122,23 @@ ADAPT_MAX_STEP = 0.08            # max fractional change to any adaptive param p
 ENGINE_WEIGHT_MIN, ENGINE_WEIGHT_MAX = 0.35, 1.75   # relative to baseline 1.0
 CONF_CALIBRATION_MIN, CONF_CALIBRATION_MAX = -0.20, 0.20
 FILTER_THRESHOLD_MIN, FILTER_THRESHOLD_MAX = 0.30, 0.95
+
+# Secondary, more conservative quality multipliers (v1.1.0). Kept tighter
+# than ENGINE_WEIGHT bounds since these compound multiplicatively with
+# engine_weight in final_score — wide bounds on every layer would let a
+# signal's score swing far more than any single layer's own trustworthiness
+# justifies at small sample sizes.
+CONFLUENCE_QUALITY_MIN, CONFLUENCE_QUALITY_MAX = 0.70, 1.30
+ASSET_QUALITY_MIN, ASSET_QUALITY_MAX = 0.70, 1.30
+
+# --- Live baseline auto-update (v1.1.0) ---
+# The circuit breaker and engine-weight expectancy math compare live results
+# against this baseline. It starts at BASELINE_NOTE (a pre-deployment prior)
+# and blends toward realized live performance once there's enough data to
+# trust, using the same damped-step machinery as everything else so it can't
+# jump on a handful of trades.
+BASELINE_MIN_LIVE_TRADES = 40        # total resolved trades before blending starts
+BASELINE_ADAPT_MAX_STEP = 0.05       # slower than parameter adaptation on purpose
 
 # --- Live-performance circuit breaker ---
 CIRCUIT_BREAKER_WINDOW = 30                  # rolling trades
@@ -248,6 +282,8 @@ class RankedSignal:
     ev: float
     engine_weight: float
     regime_fit_mult: float
+    confluence_quality_mult: float = 1.0   # v1.1.0
+    asset_quality_mult: float = 1.0        # v1.1.0
 
 # ==============================================================================
 # SECTION C — HTTP / RETRY UTILITIES
@@ -1286,12 +1322,15 @@ def _default_state() -> dict:
         "tier1": {
             "engine_weights": {e.setup_type.value: 1.0 for e in ALL_ENGINES},
             "confidence_calibration": {e.setup_type.value: 0.0 for e in ALL_ENGINES},
+            "confluence_quality": {},  # tag -> learned multiplier, default 1.0 (v1.1.0)
+            "asset_quality": {},       # symbol -> learned multiplier, default 1.0 (v1.1.0)
             "filter_thresholds": {
                 "min_confidence": 0.55,
                 "min_score": 0.5,
             },
             "segment_stats": {
                 "by_asset": {}, "by_regime": {}, "by_timeframe": {}, "by_engine": {},
+                "by_confluence": {},  # v1.1.0
             },
             "filter_funnel": {},  # stage_name -> {"seen": n, "rejected": n}
             "circuit_breaker": {"tripped": False, "tripped_at": None, "reason": None},
@@ -1354,6 +1393,12 @@ class StateStore:
     def filter_threshold(self, name: str, default: float) -> float:
         return self.data["tier1"]["filter_thresholds"].get(name, default)
 
+    def confluence_quality(self, tag: str) -> float:
+        return self.data["tier1"]["confluence_quality"].get(tag, 1.0)
+
+    def asset_quality(self, symbol: str) -> float:
+        return self.data["tier1"]["asset_quality"].get(symbol, 1.0)
+
     def is_circuit_breaker_tripped(self) -> bool:
         return bool(self.data["tier1"]["circuit_breaker"].get("tripped", False))
 
@@ -1375,11 +1420,25 @@ class StateStore:
 
     def record_trade_incremental(self, asset: str, regime: str, timeframe: str,
                                   engine: str, r_realized: float, win: bool,
-                                  confidence: float, confidence_correct: bool):
+                                  confidence: float, confidence_correct: bool,
+                                  confluences: Optional[List[str]] = None):
         """Update Tier-1 aggregates one trade at a time."""
         for bucket, key in (("by_asset", asset), ("by_regime", regime),
                             ("by_timeframe", timeframe), ("by_engine", engine)):
             seg = self._segment(bucket, key)
+            seg["n"] += 1
+            seg["wins"] += 1 if win else 0
+            seg["losses"] += 0 if win else 1
+            seg["sum_r"] += r_realized
+            seg["sum_conf"] += confidence
+            seg["sum_conf_correct"] += 1 if confidence_correct else 0
+
+        # v1.1.0: same treatment, one bucket per distinct confluence tag that
+        # fired on this signal. A signal with 3 tags contributes once to each
+        # of those 3 tags' stats — deliberately mirrors how by_asset/by_regime
+        # already work (the trade "belongs" to every segment it touches).
+        for tag in set(confluences or []):
+            seg = self._segment("by_confluence", tag)
             seg["n"] += 1
             seg["wins"] += 1 if win else 0
             seg["losses"] += 0 if win else 1
@@ -1487,6 +1546,75 @@ def update_confidence_calibration(store: StateStore):
         calib[setup_key] = _damped_step(old, target, ADAPT_MAX_STEP, CONF_CALIBRATION_MIN, CONF_CALIBRATION_MAX)
 
 
+def update_confluence_quality(store: StateStore):
+    """v1.1.0. Same directional/bounded/damped treatment as engine weights,
+    but per confluence tag instead of per engine type — this is what lets the
+    system learn 'liquidity_sweep confluence tends to win' independent of
+    which of the 13 engines happened to attach that tag."""
+    by_conf = store.data["tier1"]["segment_stats"]["by_confluence"]
+    quality = store.data["tier1"]["confluence_quality"]
+    baseline = store.get_effective_baseline()
+    for tag, seg in by_conf.items():
+        if seg["n"] < MIN_SAMPLE_SIZE:
+            continue
+        win_rate = seg["wins"] / seg["n"]
+        avg_r = seg["sum_r"] / seg["n"]
+        expectancy_edge = (win_rate - baseline["win_rate"]) + 0.25 * (avg_r - (baseline["avg_rr"] * baseline["win_rate"] - (1 - baseline["win_rate"])))
+        target = 1.0 + max(-0.3, min(0.3, expectancy_edge * 2.0))
+        old = quality.get(tag, 1.0)
+        quality[tag] = _damped_step(old, target, ADAPT_MAX_STEP, CONFLUENCE_QUALITY_MIN, CONFLUENCE_QUALITY_MAX)
+
+
+def update_asset_quality(store: StateStore):
+    """v1.1.0. Same again, per traded symbol. by_asset stats were already
+    being collected; this is the first thing that actually reads them back
+    into scoring."""
+    by_asset = store.data["tier1"]["segment_stats"]["by_asset"]
+    quality = store.data["tier1"]["asset_quality"]
+    baseline = store.get_effective_baseline()
+    for symbol, seg in by_asset.items():
+        if seg["n"] < MIN_SAMPLE_SIZE:
+            continue
+        win_rate = seg["wins"] / seg["n"]
+        avg_r = seg["sum_r"] / seg["n"]
+        expectancy_edge = (win_rate - baseline["win_rate"]) + 0.25 * (avg_r - (baseline["avg_rr"] * baseline["win_rate"] - (1 - baseline["win_rate"])))
+        target = 1.0 + max(-0.3, min(0.3, expectancy_edge * 2.0))
+        old = quality.get(symbol, 1.0)
+        quality[symbol] = _damped_step(old, target, ADAPT_MAX_STEP, ASSET_QUALITY_MIN, ASSET_QUALITY_MAX)
+
+
+def update_baseline_from_live(store: StateStore):
+    """v1.1.0 fix. BASELINE_NOTE was documented as a placeholder to be
+    'replaced by live stats once enough trades resolve', but no prior code
+    path ever did that — active_baseline sat frozen at the pre-deployment
+    prior forever. This makes that real: once there are enough resolved
+    trades to trust, win_rate/profit_factor/avg_rr blend toward realized
+    live performance, damped the same way as every other adaptive param so
+    a short streak can't yank the baseline (and therefore the circuit
+    breaker and every expectancy calc) around."""
+    by_engine = store.data["tier1"]["segment_stats"]["by_engine"]
+    total_n = sum(s["n"] for s in by_engine.values())
+    if total_n < BASELINE_MIN_LIVE_TRADES:
+        return
+
+    total_wins = sum(s["wins"] for s in by_engine.values())
+    total_r = sum(s["sum_r"] for s in by_engine.values())
+    total_losses = total_n - total_wins
+    live_win_rate = total_wins / total_n
+    # Recover average winning-trade R from the aggregate: sum_r = wins*avg_win_r - losses*1.0
+    live_avg_rr = ((total_r + total_losses) / total_wins) if total_wins > 0 else BASELINE_NOTE["avg_rr"]
+
+    rolling = store.data["tier1"]["rolling_live_trades"]
+    gains = sum(t["r"] for t in rolling if t["r"] > 0)
+    losses = -sum(t["r"] for t in rolling if t["r"] < 0)
+    live_pf = (gains / losses) if losses > 0 else BASELINE_NOTE["profit_factor"]
+
+    baseline = store.data["tier1"]["active_baseline"]
+    baseline["win_rate"] = _damped_step(baseline["win_rate"], live_win_rate, BASELINE_ADAPT_MAX_STEP, 0.10, 0.90)
+    baseline["profit_factor"] = _damped_step(baseline["profit_factor"], live_pf, BASELINE_ADAPT_MAX_STEP, 0.30, 5.0)
+    baseline["avg_rr"] = _damped_step(baseline["avg_rr"], live_avg_rr, BASELINE_ADAPT_MAX_STEP, 0.50, 5.0)
+
+
 def update_filter_thresholds(store: StateStore):
     """Filter-funnel-attrition-driven tuning: a filter killing a
     large share of candidates with no realized-quality lift gets relaxed; one
@@ -1564,8 +1692,13 @@ def run_learning_cycle(store: StateStore, telegram: "TelegramNotifier"):
     if store.is_circuit_breaker_tripped():
         log.info("Circuit breaker tripped — skipping all adaptive updates this run.")
         return
+    update_baseline_from_live(store)      # v1.1.0 — do this first so today's
+                                           # weight/calibration/threshold math
+                                           # below reads the freshest baseline
     update_engine_weights(store)
     update_confidence_calibration(store)
+    update_confluence_quality(store)      # v1.1.0
+    update_asset_quality(store)           # v1.1.0
     update_filter_thresholds(store)
 
 # ==============================================================================
@@ -1618,7 +1751,23 @@ class DecisionEngine:
             0.10 * liq_mult +
             0.10 * min(max(ev, -1.0), 2.0) / 2.0
         )
-        final_score = raw_score * engine_weight
+
+        # v1.1.0: confluence_bonus above only ever rewarded *how many* tags a
+        # signal had, never *which* ones — the engine had no way to learn that
+        # e.g. a liquidity-sweep tag has actually been a better predictor than
+        # a generic momentum tag. These two multipliers close that gap using
+        # the same per-segment win-rate/avg-R learning as engine_weight,
+        # applied to confluence tags and to the traded asset itself. Tags/
+        # assets with no data yet default to a neutral 1.0 (no free bonus,
+        # no unearned penalty).
+        conf_tags = set(sig.confluences)
+        confluence_quality_mult = (
+            sum(store.confluence_quality(t) for t in conf_tags) / len(conf_tags)
+            if conf_tags else 1.0
+        )
+        asset_quality_mult = store.asset_quality(sig.symbol)
+
+        final_score = raw_score * engine_weight * confluence_quality_mult * asset_quality_mult
 
         min_score = store.filter_threshold("min_score", 0.5)
         store.log_filter_funnel("min_score", rejected=final_score < min_score)
@@ -1633,7 +1782,9 @@ class DecisionEngine:
             tier = "B"
 
         return RankedSignal(signal=sig, score=final_score, tier=tier, ev=ev,
-                             engine_weight=engine_weight, regime_fit_mult=regime_fit_mult)
+                             engine_weight=engine_weight, regime_fit_mult=regime_fit_mult,
+                             confluence_quality_mult=confluence_quality_mult,
+                             asset_quality_mult=asset_quality_mult)
 
     def rank_and_select(self, candidates: List[RankedSignal], active_symbols_sectors: Dict[str, int]) -> List[RankedSignal]:
         """Applies the correlation cap and the concurrency cap on top of raw ranking. One candidate per symbol max per
@@ -1811,6 +1962,7 @@ class TradeLifecycleManager:
             asset=rec["symbol"], regime=rec["regime_at_signal"], timeframe=rec["timeframe"],
             engine=rec["setup_type"], r_realized=r_realized, win=(outcome == "win"),
             confidence=rec["confidence"], confidence_correct=confidence_correct,
+            confluences=rec.get("confluences", []),
         )
         self.store.append_tier2({**rec, "outcome": outcome, "r_realized": r_realized, "forensic_tag": forensic})
 
@@ -1947,6 +2099,16 @@ class TelegramNotifier:
             for k, v in sorted(by_regime.items())
         ) or "  (no resolved trades yet)"
 
+        baseline = store.get_effective_baseline()
+        conf_q = store.data["tier1"]["confluence_quality"]
+        asset_q = store.data["tier1"]["asset_quality"]
+        top_conf = sorted(conf_q.items(), key=lambda kv: kv[1], reverse=True)[:3]
+        bottom_conf = sorted(conf_q.items(), key=lambda kv: kv[1])[:3]
+        conf_q_line = (
+            "  Best: " + ", ".join(f"{_pretty(k)} ({v:.2f}x)" for k, v in top_conf) + "\n"
+            "  Worst: " + ", ".join(f"{_pretty(k)} ({v:.2f}x)" for k, v in bottom_conf)
+        ) if conf_q else "  (not enough resolved trades per tag yet)"
+
         text = (
             f"*{ENGINE_NAME} {ENGINE_VERSION} — Daily Summary*\n\n"
             f"Total signals: {total_n}\n"
@@ -1955,8 +2117,12 @@ class TelegramNotifier:
             f"Profit factor: {pf_str}\n"
             f"Average RR: {avg_rr:.2f}\n"
             f"Confidence calibration accuracy: {conf_acc:.1%}\n\n"
+            f"Live baseline (win rate / PF / avg RR): "
+            f"{baseline['win_rate']:.1%} / {baseline['profit_factor']:.2f} / {baseline['avg_rr']:.2f}\n\n"
             f"By regime:\n{regime_lines}\n\n"
             f"By engine:\n{engine_lines}\n\n"
+            f"Learned confluence quality:\n{conf_q_line}\n\n"
+            f"Assets tracked: {len(asset_q)}\n\n"
             f"Circuit breaker: {'TRIPPED — ' + str(store.data['tier1']['circuit_breaker'].get('reason')) if store.is_circuit_breaker_tripped() else 'nominal'}"
         )
         self.send(text)
