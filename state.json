@@ -112,11 +112,11 @@
           "sum_conf_correct": 0.0
         },
         "AVAX": {
-          "n": 2,
+          "n": 3,
           "wins": 1,
-          "losses": 1,
-          "sum_r": 1.2999999999999816,
-          "sum_conf": 1.2000000000000002,
+          "losses": 2,
+          "sum_r": 0.2999999999999816,
+          "sum_conf": 1.7979868501136276,
           "sum_conf_correct": 1.0
         },
         "PENDLE": {
@@ -162,11 +162,11 @@
       },
       "by_regime": {
         "bear_trend": {
-          "n": 6,
+          "n": 7,
           "wins": 1,
-          "losses": 5,
-          "sum_r": -2.7000000000000184,
-          "sum_conf": 3.738978005765996,
+          "losses": 6,
+          "sum_r": -3.7000000000000184,
+          "sum_conf": 4.336964855879623,
           "sum_conf_correct": 1.0
         },
         "bull_trend": {
@@ -196,21 +196,21 @@
       },
       "by_timeframe": {
         "15m": {
-          "n": 21,
+          "n": 22,
           "wins": 2,
-          "losses": 19,
-          "sum_r": -14.40000000000001,
-          "sum_conf": 12.959719699132357,
+          "losses": 20,
+          "sum_r": -15.40000000000001,
+          "sum_conf": 13.557706549245985,
           "sum_conf_correct": 2.0
         }
       },
       "by_engine": {
         "momentum": {
-          "n": 16,
+          "n": 17,
           "wins": 0,
-          "losses": 16,
-          "sum_r": -16.0,
-          "sum_conf": 10.109719699132357,
+          "losses": 17,
+          "sum_r": -17.0,
+          "sum_conf": 10.707706549245986,
           "sum_conf_correct": 0.0
         },
         "liquidity_sweep": {
@@ -233,20 +233,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 995,
-        "rejected": 490
+        "seen": 1033,
+        "rejected": 503
       },
       "liquidity_sanity": {
-        "seen": 505,
-        "rejected": 7
+        "seen": 530,
+        "rejected": 8
       },
       "min_confidence": {
-        "seen": 498,
-        "rejected": 262
+        "seen": 522,
+        "rejected": 273
       },
       "min_score": {
-        "seen": 236,
-        "rejected": 51
+        "seen": 249,
+        "rejected": 55
       }
     },
     "circuit_breaker": {
@@ -306,6 +306,10 @@
       {
         "r": 2.300000000000009,
         "win": true
+      },
+      {
+        "r": -1.0,
+        "win": false
       },
       {
         "r": -1.0,
@@ -1166,6 +1170,45 @@
       "outcome": "loss",
       "r_realized": -1.0,
       "forensic_tag": "correct_read_poor_rr"
+    },
+    {
+      "setup_type": "momentum",
+      "symbol": "AVAX",
+      "direction": "long",
+      "entry": 6.4722,
+      "sl": 6.4155249094381315,
+      "tp1": 6.602552708292297,
+      "tp2": 6.7865,
+      "confidence": 0.5979868501136274,
+      "rr_tp1": 2.2999999999999923,
+      "rr_tp2": 5.5456461892531,
+      "confluences": [
+        "rsi_momentum",
+        "adx_confirmed"
+      ],
+      "regime_at_signal": "bear_trend",
+      "entry_kind": "market",
+      "timeframe": "15m",
+      "created_ts": 1783903649058,
+      "entry_filled": true,
+      "pending_bars": 0,
+      "pending_expiry_bars": 0,
+      "signal_id": "56eb9aca90d4",
+      "tier": "A",
+      "score": 0.7380638853028365,
+      "status": "closed_loss",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": -0.5875597139743118,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1783908000000,
+      "bars_pending": 0,
+      "fill_ts": 1783903649058,
+      "telegram_message_id": 2634,
+      "resolved_ts": 1783908000000,
+      "outcome": "loss",
+      "r_realized": -1.0,
+      "forensic_tag": "correct_read_poor_rr"
     }
   ],
   "pending_signals": [],
@@ -1199,8 +1242,8 @@
       "tp1_hit": true,
       "tp1_r": 2.2999999999999927,
       "mae_r": -0.9789309190712248,
-      "mfe_r": 2.753733547057826,
-      "last_checked_ts": 1783907100000,
+      "mfe_r": 3.187845388284409,
+      "last_checked_ts": 1783908000000,
       "bars_pending": 0,
       "fill_ts": 1783881066290,
       "telegram_message_id": 2554
@@ -1234,8 +1277,8 @@
       "tp1_hit": true,
       "tp1_r": 2.2999999999999705,
       "mae_r": -0.4765599511991053,
-      "mfe_r": 5.919376235946544,
-      "last_checked_ts": 1783907100000,
+      "mfe_r": 6.078229553012893,
+      "last_checked_ts": 1783908000000,
       "bars_pending": 0,
       "fill_ts": 1783881071473,
       "telegram_message_id": 2556
@@ -1270,45 +1313,10 @@
       "tp1_r": 2.300000000000004,
       "mae_r": 0.0,
       "mfe_r": 7.30721401155128,
-      "last_checked_ts": 1783907100000,
+      "last_checked_ts": 1783908000000,
       "bars_pending": 0,
       "fill_ts": 1783891957812,
       "telegram_message_id": 2580
-    },
-    {
-      "setup_type": "momentum",
-      "symbol": "AVAX",
-      "direction": "long",
-      "entry": 6.4722,
-      "sl": 6.4155249094381315,
-      "tp1": 6.602552708292297,
-      "tp2": 6.7865,
-      "confidence": 0.5979868501136274,
-      "rr_tp1": 2.2999999999999923,
-      "rr_tp2": 5.5456461892531,
-      "confluences": [
-        "rsi_momentum",
-        "adx_confirmed"
-      ],
-      "regime_at_signal": "bear_trend",
-      "entry_kind": "market",
-      "timeframe": "15m",
-      "created_ts": 1783903649058,
-      "entry_filled": true,
-      "pending_bars": 0,
-      "pending_expiry_bars": 0,
-      "signal_id": "56eb9aca90d4",
-      "tier": "A",
-      "score": 0.7380638853028365,
-      "status": "active",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": -0.5875597139743118,
-      "mfe_r": 0.0,
-      "last_checked_ts": 1783907100000,
-      "bars_pending": 0,
-      "fill_ts": 1783903649058,
-      "telegram_message_id": 2634
     },
     {
       "setup_type": "liquidity_sweep",
@@ -1339,8 +1347,8 @@
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": -0.18586190156022728,
-      "mfe_r": 0.8358707376178527,
-      "last_checked_ts": 1783907100000,
+      "mfe_r": 1.2543139258299492,
+      "last_checked_ts": 1783908000000,
       "bars_pending": 1,
       "telegram_message_id": 2635,
       "fill_ts": 1783904400000
@@ -1371,11 +1379,11 @@
       "tier": "B",
       "score": 0.64825,
       "status": "pending",
-      "tp1_hit": false,
-      "tp1_r": null,
+      "tp1_hit": true,
+      "tp1_r": 2.300000000000003,
       "mae_r": -0.2292045278590503,
       "mfe_r": 1.5983195742705014,
-      "last_checked_ts": 1783907100000,
+      "last_checked_ts": 1783908000000,
       "bars_pending": 1,
       "telegram_message_id": 2636,
       "fill_ts": 1783904400000
@@ -1410,8 +1418,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1783907100000,
-      "bars_pending": 4,
+      "last_checked_ts": 1783908000000,
+      "bars_pending": 5,
       "telegram_message_id": 2637
     },
     {
@@ -1444,10 +1452,45 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1783907100000,
-      "bars_pending": 3,
+      "last_checked_ts": 1783908000000,
+      "bars_pending": 4,
       "telegram_message_id": 2640
+    },
+    {
+      "setup_type": "momentum",
+      "symbol": "SUI",
+      "direction": "short",
+      "entry": 0.73032,
+      "sl": 0.7367923485631267,
+      "tp1": 0.7154335983048085,
+      "tp2": 0.71196,
+      "confidence": 0.65,
+      "rr_tp1": 2.300000000000005,
+      "rr_tp2": 2.836682824005757,
+      "confluences": [
+        "rsi_momentum",
+        "adx_confirmed"
+      ],
+      "regime_at_signal": "bull_trend",
+      "entry_kind": "market",
+      "timeframe": "15m",
+      "created_ts": 1783908055822,
+      "entry_filled": true,
+      "pending_bars": 0,
+      "pending_expiry_bars": 0,
+      "signal_id": "648ae9009f19",
+      "tier": "A",
+      "score": 0.7622500000000001,
+      "status": "active",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1783908055822,
+      "bars_pending": 0,
+      "fill_ts": 1783908055822,
+      "telegram_message_id": 2649
     }
   ],
-  "last_run_ts": 1783907268724
+  "last_run_ts": 1783908079707
 }
