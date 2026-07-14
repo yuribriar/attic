@@ -435,20 +435,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 4666,
-        "rejected": 2204
+        "seen": 4685,
+        "rejected": 2213
       },
       "liquidity_sanity": {
-        "seen": 2462,
+        "seen": 2472,
         "rejected": 38
       },
       "min_confidence": {
-        "seen": 2424,
-        "rejected": 879
+        "seen": 2434,
+        "rejected": 880
       },
       "min_score": {
-        "seen": 1545,
-        "rejected": 766
+        "seen": 1554,
+        "rejected": 770
       }
     },
     "circuit_breaker": {
@@ -3541,7 +3541,7 @@
       "tp1_r": null,
       "mae_r": -0.021022362830640455,
       "mfe_r": 0.8829392388867897,
-      "last_checked_ts": 1784059200000,
+      "last_checked_ts": 1784060100000,
       "bars_pending": 0,
       "fill_ts": 1784049330366,
       "telegram_message_id": 3092
@@ -3576,8 +3576,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784059200000,
-      "bars_pending": 10,
+      "last_checked_ts": 1784060100000,
+      "bars_pending": 11,
       "telegram_message_id": 3097
     },
     {
@@ -3610,8 +3610,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784059200000,
-      "bars_pending": 8,
+      "last_checked_ts": 1784060100000,
+      "bars_pending": 9,
       "telegram_message_id": 3103
     },
     {
@@ -3643,8 +3643,8 @@
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": -0.015837977215100166,
-      "mfe_r": 0.21011716438699554,
-      "last_checked_ts": 1784059200000,
+      "mfe_r": 0.34737963358453033,
+      "last_checked_ts": 1784060100000,
       "bars_pending": 5,
       "telegram_message_id": 3104,
       "fill_ts": 1784056500000
@@ -3712,8 +3712,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784059200000,
-      "bars_pending": 7,
+      "last_checked_ts": 1784060100000,
+      "bars_pending": 8,
       "telegram_message_id": 3108
     },
     {
@@ -3751,5 +3751,5 @@
       "fill_ts": 1784059200000
     }
   ],
-  "last_run_ts": 1784059269189
+  "last_run_ts": 1784060139993
 }
