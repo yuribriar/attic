@@ -96,12 +96,12 @@
           "sum_conf_correct": 0.0
         },
         "UNI": {
-          "n": 4,
+          "n": 5,
           "wins": 1,
-          "losses": 3,
-          "sum_r": -0.4870735420134489,
-          "sum_conf": 2.5629578770308363,
-          "sum_conf_correct": 1.0
+          "losses": 4,
+          "sum_r": -1.4870735420134489,
+          "sum_conf": 3.0129578770308365,
+          "sum_conf_correct": 2.0
         },
         "SOL": {
           "n": 3,
@@ -202,12 +202,12 @@
           "sum_conf_correct": 3.0
         },
         "ranging": {
-          "n": 10,
+          "n": 11,
           "wins": 3,
-          "losses": 7,
-          "sum_r": 6.903161224278238,
-          "sum_conf": 5.751143617570011,
-          "sum_conf_correct": 3.0
+          "losses": 8,
+          "sum_r": 5.903161224278238,
+          "sum_conf": 6.201143617570011,
+          "sum_conf_correct": 4.0
         },
         "consolidation": {
           "n": 1,
@@ -220,12 +220,12 @@
       },
       "by_timeframe": {
         "15m": {
-          "n": 32,
+          "n": 33,
           "wins": 8,
-          "losses": 24,
-          "sum_r": 15.871997789573474,
-          "sum_conf": 19.53720541631141,
-          "sum_conf_correct": 8.0
+          "losses": 25,
+          "sum_r": 14.871997789573474,
+          "sum_conf": 19.987205416311408,
+          "sum_conf_correct": 9.0
         }
       },
       "by_engine": {
@@ -252,6 +252,14 @@
           "sum_r": -1.0,
           "sum_conf": 0.65,
           "sum_conf_correct": 0.0
+        },
+        "mean_reversion": {
+          "n": 1,
+          "wins": 0,
+          "losses": 1,
+          "sum_r": -1.0,
+          "sum_conf": 0.45,
+          "sum_conf_correct": 1.0
         }
       },
       "by_confluence": {
@@ -294,25 +302,41 @@
           "sum_r": -2.0,
           "sum_conf": 1.1,
           "sum_conf_correct": 0.0
+        },
+        "ranging_regime": {
+          "n": 1,
+          "wins": 0,
+          "losses": 1,
+          "sum_r": -1.0,
+          "sum_conf": 0.45,
+          "sum_conf_correct": 1.0
+        },
+        "bollinger_band_extreme": {
+          "n": 1,
+          "wins": 0,
+          "losses": 1,
+          "sum_r": -1.0,
+          "sum_conf": 0.45,
+          "sum_conf_correct": 1.0
         }
       }
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 2948,
-        "rejected": 1361
+        "seen": 2971,
+        "rejected": 1371
       },
       "liquidity_sanity": {
-        "seen": 1587,
+        "seen": 1600,
         "rejected": 23
       },
       "min_confidence": {
-        "seen": 1564,
+        "seen": 1577,
         "rejected": 809
       },
       "min_score": {
-        "seen": 755,
-        "rejected": 315
+        "seen": 768,
+        "rejected": 326
       }
     },
     "circuit_breaker": {
@@ -440,6 +464,10 @@
       {
         "r": 2.836682824005757,
         "win": true
+      },
+      {
+        "r": -1.0,
+        "win": false
       },
       {
         "r": -1.0,
@@ -2114,6 +2142,45 @@
       "resolved_ts": 1783990800000,
       "outcome": "expired_no_fill",
       "forensic_tag": "no_fill_expired"
+    },
+    {
+      "setup_type": "mean_reversion",
+      "symbol": "UNI",
+      "direction": "short",
+      "entry": 3.60865,
+      "sl": 3.615763716774798,
+      "tp1": 3.5922884514179643,
+      "tp2": 3.4505,
+      "confidence": 0.45,
+      "rr_tp1": 2.3,
+      "rr_tp2": 22.231697579004113,
+      "confluences": [
+        "bollinger_band_extreme",
+        "ranging_regime"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1783990858678,
+      "entry_filled": true,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "0e9d8f13d1bc",
+      "tier": "B",
+      "score": 0.66925,
+      "status": "closed_loss",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1783991700000,
+      "bars_pending": 1,
+      "telegram_message_id": 2893,
+      "fill_ts": 1783991700000,
+      "resolved_ts": 1783991700000,
+      "outcome": "loss",
+      "r_realized": -1.0,
+      "forensic_tag": "correct_read_poor_rr"
     }
   ],
   "pending_signals": [],
@@ -2148,7 +2215,7 @@
       "tp1_r": 2.2999999999999927,
       "mae_r": -0.9789309190712248,
       "mfe_r": 7.85498353673255,
-      "last_checked_ts": 1783991700000,
+      "last_checked_ts": 1783992600000,
       "bars_pending": 0,
       "fill_ts": 1783881066290,
       "telegram_message_id": 2554
@@ -2183,7 +2250,7 @@
       "tp1_r": 2.2999999999999985,
       "mae_r": -0.03102033462185504,
       "mfe_r": 4.7416797207684525,
-      "last_checked_ts": 1783991700000,
+      "last_checked_ts": 1783992600000,
       "bars_pending": 0,
       "fill_ts": 1783913446664,
       "telegram_message_id": 2668
@@ -2218,7 +2285,7 @@
       "tp1_r": null,
       "mae_r": -0.7042525242342464,
       "mfe_r": 1.6843643321547355,
-      "last_checked_ts": 1783991700000,
+      "last_checked_ts": 1783992600000,
       "bars_pending": 0,
       "fill_ts": 1783915353235,
       "telegram_message_id": 2679
@@ -2253,8 +2320,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1783991700000,
-      "bars_pending": 9,
+      "last_checked_ts": 1783992600000,
+      "bars_pending": 10,
       "telegram_message_id": 2862
     },
     {
@@ -2287,8 +2354,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1783991700000,
-      "bars_pending": 3,
+      "last_checked_ts": 1783992600000,
+      "bars_pending": 4,
       "telegram_message_id": 2883
     },
     {
@@ -2321,8 +2388,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1783991700000,
-      "bars_pending": 2,
+      "last_checked_ts": 1783992600000,
+      "bars_pending": 3,
       "telegram_message_id": 2886
     },
     {
@@ -2355,21 +2422,21 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1783991700000,
-      "bars_pending": 1,
+      "last_checked_ts": 1783992600000,
+      "bars_pending": 2,
       "telegram_message_id": 2892
     },
     {
       "setup_type": "mean_reversion",
       "symbol": "UNI",
       "direction": "short",
-      "entry": 3.60865,
-      "sl": 3.615763716774798,
-      "tp1": 3.5922884514179643,
+      "entry": 3.6354,
+      "sl": 3.6519724924515895,
+      "tp1": 3.5972832673613446,
       "tp2": 3.4505,
       "confidence": 0.45,
-      "rr_tp1": 2.3,
-      "rr_tp2": 22.231697579004113,
+      "rr_tp1": 2.3000000000000083,
+      "rr_tp2": 11.157042342310328,
       "confluences": [
         "bollinger_band_extreme",
         "ranging_regime"
@@ -2377,22 +2444,22 @@
       "regime_at_signal": "ranging",
       "entry_kind": "pending",
       "timeframe": "15m",
-      "created_ts": 1783990858678,
+      "created_ts": 1783992689637,
       "entry_filled": false,
       "pending_bars": 0,
       "pending_expiry_bars": 12,
-      "signal_id": "0e9d8f13d1bc",
+      "signal_id": "e4071da2f290",
       "tier": "B",
-      "score": 0.66925,
+      "score": 0.6692500000000002,
       "status": "pending",
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1783990858678,
+      "last_checked_ts": 1783992689637,
       "bars_pending": 0,
-      "telegram_message_id": 2893
+      "telegram_message_id": 2905
     }
   ],
-  "last_run_ts": 1783991756610
+  "last_run_ts": 1783992694336
 }
