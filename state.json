@@ -435,20 +435,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 4685,
-        "rejected": 2213
+        "seen": 4705,
+        "rejected": 2223
       },
       "liquidity_sanity": {
-        "seen": 2472,
+        "seen": 2482,
         "rejected": 38
       },
       "min_confidence": {
-        "seen": 2434,
-        "rejected": 880
+        "seen": 2444,
+        "rejected": 883
       },
       "min_score": {
-        "seen": 1554,
-        "rejected": 770
+        "seen": 1561,
+        "rejected": 773
       }
     },
     "circuit_breaker": {
@@ -3472,6 +3472,43 @@
       "outcome": "loss",
       "r_realized": -1.0,
       "forensic_tag": "correct_read_poor_rr"
+    },
+    {
+      "setup_type": "fair_value_gap",
+      "symbol": "TAO",
+      "direction": "short",
+      "entry": 203.51,
+      "sl": 204.0384968672935,
+      "tp1": 202.29445720522492,
+      "tp2": 195.9,
+      "confidence": 0.5,
+      "rr_tp1": 2.2999999999999945,
+      "rr_tp2": 14.39932849360412,
+      "confluences": [
+        "unmitigated_fvg",
+        "htf_bias_alignment"
+      ],
+      "regime_at_signal": "bear_trend",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784050257650,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "fbdcfa7bfbb0",
+      "tier": "A",
+      "score": 0.6924999999999998,
+      "status": "expired_no_fill",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784061000000,
+      "bars_pending": 12,
+      "telegram_message_id": 3097,
+      "resolved_ts": 1784061000000,
+      "outcome": "expired_no_fill",
+      "forensic_tag": "no_fill_expired"
     }
   ],
   "pending_signals": [],
@@ -3506,7 +3543,7 @@
       "tp1_r": 2.2999999999999763,
       "mae_r": -0.10747279391738869,
       "mfe_r": 3.131040729460258,
-      "last_checked_ts": 1784059200000,
+      "last_checked_ts": 1784061000000,
       "bars_pending": 5,
       "telegram_message_id": 2892,
       "fill_ts": 1783995300000
@@ -3541,44 +3578,10 @@
       "tp1_r": null,
       "mae_r": -0.021022362830640455,
       "mfe_r": 0.8829392388867897,
-      "last_checked_ts": 1784060100000,
+      "last_checked_ts": 1784061000000,
       "bars_pending": 0,
       "fill_ts": 1784049330366,
       "telegram_message_id": 3092
-    },
-    {
-      "setup_type": "fair_value_gap",
-      "symbol": "TAO",
-      "direction": "short",
-      "entry": 203.51,
-      "sl": 204.0384968672935,
-      "tp1": 202.29445720522492,
-      "tp2": 195.9,
-      "confidence": 0.5,
-      "rr_tp1": 2.2999999999999945,
-      "rr_tp2": 14.39932849360412,
-      "confluences": [
-        "unmitigated_fvg",
-        "htf_bias_alignment"
-      ],
-      "regime_at_signal": "bear_trend",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1784050257650,
-      "entry_filled": false,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "fbdcfa7bfbb0",
-      "tier": "A",
-      "score": 0.6924999999999998,
-      "status": "pending",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": 0.0,
-      "mfe_r": 0.0,
-      "last_checked_ts": 1784060100000,
-      "bars_pending": 11,
-      "telegram_message_id": 3097
     },
     {
       "setup_type": "fair_value_gap",
@@ -3610,8 +3613,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784060100000,
-      "bars_pending": 9,
+      "last_checked_ts": 1784061000000,
+      "bars_pending": 10,
       "telegram_message_id": 3103
     },
     {
@@ -3643,8 +3646,8 @@
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": -0.015837977215100166,
-      "mfe_r": 0.34737963358453033,
-      "last_checked_ts": 1784060100000,
+      "mfe_r": 0.3706086668333439,
+      "last_checked_ts": 1784061000000,
       "bars_pending": 5,
       "telegram_message_id": 3104,
       "fill_ts": 1784056500000
@@ -3678,8 +3681,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784059200000,
-      "bars_pending": 8,
+      "last_checked_ts": 1784061000000,
+      "bars_pending": 10,
       "telegram_message_id": 3105
     },
     {
@@ -3712,8 +3715,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784060100000,
-      "bars_pending": 8,
+      "last_checked_ts": 1784061000000,
+      "bars_pending": 9,
       "telegram_message_id": 3108
     },
     {
@@ -3744,12 +3747,47 @@
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": -0.10438215254978035,
-      "mfe_r": 0.028467859786276917,
-      "last_checked_ts": 1784059200000,
+      "mfe_r": 0.9394393729478968,
+      "last_checked_ts": 1784061000000,
       "bars_pending": 2,
       "telegram_message_id": 3121,
       "fill_ts": 1784059200000
+    },
+    {
+      "setup_type": "momentum",
+      "symbol": "DOT",
+      "direction": "short",
+      "entry": 0.84532,
+      "sl": 0.8490401375444636,
+      "tp1": 0.8367636836477336,
+      "tp2": 0.82458,
+      "confidence": 0.618446986510408,
+      "rr_tp1": 2.299999999999997,
+      "rr_tp2": 5.575062683062744,
+      "confluences": [
+        "rsi_momentum",
+        "adx_confirmed"
+      ],
+      "regime_at_signal": "bear_trend",
+      "entry_kind": "market",
+      "timeframe": "15m",
+      "created_ts": 1784061055064,
+      "entry_filled": true,
+      "pending_bars": 0,
+      "pending_expiry_bars": 0,
+      "signal_id": "783436bfae10",
+      "tier": "B",
+      "score": 0.5326956192619561,
+      "status": "active",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784061055064,
+      "bars_pending": 0,
+      "fill_ts": 1784061055064,
+      "telegram_message_id": 3130
     }
   ],
-  "last_run_ts": 1784060139993
+  "last_run_ts": 1784061066397
 }
