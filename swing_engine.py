@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ODYSSEY ADAPTIVE SIGNAL ENGINE — v1.1.0
+ODYSSEY ADAPTIVE SIGNAL ENGINE — v1.2.0
 ========================================
 Institutional-grade, self-learning, multi-strategy crypto signal engine for
 Hyperliquid perpetuals. Single-file, dependency-light, GitHub-Actions-ready.
@@ -35,6 +35,51 @@ v1.1.0 changes (signal-quality learning):
     asset_quality_mult, so signal quality is shaped by everything the
     engine has actually learned about what wins, not just its type.
 
+v1.2.0 changes (signal-quality corrections, driven by 60-trade forensic
+review showing 26.7% blended win rate, momentum at 20.6% WR / 57% of
+volume, and a 16.0% long vs 34.3% short split):
+  - update_engine_weights() now applies an accelerated (but still bounded
+    and damped) step when a segment's trailing win rate is far below the
+    live baseline, instead of always using the same ADAPT_MAX_STEP as a
+    segment performing near baseline. Previously a segment could sit at a
+    materially bad win rate for dozens of trades and only crawl a few
+    points off its starting weight, because the fixed per-step cap
+    shrinks geometrically as the weight approaches its target.
+  - New setup-type-specific filter overrides
+    (tier1.filter_thresholds["setup_overrides"]): a setup type whose
+    realized win rate is materially below baseline gets its own, stricter
+    min_confidence/min_score gate layered on top of (never below) the
+    global thresholds, damped/bounded the same way as every other
+    adaptive parameter via update_setup_overrides(). This lets a single
+    bad-performing setup type get filtered harder without penalizing
+    every other engine the way a global threshold bump would.
+  - New setup_type+direction segment tracking (by_setup_direction) and a
+    matching learned quality multiplier
+    (tier1.setup_direction_quality), applied in final_score. This is what
+    lets the engine learn that e.g. "momentum + long" specifically has
+    been a worse combination than either factor alone would predict, and
+    suppress that combination without touching momentum shorts or other
+    engines' longs.
+  - New optional per-signal confidence_components on Signal/RankedSignal
+    records: each engine now records the individual terms that summed
+    into its stated `confidence` (base rate, ADX bonus, alignment bonus,
+    etc). These are persisted to the Tier-2 log for later analysis and
+    are NOT fed back into scoring — confidence itself is not treated as
+    reliable enough yet to be recalibrated from a components model this
+    small; this just makes that recalibration possible once there's
+    enough data, without materially changing filtering behavior today.
+  - forensic_tag() now classifies wins using r_realized vs rr_tp1/rr_tp2
+    instead of mfe_r. mfe_r is never updated on the same-candle
+    tp1_tp2_same_candle resolution path, so trades that hit TP2 in the
+    same candle as TP1 were being mislabeled as "TP1 secured" rather than
+    a full extension. r_realized is always correct at resolution time and
+    doesn't depend on that intra-candle bookkeeping.
+  - One-time state migration (schema_version 2 -> 3) raises any
+    filter_thresholds below the new tightened floor and seeds the
+    momentum setup_override, so an existing deployment picks up the
+    tightened gates immediately rather than waiting for the adaptive
+    loop to slowly get there.
+
 Scan-per-run model: an external scheduler (GitHub Actions, cron, etc.)
 invokes this script every 15 minutes. All persistence lives in state.json
 next to the script.
@@ -51,7 +96,7 @@ import hashlib
 import traceback
 import urllib.request
 import urllib.error
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Optional, List, Dict, Tuple
@@ -63,7 +108,7 @@ import numpy as np
 # ==============================================================================
 
 ENGINE_NAME = "Odyssey Adaptive Signal Engine"
-ENGINE_VERSION = "v1.1.0"
+ENGINE_VERSION = "v1.2.0"
 
 # Same watchlist across all six reference engines -> reused verbatim.
 WATCHLIST: List[str] = [
@@ -130,6 +175,33 @@ FILTER_THRESHOLD_MIN, FILTER_THRESHOLD_MAX = 0.30, 0.95
 # justifies at small sample sizes.
 CONFLUENCE_QUALITY_MIN, CONFLUENCE_QUALITY_MAX = 0.70, 1.30
 ASSET_QUALITY_MIN, ASSET_QUALITY_MAX = 0.70, 1.30
+
+# Setup-type + direction combination quality (v1.2.0). Wider downside bound
+# than confluence/asset quality on purpose: a specific setup+direction
+# combination that's badly underperforming (e.g. momentum longs) should be
+# suppressible much harder than a single confluence tag or asset, without
+# needing a separate hard-coded gate for it. Upside bound stays modest —
+# this system should be conservative about ever rewarding a combination
+# more than the setup type's own engine_weight already does.
+SETUP_DIRECTION_QUALITY_MIN, SETUP_DIRECTION_QUALITY_MAX = 0.40, 1.20
+
+# --- Accelerated decay for severely underperforming segments (v1.2.0) ---
+# The standard ADAPT_MAX_STEP is deliberately conservative so a handful of
+# trades can't yank a weight around. But that same conservatism means a
+# segment sitting far below baseline for many resolved trades in a row
+# converges to its target very slowly (each step is a fraction of the
+# *current* value, so it's a geometric, not linear, approach). When a
+# segment's edge is this bad, "don't overfit to noise" no longer applies —
+# there's enough signal to move faster while still remaining a damped,
+# bounded step rather than a jump straight to target.
+SEVERE_UNDERPERFORM_WR_GAP = 0.15     # win-rate gap below baseline to trigger acceleration
+ACCELERATED_ADAPT_STEP_MULT = 3.0     # multiplier applied to ADAPT_MAX_STEP when triggered
+ACCELERATED_ADAPT_STEP_CAP = 0.30     # hard ceiling on the accelerated step fraction itself
+
+# --- Setup-type-specific filter overrides (v1.2.0) ---
+SETUP_OVERRIDE_WR_GAP = 0.15          # win-rate gap below baseline to warrant its own gate
+SETUP_OVERRIDE_MAX_STEP = 0.05        # damped step size for tightening/relaxing an override
+SETUP_OVERRIDE_MAX_BUMP = 0.20        # max amount an override may sit above the global threshold
 
 # --- Live baseline auto-update (v1.1.0) ---
 # The circuit breaker and engine-weight expectancy math compare live results
@@ -268,6 +340,11 @@ class Signal:
     pending_bars: int = 0
     pending_expiry_bars: int = 0
     signal_id: str = ""
+    # v1.2.0: the individual terms each engine summed to produce `confidence`
+    # (e.g. {"base": 0.45, "adx_bonus": 0.12}). Logged for later recalibration
+    # of the confidence field against realized outcomes — not read by any
+    # scoring or filtering path today.
+    confidence_components: Dict[str, float] = field(default_factory=dict)
 
     def finalize_id(self):
         raw = f"{self.symbol}|{self.setup_type}|{self.created_ts}|{self.entry}|{self.direction}"
@@ -284,6 +361,7 @@ class RankedSignal:
     regime_fit_mult: float
     confluence_quality_mult: float = 1.0   # v1.1.0
     asset_quality_mult: float = 1.0        # v1.1.0
+    setup_direction_quality_mult: float = 1.0  # v1.2.0
 
 # ==============================================================================
 # SECTION C — HTTP / RETRY UTILITIES
@@ -913,7 +991,8 @@ def _nearest_pool_target(pools: List[LiquidityPool], direction: str, entry: floa
 
 
 def _mk_signal(setup: SetupType, ctx: MarketContext, direction: str, entry: float,
-               structural_stop: float, confidence: float, confluences: List[str]) -> Optional[Signal]:
+               structural_stop: float, confidence: float, confluences: List[str],
+               confidence_components: Optional[Dict[str, float]] = None) -> Optional[Signal]:
     target = _nearest_pool_target(ctx.pools, direction, entry)
     sl, tp1, tp2 = build_sl_tp_from_structure(direction, entry, structural_stop, target, float(ctx.atr_ltf[-1]))
     rr1, rr2 = compute_rr(direction, entry, sl, tp1, tp2)
@@ -924,6 +1003,7 @@ def _mk_signal(setup: SetupType, ctx: MarketContext, direction: str, entry: floa
         confluences=confluences, regime_at_signal=ctx.regime.value, entry_kind=entry_kind,
         timeframe=TF_LTF, created_ts=ctx.now_ts,
         pending_expiry_bars=DEFAULT_PENDING_EXPIRY_BARS[TF_LTF] if entry_kind == "pending" else 0,
+        confidence_components=dict(confidence_components) if confidence_components else {},
     )
     sig.finalize_id()
     return sig
@@ -970,14 +1050,18 @@ class SMCEngine(BaseEngine):
         stop = zone.bottom * 0.999 if direction == "long" else zone.top * 1.001
 
         confluences = ["htf_bias_" + bias, "premium_discount_alignment", "unmitigated_order_block"]
+        components = {"base": 0.55}
         confidence = 0.55
         if ctx.structure_mid.bias == bias:
             confidence += 0.15
+            components["mtf_structure_alignment"] = 0.15
             confluences.append("mtf_structure_alignment")
         if ctx.structure_htf.last_bos_idx > 0:
             confidence += 0.1
+            components["htf_bos_confirmed"] = 0.1
             confluences.append("htf_bos_confirmed")
-        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, min(confidence, 0.95), confluences)
+        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, min(confidence, 0.95), confluences,
+                          confidence_components=components)
         if sig:
             out.append(sig)
         return out
@@ -1006,8 +1090,11 @@ class TrendContinuationEngine(BaseEngine):
         recent_high = float(ctx.ltf["high"][-10:].max())
         stop = recent_low * 0.998 if direction == "long" else recent_high * 1.002
         confluences = ["ema_stack_trend", "shallow_pullback_resumption"]
-        confidence = 0.5 + (0.15 if ctx.adx_ltf[-1] > 22 else 0.0)
-        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, min(confidence, 0.9), confluences)
+        adx_bonus = 0.15 if ctx.adx_ltf[-1] > 22 else 0.0
+        confidence = 0.5 + adx_bonus
+        components = {"base": 0.5, "adx_bonus": adx_bonus}
+        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, min(confidence, 0.9), confluences,
+                          confidence_components=components)
         if sig:
             out.append(sig)
         return out
@@ -1032,10 +1119,13 @@ class BreakoutEngine(BaseEngine):
         stop = rng_low if direction == "long" else rng_high
         confluences = ["range_breakout", "volume_expansion"]
         confidence = 0.5
+        components = {"base": 0.5}
         if ctx.regime in (Regime.CONSOLIDATION, Regime.EXPANSION):
             confidence += 0.15
+            components["regime_supportive"] = 0.15
             confluences.append("regime_supportive")
-        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, min(confidence, 0.9), confluences)
+        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, min(confidence, 0.9), confluences,
+                          confidence_components=components)
         if sig:
             out.append(sig)
         return out
@@ -1065,7 +1155,8 @@ class PullbackEngine(BaseEngine):
             stop = lookback_high
         confluences = ["fib_0.618_retrace", "htf_trend_alignment"]
         confidence = 0.5
-        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences)
+        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences,
+                          confidence_components={"base": 0.5})
         if sig:
             out.append(sig)
         return out
@@ -1087,7 +1178,8 @@ class LiquiditySweepEngine(BaseEngine):
         stop = pool.level * 0.997 if direction == "long" else pool.level * 1.003
         confluences = ["liquidity_sweep_reclaim", f"{pool.kind}_pool_swept"]
         confidence = 0.55
-        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences)
+        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences,
+                          confidence_components={"base": 0.55})
         if sig:
             out.append(sig)
         return out
@@ -1110,7 +1202,8 @@ class OrderBlockEngine(BaseEngine):
             stop = zone.bottom * 0.999 if direction == "long" else zone.top * 1.001
             confluences = ["unmitigated_order_block_retest"]
             confidence = 0.48
-            sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences)
+            sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences,
+                              confidence_components={"base": 0.48})
             if sig:
                 out.append(sig)
         return out
@@ -1131,7 +1224,8 @@ class BreakerBlockEngine(BaseEngine):
         stop = zone.bottom * 0.999 if direction == "long" else zone.top * 1.001
         confluences = ["breaker_block_retest", "prior_ob_failure_flip"]
         confidence = 0.5
-        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences)
+        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences,
+                          confidence_components={"base": 0.5})
         if sig:
             out.append(sig)
         return out
@@ -1157,7 +1251,8 @@ class FairValueGapEngine(BaseEngine):
         stop = zone.bottom - 0.3 * atr_v if direction == "long" else zone.top + 0.3 * atr_v
         confluences = ["unmitigated_fvg", "htf_bias_alignment"]
         confidence = 0.5
-        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences)
+        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences,
+                          confidence_components={"base": 0.5})
         if sig:
             out.append(sig)
         return out
@@ -1181,8 +1276,11 @@ class MomentumEngine(BaseEngine):
         atr_v = float(ctx.atr_ltf[-1])
         stop = entry - 1.5 * atr_v if direction == "long" else entry + 1.5 * atr_v
         confluences = ["rsi_momentum", "adx_confirmed"]
-        confidence = 0.45 + min((a - 20) / 100, 0.2)
-        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, min(confidence, 0.85), confluences)
+        adx_bonus = min((a - 20) / 100, 0.2)
+        confidence = 0.45 + adx_bonus
+        components = {"base": 0.45, "adx_bonus": adx_bonus, "rsi_at_signal": float(r), "adx_at_signal": float(a)}
+        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, min(confidence, 0.85), confluences,
+                          confidence_components=components)
         if sig:
             out.append(sig)
         return out
@@ -1208,7 +1306,8 @@ class ReversalEngine(BaseEngine):
         stop = entry - 1.4 * atr_v if direction == "long" else entry + 1.4 * atr_v
         confluences = ["mid_tf_choch", "rsi_exhaustion"]
         confidence = 0.48
-        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences)
+        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences,
+                          confidence_components={"base": 0.48})
         if sig:
             out.append(sig)
         return out
@@ -1236,7 +1335,8 @@ class MeanReversionEngine(BaseEngine):
             return out
         confluences = ["bollinger_band_extreme", "ranging_regime"]
         confidence = 0.45
-        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences)
+        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences,
+                          confidence_components={"base": 0.45})
         if sig:
             out.append(sig)
         return out
@@ -1265,7 +1365,8 @@ class RangeTradingEngine(BaseEngine):
         stop = rng_high + 0.5 * atr_v if direction == "short" else rng_low - 0.5 * atr_v
         confluences = ["range_extreme_fade", "confirmed_horizontal_range"]
         confidence = 0.47
-        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences)
+        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences,
+                          confidence_components={"base": 0.47})
         if sig:
             out.append(sig)
         return out
@@ -1291,7 +1392,8 @@ class VolatilityExpansionEngine(BaseEngine):
         stop = entry - 1.6 * atr_v if direction == "long" else entry + 1.6 * atr_v
         confluences = ["bollinger_squeeze_release", "volatility_expansion"]
         confidence = 0.48
-        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences)
+        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences,
+                          confidence_components={"base": 0.48})
         if sig:
             out.append(sig)
         return out
@@ -1314,7 +1416,7 @@ def _default_segment_stat() -> dict:
 
 def _default_state() -> dict:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "engine_name": ENGINE_NAME,
         "engine_version": ENGINE_VERSION,
         # Tier 1 — permanent, incrementally-updated aggregates. Never rebuilt
@@ -1324,13 +1426,25 @@ def _default_state() -> dict:
             "confidence_calibration": {e.setup_type.value: 0.0 for e in ALL_ENGINES},
             "confluence_quality": {},  # tag -> learned multiplier, default 1.0 (v1.1.0)
             "asset_quality": {},       # symbol -> learned multiplier, default 1.0 (v1.1.0)
+            "setup_direction_quality": {},  # v1.2.0: "{setup_type}|{direction}" -> learned multiplier, default 1.0
             "filter_thresholds": {
                 "min_confidence": 0.55,
-                "min_score": 0.5,
+                "min_score": 0.55,
+                # v1.2.0: setup_type -> {"min_confidence": x, "min_score": y} overrides,
+                # layered on top of the global thresholds above for setup types whose
+                # realized win rate is materially below baseline. Populated/adapted by
+                # update_setup_overrides(); seeded for momentum since it's the known
+                # worst-performing setup type at 20.6% WR / 57% of volume as of the
+                # v1.2.0 upgrade.
+                "setup_overrides": {
+                    SetupType.MOMENTUM.value: {"min_confidence": 0.68, "min_score": 0.65},
+                },
             },
             "segment_stats": {
                 "by_asset": {}, "by_regime": {}, "by_timeframe": {}, "by_engine": {},
                 "by_confluence": {},  # v1.1.0
+                "by_direction": {},           # v1.2.0
+                "by_setup_direction": {},     # v1.2.0: "{setup_type}|{direction}"
             },
             "filter_funnel": {},  # stage_name -> {"seen": n, "rejected": n}
             "circuit_breaker": {"tripped": False, "tripped_at": None, "reason": None},
@@ -1347,6 +1461,10 @@ def _default_state() -> dict:
     }
 
 
+def _setup_direction_key(setup_type: str, direction: str) -> str:
+    return f"{setup_type}|{direction}"
+
+
 class StateStore:
     def __init__(self, path: str = STATE_PATH):
         self.path = path
@@ -1361,6 +1479,7 @@ class StateStore:
                 data = json.load(f)
             base = _default_state()
             _deep_merge_defaults(data, base)
+            _migrate_schema(data)
             return data
         except (json.JSONDecodeError, OSError) as e:
             log.error("Failed to read state (%s); starting fresh to avoid crash-looping.", e)
@@ -1393,11 +1512,28 @@ class StateStore:
     def filter_threshold(self, name: str, default: float) -> float:
         return self.data["tier1"]["filter_thresholds"].get(name, default)
 
+    def filter_threshold_for_setup(self, setup_type: str, name: str, default: float) -> float:
+        """v1.2.0. Returns the effective threshold for a given setup type:
+        the setup-specific override if one exists and is stricter than the
+        global threshold, otherwise the global threshold. Overrides are only
+        ever additive on top of the global gate — a setup can be gated
+        harder than everyone else, never let through easier."""
+        global_val = self.filter_threshold(name, default)
+        overrides = self.data["tier1"]["filter_thresholds"].get("setup_overrides", {})
+        override_val = overrides.get(setup_type, {}).get(name)
+        if override_val is None:
+            return global_val
+        return max(global_val, override_val)
+
     def confluence_quality(self, tag: str) -> float:
         return self.data["tier1"]["confluence_quality"].get(tag, 1.0)
 
     def asset_quality(self, symbol: str) -> float:
         return self.data["tier1"]["asset_quality"].get(symbol, 1.0)
+
+    def setup_direction_quality(self, setup_type: str, direction: str) -> float:
+        key = _setup_direction_key(setup_type, direction)
+        return self.data["tier1"]["setup_direction_quality"].get(key, 1.0)
 
     def is_circuit_breaker_tripped(self) -> bool:
         return bool(self.data["tier1"]["circuit_breaker"].get("tripped", False))
@@ -1421,10 +1557,14 @@ class StateStore:
     def record_trade_incremental(self, asset: str, regime: str, timeframe: str,
                                   engine: str, r_realized: float, win: bool,
                                   confidence: float, confidence_correct: bool,
-                                  confluences: Optional[List[str]] = None):
+                                  confluences: Optional[List[str]] = None,
+                                  direction: Optional[str] = None):
         """Update Tier-1 aggregates one trade at a time."""
-        for bucket, key in (("by_asset", asset), ("by_regime", regime),
-                            ("by_timeframe", timeframe), ("by_engine", engine)):
+        segments = [("by_asset", asset), ("by_regime", regime),
+                    ("by_timeframe", timeframe), ("by_engine", engine)]
+        if direction:
+            segments.append(("by_direction", direction))
+        for bucket, key in segments:
             seg = self._segment(bucket, key)
             seg["n"] += 1
             seg["wins"] += 1 if win else 0
@@ -1439,6 +1579,20 @@ class StateStore:
         # already work (the trade "belongs" to every segment it touches).
         for tag in set(confluences or []):
             seg = self._segment("by_confluence", tag)
+            seg["n"] += 1
+            seg["wins"] += 1 if win else 0
+            seg["losses"] += 0 if win else 1
+            seg["sum_r"] += r_realized
+            seg["sum_conf"] += confidence
+            seg["sum_conf_correct"] += 1 if confidence_correct else 0
+
+        # v1.2.0: setup_type + direction combination, e.g. "momentum|long".
+        # Lets the learning system suppress a specific bad combination (a
+        # setup type that's fine in one direction but poor in the other)
+        # instead of only ever being able to act on setup type or direction
+        # in isolation.
+        if direction:
+            seg = self._segment("by_setup_direction", _setup_direction_key(engine, direction))
             seg["n"] += 1
             seg["wins"] += 1 if win else 0
             seg["losses"] += 0 if win else 1
@@ -1476,15 +1630,56 @@ def _deep_merge_defaults(data: dict, defaults: dict):
         elif isinstance(v, dict) and isinstance(data.get(k), dict):
             _deep_merge_defaults(data[k], v)
 
+
+# Tightened filter-threshold floor introduced in the v1.2.0 upgrade. A
+# one-time migration (schema_version < 3) raises any existing deployment's
+# thresholds up to this floor — never down — so a live engine that had
+# drifted or been adapted down to permissive values (e.g. min_confidence
+# 0.3) picks up the correction immediately rather than waiting for
+# update_filter_thresholds() to slowly climb back up.
+SCHEMA_V3_THRESHOLD_FLOOR = {"min_confidence": 0.55, "min_score": 0.55}
+
+
+def _migrate_schema(data: dict):
+    """Applies one-time, backward-only migrations to a loaded state dict.
+    Every migration here only ever raises the bar / adds structure — it
+    never resets learned values that could still be a legitimate reflection
+    of history (e.g. this never touches engine_weights or segment_stats)."""
+    version = data.get("schema_version", 1)
+    if version < 3:
+        thresholds = data.setdefault("tier1", {}).setdefault("filter_thresholds", {})
+        for name, floor in SCHEMA_V3_THRESHOLD_FLOOR.items():
+            thresholds[name] = max(thresholds.get(name, floor), floor)
+        overrides = thresholds.setdefault("setup_overrides", {})
+        overrides.setdefault(SetupType.MOMENTUM.value, {"min_confidence": 0.68, "min_score": 0.65})
+        seg = data["tier1"].setdefault("segment_stats", {})
+        seg.setdefault("by_direction", {})
+        seg.setdefault("by_setup_direction", {})
+        data["tier1"].setdefault("setup_direction_quality", {})
+        log.info("Migrated state schema 2 -> 3: tightened filter_thresholds floor to %s, "
+                  "seeded momentum setup_override.", SCHEMA_V3_THRESHOLD_FLOOR)
+        data["schema_version"] = 3
+
 # ==============================================================================
 # SECTION L — FORENSIC TAGGING
 # ==============================================================================
 
-def forensic_tag(outcome: str, sig: Signal, mfe_r: float, mae_r: float) -> str:
+def forensic_tag(outcome: str, sig: Signal, r_realized: float, mae_r: float) -> str:
     """Concrete, specific reason a trade won or lost — feeds the learning
-    system so it reinforces genuine signal, not noise."""
+    system so it reinforces genuine signal, not noise.
+
+    v1.2.0 fix: win classification now compares r_realized (the actual
+    realized R at resolution) against rr_tp2, not mfe_r. mfe_r is never
+    updated on the tp1_tp2_same_candle resolution path (TP1 and TP2 both
+    hit within the same candle) since that path resolves immediately
+    without going through the mfe_r-tracking branch — so trades that fully
+    extended to TP2 in that same candle were being mislabeled as merely
+    "TP1 secured" even though r_realized matches rr_tp2. r_realized is
+    always correct and available at the point forensic_tag is called, so
+    it's the right signal to classify on regardless of which resolution
+    path produced the win."""
     if outcome == "win":
-        if mfe_r >= sig.rr_tp2 * 0.9:
+        if r_realized >= sig.rr_tp2 * 0.9:
             return "clean_read_full_extension"
         return "correct_read_tp1_secured"
     if outcome == "loss":
@@ -1514,19 +1709,34 @@ def _damped_step(old: float, target: float, max_step_frac: float, lo: float, hi:
 def update_engine_weights(store: StateStore):
     """Raise a specialized engine's weight when its segment-level expectancy is
     trending above baseline; lower it when trending below. Directional, bounded,
-    dampened."""
+    dampened.
+
+    v1.2.0: a segment whose trailing win rate is far below baseline (gap >=
+    SEVERE_UNDERPERFORM_WR_GAP) now gets an accelerated step instead of the
+    standard ADAPT_MAX_STEP. This is still a damped, bounded step — never a
+    jump straight to target — but a segment that's this bad has enough
+    signal (not noise) behind it to warrant moving faster than a segment
+    sitting near baseline. Without this, a fixed fractional step converges
+    geometrically slowly: 34 losing-heavy momentum trades only moved that
+    engine's weight from 1.0 to 0.83 under the old fixed-step rule."""
     by_engine = store.data["tier1"]["segment_stats"]["by_engine"]
     weights = store.data["tier1"]["engine_weights"]
+    baseline = store.get_effective_baseline()
     for setup_key, seg in by_engine.items():
         if seg["n"] < MIN_SAMPLE_SIZE:
             continue
         win_rate = seg["wins"] / seg["n"]
         avg_r = seg["sum_r"] / seg["n"]
-        baseline = store.get_effective_baseline()
         expectancy_edge = (win_rate - baseline["win_rate"]) + 0.25 * (avg_r - (baseline["avg_rr"] * baseline["win_rate"] - (1 - baseline["win_rate"])))
         target = 1.0 + max(-0.5, min(0.5, expectancy_edge * 2.0))
         old = weights.get(setup_key, 1.0)
-        weights[setup_key] = _damped_step(old, target, ADAPT_MAX_STEP, ENGINE_WEIGHT_MIN, ENGINE_WEIGHT_MAX)
+
+        wr_gap = baseline["win_rate"] - win_rate
+        if wr_gap >= SEVERE_UNDERPERFORM_WR_GAP:
+            step_frac = min(ADAPT_MAX_STEP * ACCELERATED_ADAPT_STEP_MULT, ACCELERATED_ADAPT_STEP_CAP)
+        else:
+            step_frac = ADAPT_MAX_STEP
+        weights[setup_key] = _damped_step(old, target, step_frac, ENGINE_WEIGHT_MIN, ENGINE_WEIGHT_MAX)
 
 
 def update_confidence_calibration(store: StateStore):
@@ -1581,6 +1791,79 @@ def update_asset_quality(store: StateStore):
         target = 1.0 + max(-0.3, min(0.3, expectancy_edge * 2.0))
         old = quality.get(symbol, 1.0)
         quality[symbol] = _damped_step(old, target, ADAPT_MAX_STEP, ASSET_QUALITY_MIN, ASSET_QUALITY_MAX)
+
+
+def update_setup_direction_quality(store: StateStore):
+    """v1.2.0. Same directional/bounded/damped treatment as engine weights
+    and confluence quality, but per setup_type+direction combination — this
+    is what lets the system learn that e.g. 'momentum + long' specifically
+    underperforms even relative to what momentum's own engine_weight or a
+    generic long/short split would predict, and suppress that exact
+    combination without touching momentum shorts or other engines' longs.
+    Uses a wider (and more asymmetric) bound than confluence/asset quality
+    since this is explicitly meant to be able to suppress a bad combination
+    hard, not just nudge it."""
+    by_combo = store.data["tier1"]["segment_stats"]["by_setup_direction"]
+    quality = store.data["tier1"]["setup_direction_quality"]
+    baseline = store.get_effective_baseline()
+    for key, seg in by_combo.items():
+        if seg["n"] < MIN_SAMPLE_SIZE:
+            continue
+        win_rate = seg["wins"] / seg["n"]
+        avg_r = seg["sum_r"] / seg["n"]
+        expectancy_edge = (win_rate - baseline["win_rate"]) + 0.25 * (avg_r - (baseline["avg_rr"] * baseline["win_rate"] - (1 - baseline["win_rate"])))
+        target = 1.0 + max(-0.6, min(0.2, expectancy_edge * 2.0))
+        old = quality.get(key, 1.0)
+        wr_gap = baseline["win_rate"] - win_rate
+        step_frac = (min(ADAPT_MAX_STEP * ACCELERATED_ADAPT_STEP_MULT, ACCELERATED_ADAPT_STEP_CAP)
+                     if wr_gap >= SEVERE_UNDERPERFORM_WR_GAP else ADAPT_MAX_STEP)
+        quality[key] = _damped_step(old, target, step_frac, SETUP_DIRECTION_QUALITY_MIN, SETUP_DIRECTION_QUALITY_MAX)
+
+
+def update_setup_overrides(store: StateStore):
+    """v1.2.0. Generalizes the momentum-specific filter override seeded at
+    migration time: any setup type whose realized win rate sits materially
+    below baseline (gap >= SETUP_OVERRIDE_WR_GAP) gets its own, stricter
+    min_confidence/min_score gate that tightens further the worse it keeps
+    performing, damped and bounded like every other adaptive parameter. A
+    setup type that recovers to within the gap of baseline has its override
+    relaxed back down (never below the global threshold) rather than staying
+    permanently punished for a stretch of bad trades that's since resolved."""
+    by_engine = store.data["tier1"]["segment_stats"]["by_engine"]
+    thresholds = store.data["tier1"]["filter_thresholds"]
+    overrides = thresholds.setdefault("setup_overrides", {})
+    baseline = store.get_effective_baseline()
+    global_min_conf = thresholds.get("min_confidence", 0.55)
+    global_min_score = thresholds.get("min_score", 0.55)
+
+    for setup_key, seg in by_engine.items():
+        if seg["n"] < MIN_SAMPLE_SIZE:
+            continue
+        win_rate = seg["wins"] / seg["n"]
+        wr_gap = baseline["win_rate"] - win_rate
+        existing = overrides.get(setup_key, {})
+        old_conf = existing.get("min_confidence", global_min_conf)
+        old_score = existing.get("min_score", global_min_score)
+
+        if wr_gap >= SETUP_OVERRIDE_WR_GAP:
+            # Scale the bump with how bad the gap is, capped so a single
+            # setup type can never be gated into practical non-existence.
+            bump = min(SETUP_OVERRIDE_MAX_BUMP, wr_gap)
+            target_conf = min(global_min_conf + bump, FILTER_THRESHOLD_MAX)
+            target_score = min(global_min_score + bump, FILTER_THRESHOLD_MAX)
+        else:
+            # Recovered (or never was bad) -> relax back toward the global
+            # threshold, never below it.
+            target_conf = global_min_conf
+            target_score = global_min_score
+
+        new_conf = _damped_step(old_conf, target_conf, SETUP_OVERRIDE_MAX_STEP, global_min_conf, FILTER_THRESHOLD_MAX)
+        new_score = _damped_step(old_score, target_score, SETUP_OVERRIDE_MAX_STEP, global_min_score, FILTER_THRESHOLD_MAX)
+
+        if new_conf <= global_min_conf + 1e-9 and new_score <= global_min_score + 1e-9:
+            overrides.pop(setup_key, None)
+        else:
+            overrides[setup_key] = {"min_confidence": new_conf, "min_score": new_score}
 
 
 def update_baseline_from_live(store: StateStore):
@@ -1699,7 +1982,9 @@ def run_learning_cycle(store: StateStore, telegram: "TelegramNotifier"):
     update_confidence_calibration(store)
     update_confluence_quality(store)      # v1.1.0
     update_asset_quality(store)           # v1.1.0
+    update_setup_direction_quality(store) # v1.2.0
     update_filter_thresholds(store)
+    update_setup_overrides(store)         # v1.2.0
 
 # ==============================================================================
 # SECTION N — DECISION ENGINE
@@ -1732,7 +2017,12 @@ class DecisionEngine:
         calibration = store.confidence_calibration(sig.setup_type)
         calibrated_conf = max(0.01, min(0.99, sig.confidence + calibration))
 
-        min_conf = store.filter_threshold("min_confidence", 0.55)
+        # v1.2.0: setup-type-specific override, layered on top of (never
+        # below) the global gate. This is what lets a materially
+        # underperforming setup type like momentum get filtered harder
+        # without a global threshold bump also cutting into a strong
+        # performer like liquidity_sweep.
+        min_conf = store.filter_threshold_for_setup(sig.setup_type.value, "min_confidence", 0.55)
         store.log_filter_funnel("min_confidence", rejected=calibrated_conf < min_conf)
         if calibrated_conf < min_conf:
             return None
@@ -1767,9 +2057,15 @@ class DecisionEngine:
         )
         asset_quality_mult = store.asset_quality(sig.symbol)
 
-        final_score = raw_score * engine_weight * confluence_quality_mult * asset_quality_mult
+        # v1.2.0: learned quality of this exact setup_type+direction
+        # combination (e.g. "momentum|long"), independent of the setup
+        # type's own engine_weight — see update_setup_direction_quality().
+        setup_direction_quality_mult = store.setup_direction_quality(sig.setup_type.value, sig.direction)
 
-        min_score = store.filter_threshold("min_score", 0.5)
+        final_score = (raw_score * engine_weight * confluence_quality_mult *
+                        asset_quality_mult * setup_direction_quality_mult)
+
+        min_score = store.filter_threshold_for_setup(sig.setup_type.value, "min_score", 0.55)
         store.log_filter_funnel("min_score", rejected=final_score < min_score)
         if final_score < min_score:
             return None
@@ -1784,7 +2080,8 @@ class DecisionEngine:
         return RankedSignal(signal=sig, score=final_score, tier=tier, ev=ev,
                              engine_weight=engine_weight, regime_fit_mult=regime_fit_mult,
                              confluence_quality_mult=confluence_quality_mult,
-                             asset_quality_mult=asset_quality_mult)
+                             asset_quality_mult=asset_quality_mult,
+                             setup_direction_quality_mult=setup_direction_quality_mult)
 
     def rank_and_select(self, candidates: List[RankedSignal], active_symbols_sectors: Dict[str, int]) -> List[RankedSignal]:
         """Applies the correlation cap and the concurrency cap on top of raw ranking. One candidate per symbol max per
@@ -1935,14 +2232,14 @@ class TradeLifecycleManager:
     def _resolve_win(self, rec: dict, r_realized: float, reason: str):
         rec["status"] = "closed_win"
         tag = forensic_tag("win", Signal(**{k: rec[k] for k in Signal.__dataclass_fields__ if k in rec}),
-                            rec["mfe_r"], rec["mae_r"])
+                            r_realized, rec["mae_r"])
         self._commit_resolution(rec, "win", r_realized, tag)
         self.telegram.send_resolution(rec, "WIN", r_realized, reason)
 
     def _resolve_loss(self, rec: dict, r_realized: float):
         rec["status"] = "closed_loss"
         tag = forensic_tag("loss", Signal(**{k: rec[k] for k in Signal.__dataclass_fields__ if k in rec}),
-                            rec["mfe_r"], rec["mae_r"])
+                            r_realized, rec["mae_r"])
         self._commit_resolution(rec, "loss", r_realized, tag)
         self.telegram.send_resolution(rec, "LOSS", r_realized, "sl_hit_no_tp1")
 
@@ -1962,7 +2259,7 @@ class TradeLifecycleManager:
             asset=rec["symbol"], regime=rec["regime_at_signal"], timeframe=rec["timeframe"],
             engine=rec["setup_type"], r_realized=r_realized, win=(outcome == "win"),
             confidence=rec["confidence"], confidence_correct=confidence_correct,
-            confluences=rec.get("confluences", []),
+            confluences=rec.get("confluences", []), direction=rec.get("direction"),
         )
         self.store.append_tier2({**rec, "outcome": outcome, "r_realized": r_realized, "forensic_tag": forensic})
 
