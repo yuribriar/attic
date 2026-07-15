@@ -184,19 +184,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 878,
-        "rejected": 414
+        "seen": 920,
+        "rejected": 426
       },
       "liquidity_sanity": {
-        "seen": 464,
-        "rejected": 15
+        "seen": 494,
+        "rejected": 17
       },
       "min_confidence": {
-        "seen": 449,
-        "rejected": 432
+        "seen": 477,
+        "rejected": 459
       },
       "min_score": {
-        "seen": 17,
+        "seen": 18,
         "rejected": 5
       }
     },
@@ -472,10 +472,7 @@
       "outcome": "loss",
       "r_realized": -1.0,
       "forensic_tag": "chased_a_swept_liquidity_pool"
-    }
-  ],
-  "pending_signals": [],
-  "active_signals": [
+    },
     {
       "setup_type": "liquidity_sweep",
       "symbol": "DOT",
@@ -504,14 +501,17 @@
       },
       "tier": "A",
       "score": 0.7157500000000003,
-      "status": "pending",
+      "status": "expired_no_fill",
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784133000000,
-      "bars_pending": 11,
-      "telegram_message_id": 3342
+      "last_checked_ts": 1784133900000,
+      "bars_pending": 12,
+      "telegram_message_id": 3342,
+      "resolved_ts": 1784133900000,
+      "outcome": "expired_no_fill",
+      "forensic_tag": "no_fill_expired"
     },
     {
       "setup_type": "liquidity_sweep",
@@ -541,14 +541,17 @@
       },
       "tier": "A",
       "score": 0.7157499999999999,
-      "status": "pending",
+      "status": "expired_no_fill",
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784133000000,
-      "bars_pending": 11,
-      "telegram_message_id": 3343
+      "last_checked_ts": 1784133900000,
+      "bars_pending": 12,
+      "telegram_message_id": 3343,
+      "resolved_ts": 1784133900000,
+      "outcome": "expired_no_fill",
+      "forensic_tag": "no_fill_expired"
     },
     {
       "setup_type": "liquidity_sweep",
@@ -578,15 +581,21 @@
       },
       "tier": "B",
       "score": 0.6482499999999998,
-      "status": "pending",
+      "status": "expired_no_fill",
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784133000000,
-      "bars_pending": 11,
-      "telegram_message_id": 3345
-    },
+      "last_checked_ts": 1784133900000,
+      "bars_pending": 12,
+      "telegram_message_id": 3345,
+      "resolved_ts": 1784133900000,
+      "outcome": "expired_no_fill",
+      "forensic_tag": "no_fill_expired"
+    }
+  ],
+  "pending_signals": [],
+  "active_signals": [
     {
       "setup_type": "liquidity_sweep",
       "symbol": "BCH",
@@ -620,10 +629,47 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784133057387,
-      "bars_pending": 0,
+      "last_checked_ts": 1784133900000,
+      "bars_pending": 1,
       "telegram_message_id": 3384
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "DOGE",
+      "direction": "long",
+      "entry": 0.07375,
+      "sl": 0.07327750599999999,
+      "tp1": 0.0748367362,
+      "tp2": 0.075254,
+      "confidence": 0.55,
+      "rr_tp1": 2.299999999999997,
+      "rr_tp2": 3.183109203503099,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept"
+      ],
+      "regime_at_signal": "expansion",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784133935914,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "fca7bb3cd22e",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "A",
+      "score": 0.7157499999999999,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784133935914,
+      "bars_pending": 0,
+      "telegram_message_id": 3396
     }
   ],
-  "last_run_ts": 1784133072278
+  "last_run_ts": 1784133947869
 }
