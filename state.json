@@ -192,19 +192,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1364,
-        "rejected": 627
+        "seen": 1389,
+        "rejected": 642
       },
       "liquidity_sanity": {
-        "seen": 737,
+        "seen": 747,
         "rejected": 19
       },
       "min_confidence": {
-        "seen": 718,
-        "rejected": 699
+        "seen": 728,
+        "rejected": 708
       },
       "min_score": {
-        "seen": 19,
+        "seen": 20,
         "rejected": 5
       }
     },
@@ -722,12 +722,51 @@
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": -0.07195858571747385,
-      "mfe_r": 0.5248743899393351,
-      "last_checked_ts": 1784147400000,
+      "mfe_r": 0.6560929874241835,
+      "last_checked_ts": 1784149200000,
       "bars_pending": 10,
       "telegram_message_id": 3396,
       "fill_ts": 1784142900000
+    },
+    {
+      "setup_type": "trend_continuation",
+      "symbol": "NEAR",
+      "direction": "long",
+      "entry": 2.05815,
+      "sl": 2.0308302,
+      "tp1": 2.1095,
+      "tp2": 2.1401093999999996,
+      "confidence": 0.65,
+      "rr_tp1": 1.8795891624389793,
+      "rr_tp2": 3.0,
+      "confluences": [
+        "ema_stack_trend",
+        "shallow_pullback_resumption"
+      ],
+      "regime_at_signal": "bull_trend",
+      "entry_kind": "market",
+      "timeframe": "15m",
+      "created_ts": 1784149249779,
+      "entry_filled": true,
+      "pending_bars": 0,
+      "pending_expiry_bars": 0,
+      "signal_id": "3be66b90f069",
+      "confidence_components": {
+        "base": 0.5,
+        "adx_bonus": 0.15
+      },
+      "tier": "A",
+      "score": 0.7004223124511872,
+      "status": "active",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784149249779,
+      "bars_pending": 0,
+      "fill_ts": 1784149249779,
+      "telegram_message_id": 3439
     }
   ],
-  "last_run_ts": 1784148355753
+  "last_run_ts": 1784149276214
 }
