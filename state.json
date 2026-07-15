@@ -435,20 +435,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 5262,
-        "rejected": 2492
+        "seen": 5287,
+        "rejected": 2502
       },
       "liquidity_sanity": {
-        "seen": 2770,
+        "seen": 2785,
         "rejected": 47
       },
       "min_confidence": {
-        "seen": 2723,
-        "rejected": 934
+        "seen": 2738,
+        "rejected": 935
       },
       "min_score": {
-        "seen": 1789,
-        "rejected": 852
+        "seen": 1803,
+        "rejected": 857
       }
     },
     "circuit_breaker": {
@@ -4059,7 +4059,7 @@
       "tp1_r": 2.2999999999999763,
       "mae_r": -0.10747279391738869,
       "mfe_r": 3.131040729460258,
-      "last_checked_ts": 1784084400000,
+      "last_checked_ts": 1784085300000,
       "bars_pending": 5,
       "telegram_message_id": 2892,
       "fill_ts": 1783995300000
@@ -4094,7 +4094,7 @@
       "tp1_r": null,
       "mae_r": -0.8943177800793227,
       "mfe_r": 0.3706086668333439,
-      "last_checked_ts": 1784084400000,
+      "last_checked_ts": 1784085300000,
       "bars_pending": 5,
       "telegram_message_id": 3104,
       "fill_ts": 1784056500000
@@ -4128,7 +4128,7 @@
       "tp1_r": 2.299999999999983,
       "mae_r": -0.10438215254978035,
       "mfe_r": 3.00810385075247,
-      "last_checked_ts": 1784084400000,
+      "last_checked_ts": 1784085300000,
       "bars_pending": 2,
       "telegram_message_id": 3121,
       "fill_ts": 1784059200000
@@ -4163,7 +4163,7 @@
       "tp1_r": 2.30000000000001,
       "mae_r": -0.050604360650070054,
       "mfe_r": 3.361575386039058,
-      "last_checked_ts": 1784084400000,
+      "last_checked_ts": 1784085300000,
       "bars_pending": 6,
       "telegram_message_id": 3159,
       "fill_ts": 1784074500000
@@ -4233,8 +4233,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784084400000,
-      "bars_pending": 6,
+      "last_checked_ts": 1784085300000,
+      "bars_pending": 7,
       "telegram_message_id": 3188
     },
     {
@@ -4302,10 +4302,10 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784084458256,
-      "bars_pending": 0,
+      "last_checked_ts": 1784085300000,
+      "bars_pending": 1,
       "telegram_message_id": 3204
     }
   ],
-  "last_run_ts": 1784084474923
+  "last_run_ts": 1784085341545
 }
