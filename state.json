@@ -435,20 +435,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 5350,
-        "rejected": 2539
+        "seen": 5374,
+        "rejected": 2553
       },
       "liquidity_sanity": {
-        "seen": 2811,
+        "seen": 2821,
         "rejected": 47
       },
       "min_confidence": {
-        "seen": 2764,
-        "rejected": 935
+        "seen": 2774,
+        "rejected": 937
       },
       "min_score": {
-        "seen": 1829,
-        "rejected": 872
+        "seen": 1837,
+        "rejected": 875
       }
     },
     "circuit_breaker": {
@@ -4102,7 +4102,7 @@
       "tp1_r": 2.2999999999999763,
       "mae_r": -0.10747279391738869,
       "mfe_r": 4.5210221974586755,
-      "last_checked_ts": 1784088000000,
+      "last_checked_ts": 1784088900000,
       "bars_pending": 5,
       "telegram_message_id": 2892,
       "fill_ts": 1783995300000
@@ -4137,7 +4137,7 @@
       "tp1_r": null,
       "mae_r": -0.8943177800793227,
       "mfe_r": 0.3706086668333439,
-      "last_checked_ts": 1784088000000,
+      "last_checked_ts": 1784088900000,
       "bars_pending": 5,
       "telegram_message_id": 3104,
       "fill_ts": 1784056500000
@@ -4171,7 +4171,7 @@
       "tp1_r": 2.299999999999983,
       "mae_r": -0.10438215254978035,
       "mfe_r": 3.00810385075247,
-      "last_checked_ts": 1784088000000,
+      "last_checked_ts": 1784088900000,
       "bars_pending": 2,
       "telegram_message_id": 3121,
       "fill_ts": 1784059200000
@@ -4206,7 +4206,7 @@
       "tp1_r": 2.30000000000001,
       "mae_r": -0.050604360650070054,
       "mfe_r": 3.361575386039058,
-      "last_checked_ts": 1784088000000,
+      "last_checked_ts": 1784088900000,
       "bars_pending": 6,
       "telegram_message_id": 3159,
       "fill_ts": 1784074500000
@@ -4241,8 +4241,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784088000000,
-      "bars_pending": 10,
+      "last_checked_ts": 1784088900000,
+      "bars_pending": 11,
       "telegram_message_id": 3188
     },
     {
@@ -4310,8 +4310,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784088000000,
-      "bars_pending": 4,
+      "last_checked_ts": 1784088900000,
+      "bars_pending": 5,
       "telegram_message_id": 3204
     },
     {
@@ -4349,5 +4349,5 @@
       "telegram_message_id": 3212
     }
   ],
-  "last_run_ts": 1784088068554
+  "last_run_ts": 1784088944719
 }
