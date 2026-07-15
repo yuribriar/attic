@@ -192,16 +192,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1213,
-        "rejected": 554
+        "seen": 1244,
+        "rejected": 569
       },
       "liquidity_sanity": {
-        "seen": 659,
+        "seen": 675,
         "rejected": 19
       },
       "min_confidence": {
-        "seen": 640,
-        "rejected": 621
+        "seen": 656,
+        "rejected": 637
       },
       "min_score": {
         "seen": 19,
@@ -646,10 +646,7 @@
       "outcome": "win",
       "r_realized": 2.299999999999996,
       "forensic_tag": "correct_read_tp1_secured"
-    }
-  ],
-  "pending_signals": [],
-  "active_signals": [
+    },
     {
       "setup_type": "liquidity_sweep",
       "symbol": "BCH",
@@ -678,15 +675,21 @@
       },
       "tier": "A",
       "score": 0.7157499999999998,
-      "status": "pending",
+      "status": "expired_no_fill",
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784142900000,
-      "bars_pending": 11,
-      "telegram_message_id": 3384
-    },
+      "last_checked_ts": 1784143800000,
+      "bars_pending": 12,
+      "telegram_message_id": 3384,
+      "resolved_ts": 1784143800000,
+      "outcome": "expired_no_fill",
+      "forensic_tag": "no_fill_expired"
+    }
+  ],
+  "pending_signals": [],
+  "active_signals": [
     {
       "setup_type": "liquidity_sweep",
       "symbol": "DOGE",
@@ -720,11 +723,11 @@
       "tp1_r": null,
       "mae_r": -0.07195858571747385,
       "mfe_r": 0.4317515143049606,
-      "last_checked_ts": 1784143800000,
+      "last_checked_ts": 1784144700000,
       "bars_pending": 10,
       "telegram_message_id": 3396,
       "fill_ts": 1784142900000
     }
   ],
-  "last_run_ts": 1784143871812
+  "last_run_ts": 1784144748324
 }
