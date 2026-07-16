@@ -144,19 +144,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 752,
-        "rejected": 310
+        "seen": 786,
+        "rejected": 322
       },
       "liquidity_sanity": {
-        "seen": 442,
+        "seen": 464,
         "rejected": 13
       },
       "min_confidence": {
-        "seen": 429,
-        "rejected": 410
+        "seen": 451,
+        "rejected": 430
       },
       "min_score": {
-        "seen": 19,
+        "seen": 21,
         "rejected": 4
       }
     },
@@ -589,8 +589,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784205947120,
-      "bars_pending": 0,
+      "last_checked_ts": 1784206800000,
+      "bars_pending": 1,
       "telegram_message_id": 3593
     },
     {
@@ -626,8 +626,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784205965552,
-      "bars_pending": 0,
+      "last_checked_ts": 1784206800000,
+      "bars_pending": 1,
       "telegram_message_id": 3594
     },
     {
@@ -663,10 +663,84 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784205962995,
-      "bars_pending": 0,
+      "last_checked_ts": 1784206800000,
+      "bars_pending": 1,
       "telegram_message_id": 3595
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "APT",
+      "direction": "long",
+      "entry": 0.6055322469916902,
+      "sl": 0.6034841,
+      "tp1": 0.6102429850725777,
+      "tp2": 0.6293,
+      "confidence": 0.55,
+      "rr_tp1": 2.3000000000000216,
+      "rr_tp2": 11.604515254393833,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784206871744,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "01c7586534f9",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "A",
+      "score": 0.7157500000000006,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784206871744,
+      "bars_pending": 0,
+      "telegram_message_id": 3596
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "BTC",
+      "direction": "long",
+      "entry": 63950.16410299547,
+      "sl": 63673.405,
+      "tp1": 64586.71003988505,
+      "tp2": 64999.0,
+      "confidence": 0.55,
+      "rr_tp1": 2.299999999999997,
+      "rr_tp2": 3.7897069532765957,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept"
+      ],
+      "regime_at_signal": "bull_trend",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784206843998,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "b128161dfd62",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "B",
+      "score": 0.6482499999999999,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784206843998,
+      "bars_pending": 0,
+      "telegram_message_id": 3597
     }
   ],
-  "last_run_ts": 1784205973005
+  "last_run_ts": 1784206874270
 }
