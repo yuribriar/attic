@@ -1,1 +1,205 @@
-{}
+{
+  "schema_version": 3,
+  "engine_name": "Odyssey Adaptive Signal Engine",
+  "engine_version": "v1.2.0",
+  "tier1": {
+    "engine_weights": {
+      "smc": 1.0,
+      "trend_continuation": 1.0,
+      "breakout": 1.0,
+      "pullback": 1.0,
+      "liquidity_sweep": 1.0,
+      "order_block": 1.0,
+      "breaker_block": 1.0,
+      "fair_value_gap": 1.0,
+      "momentum": 1.0,
+      "reversal": 1.0,
+      "mean_reversion": 1.0,
+      "range_trading": 1.0,
+      "volatility_expansion": 1.0
+    },
+    "confidence_calibration": {
+      "smc": 0.0,
+      "trend_continuation": 0.0,
+      "breakout": 0.0,
+      "pullback": 0.0,
+      "liquidity_sweep": 0.0,
+      "order_block": 0.0,
+      "breaker_block": 0.0,
+      "fair_value_gap": 0.0,
+      "momentum": 0.0,
+      "reversal": 0.0,
+      "mean_reversion": 0.0,
+      "range_trading": 0.0,
+      "volatility_expansion": 0.0
+    },
+    "confluence_quality": {},
+    "asset_quality": {},
+    "setup_direction_quality": {},
+    "filter_thresholds": {
+      "min_confidence": 0.55,
+      "min_score": 0.55,
+      "setup_overrides": {
+        "momentum": {
+          "min_confidence": 0.68,
+          "min_score": 0.65
+        }
+      }
+    },
+    "segment_stats": {
+      "by_asset": {},
+      "by_regime": {},
+      "by_timeframe": {},
+      "by_engine": {},
+      "by_confluence": {},
+      "by_direction": {},
+      "by_setup_direction": {}
+    },
+    "filter_funnel": {
+      "shape_validation": {
+        "seen": 40,
+        "rejected": 16
+      },
+      "liquidity_sanity": {
+        "seen": 24,
+        "rejected": 0
+      },
+      "min_confidence": {
+        "seen": 24,
+        "rejected": 20
+      },
+      "min_score": {
+        "seen": 4,
+        "rejected": 1
+      }
+    },
+    "circuit_breaker": {
+      "tripped": false,
+      "tripped_at": null,
+      "reason": null
+    },
+    "rolling_live_trades": [],
+    "active_baseline": {
+      "win_rate": 0.46,
+      "profit_factor": 1.35,
+      "avg_rr": 1.7
+    },
+    "last_daily_summary_date": null
+  },
+  "tier2_trade_log": [],
+  "pending_signals": [],
+  "active_signals": [
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "ADA",
+      "direction": "long",
+      "entry": 0.16370530981539874,
+      "sl": 0.16319893,
+      "tp1": 0.16486998339081588,
+      "tp2": 0.16632,
+      "confidence": 0.55,
+      "rr_tp1": 2.300000000000022,
+      "rr_tp2": 5.163496065778828,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784187054167,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "0fa9f4d4d65b",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "A",
+      "score": 0.7157500000000006,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784187054167,
+      "bars_pending": 0,
+      "telegram_message_id": 3524
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "AVAX",
+      "direction": "long",
+      "entry": 6.657743939349354,
+      "sl": 6.6389233,
+      "tp1": 6.701031409852868,
+      "tp2": 6.7445,
+      "confidence": 0.55,
+      "rr_tp1": 2.3000000000000096,
+      "rr_tp2": 4.609623458600814,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784187058169,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "f973cd329c3c",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "A",
+      "score": 0.7157500000000002,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784187058169,
+      "bars_pending": 0,
+      "telegram_message_id": 3525
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "BNB",
+      "direction": "short",
+      "entry": 581.9329037058773,
+      "sl": 584.2675599999999,
+      "tp1": 576.5631942293952,
+      "tp2": 562.08,
+      "confidence": 0.55,
+      "rr_tp1": 2.3000000000000096,
+      "rr_tp2": 8.503565923539101,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "buy_side_pool_swept"
+      ],
+      "regime_at_signal": "bull_trend",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784187048081,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "7255446e6c44",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "B",
+      "score": 0.6482500000000002,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784187048081,
+      "bars_pending": 0,
+      "telegram_message_id": 3526
+    }
+  ],
+  "last_run_ts": 1784187070887
+}
