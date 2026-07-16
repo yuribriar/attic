@@ -152,16 +152,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1703,
-        "rejected": 736
+        "seen": 1729,
+        "rejected": 748
       },
       "liquidity_sanity": {
-        "seen": 967,
+        "seen": 981,
         "rejected": 17
       },
       "min_confidence": {
-        "seen": 950,
-        "rejected": 890
+        "seen": 964,
+        "rejected": 904
       },
       "min_score": {
         "seen": 60,
@@ -1128,8 +1128,8 @@
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": -0.5168518118323303,
-      "mfe_r": 0.480611195519685,
-      "last_checked_ts": 1784236500000,
+      "mfe_r": 0.5078642831522283,
+      "last_checked_ts": 1784237400000,
       "bars_pending": 3,
       "telegram_message_id": 3627,
       "fill_ts": 1784225700000
@@ -1167,7 +1167,7 @@
       "tp1_r": null,
       "mae_r": -0.23327855317967175,
       "mfe_r": 0.9535458754784394,
-      "last_checked_ts": 1784237400000,
+      "last_checked_ts": 1784238300000,
       "bars_pending": 2,
       "telegram_message_id": 3637,
       "fill_ts": 1784228400000
@@ -1204,8 +1204,8 @@
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": -0.05554105922897001,
-      "mfe_r": 0.5477906407812272,
-      "last_checked_ts": 1784237400000,
+      "mfe_r": 0.626486079912979,
+      "last_checked_ts": 1784238300000,
       "bars_pending": 6,
       "telegram_message_id": 3640,
       "fill_ts": 1784232900000
@@ -1243,8 +1243,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784236500000,
-      "bars_pending": 6,
+      "last_checked_ts": 1784237400000,
+      "bars_pending": 7,
       "telegram_message_id": 3644
     },
     {
@@ -1280,8 +1280,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784236533628,
-      "bars_pending": 0,
+      "last_checked_ts": 1784237400000,
+      "bars_pending": 1,
       "telegram_message_id": 3651
     },
     {
@@ -1324,5 +1324,5 @@
       "telegram_message_id": 3652
     }
   ],
-  "last_run_ts": 1784237452121
+  "last_run_ts": 1784238340779
 }
