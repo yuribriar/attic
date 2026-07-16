@@ -152,16 +152,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1625,
-        "rejected": 697
+        "seen": 1648,
+        "rejected": 710
       },
       "liquidity_sanity": {
-        "seen": 928,
+        "seen": 938,
         "rejected": 16
       },
       "min_confidence": {
-        "seen": 912,
-        "rejected": 854
+        "seen": 922,
+        "rejected": 864
       },
       "min_score": {
         "seen": 58,
@@ -1052,6 +1052,46 @@
       "resolved_ts": 1784232900000,
       "outcome": "expired_no_fill",
       "forensic_tag": "no_fill_expired"
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "TAO",
+      "direction": "long",
+      "entry": 194.60381128827424,
+      "sl": 193.9165,
+      "tp1": 196.18462725130496,
+      "tp2": 198.06,
+      "confidence": 0.55,
+      "rr_tp1": 2.2999999999999794,
+      "rr_tp2": 5.028563870097202,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784223936296,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "dd0b3c3236d7",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "A",
+      "score": 0.7157499999999993,
+      "status": "expired_no_fill",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784234700000,
+      "bars_pending": 12,
+      "telegram_message_id": 3630,
+      "resolved_ts": 1784234700000,
+      "outcome": "expired_no_fill",
+      "forensic_tag": "no_fill_expired"
     }
   ],
   "pending_signals": [],
@@ -1089,47 +1129,10 @@
       "tp1_r": null,
       "mae_r": -0.5168518118323303,
       "mfe_r": 0.480611195519685,
-      "last_checked_ts": 1784234700000,
+      "last_checked_ts": 1784235600000,
       "bars_pending": 3,
       "telegram_message_id": 3627,
       "fill_ts": 1784225700000
-    },
-    {
-      "setup_type": "liquidity_sweep",
-      "symbol": "TAO",
-      "direction": "long",
-      "entry": 194.60381128827424,
-      "sl": 193.9165,
-      "tp1": 196.18462725130496,
-      "tp2": 198.06,
-      "confidence": 0.55,
-      "rr_tp1": 2.2999999999999794,
-      "rr_tp2": 5.028563870097202,
-      "confluences": [
-        "liquidity_sweep_reclaim",
-        "sell_side_pool_swept"
-      ],
-      "regime_at_signal": "ranging",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1784223936296,
-      "entry_filled": false,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "dd0b3c3236d7",
-      "confidence_components": {
-        "base": 0.55
-      },
-      "tier": "A",
-      "score": 0.7157499999999993,
-      "status": "pending",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": 0.0,
-      "mfe_r": 0.0,
-      "last_checked_ts": 1784233800000,
-      "bars_pending": 11,
-      "telegram_message_id": 3630
     },
     {
       "setup_type": "liquidity_sweep",
@@ -1164,7 +1167,7 @@
       "tp1_r": null,
       "mae_r": -0.23327855317967175,
       "mfe_r": 0.43134312686887255,
-      "last_checked_ts": 1784234700000,
+      "last_checked_ts": 1784235600000,
       "bars_pending": 2,
       "telegram_message_id": 3637,
       "fill_ts": 1784228400000
@@ -1202,7 +1205,7 @@
       "tp1_r": null,
       "mae_r": -0.05554105922897001,
       "mfe_r": 0.10184981903455363,
-      "last_checked_ts": 1784234700000,
+      "last_checked_ts": 1784235600000,
       "bars_pending": 6,
       "telegram_message_id": 3640,
       "fill_ts": 1784232900000
@@ -1240,10 +1243,10 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784234700000,
-      "bars_pending": 4,
+      "last_checked_ts": 1784235600000,
+      "bars_pending": 5,
       "telegram_message_id": 3644
     }
   ],
-  "last_run_ts": 1784234745692
+  "last_run_ts": 1784235661673
 }
