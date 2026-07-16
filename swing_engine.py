@@ -151,6 +151,17 @@ TP1_RR_SOFT_CEILING = 2.0        # natural upper end of TP1's honest range
 MIN_ENTRY_SL_ATR_FRAC = 0.15     # min |entry-SL| as a fraction of ATR(LTF)
 MIN_ENTRY_TP1_ATR_FRAC = 0.30    # min |entry-TP1| as a fraction of ATR(LTF)
 MAX_PENDING_ENTRY_ATR_MULT = 2.5 # max distance a pending/zone entry may sit from market, in ATRs
+LIQUIDITY_SWEEP_ENTRY_OFFSET_ATR_FRAC = 0.15  # limit offset from market for sweep-reclaim entries;
+                                               # small enough that normal candle noise fills it within
+                                               # a bar or two, instead of waiting for a full retest of
+                                               # the (already-left-behind) reclaim price
+MOMENTUM_STYLE_ENTRY_OFFSET_ATR_FRAC = 0.08   # tighter offset for momentum/breakout/trend/vol-expansion
+                                               # entries. These theses are directional, not mean-reverting
+                                               # -- a wide offset would only get filled on the weak setups
+                                               # that stall and pull back, while the clean, strong moves
+                                               # (the ones actually worth taking) run away unfilled. Kept
+                                               # small enough to just need ordinary intrabar noise, not a
+                                               # real retracement.
 
 # --- Concurrency / breadth ---
 MAX_CONCURRENT_ACTIVE_SIGNALS = 8
@@ -289,8 +300,13 @@ ENGINE_REGIME_FIT: Dict[SetupType, List[Regime]] = {
     SetupType.VOLATILITY_EXPANSION: [Regime.CONSOLIDATION, Regime.EXPANSION],
 }
 
-# Entry mechanism per engine: "market" entries skip PendingEntryTracker;
-# "pending" entries (zones/POIs/limits) must go through it.
+# Entry mechanism per engine: fade/reversal setups use "pending" limit entries
+# near market (the small pullback IS the thesis, so no downside to waiting for
+# it). Directional/momentum setups use "market" -- the cleanest, strongest
+# moves in this category don't give back a pullback before running, so a
+# limit offset would systematically filter out the best setups in exchange
+# for a small maker-fee saving. "market" entries fill immediately (skip
+# PendingEntryTracker); "pending" entries wait for price to touch a limit.
 ENGINE_ENTRY_KIND: Dict[SetupType, str] = {
     SetupType.SMC: "pending",
     SetupType.TREND_CONTINUATION: "market",
@@ -1174,7 +1190,14 @@ class LiquiditySweepEngine(BaseEngine):
             return out
         pool = recent_pools[-1]
         direction = "long" if pool.kind == "sell_side" else "short"
-        entry = ctx.price
+        # Limit entry offset slightly off market rather than the exact reclaim
+        # price: the reclaim price is already left behind by the time the
+        # signal fires, so waiting for a full retest rarely fills. Placing the
+        # limit a small ATR-fraction to the *favorable* side of market keeps
+        # this a passive (maker-fee) order while only needing ordinary
+        # candle-to-candle noise to fill it within a bar or two.
+        offset = LIQUIDITY_SWEEP_ENTRY_OFFSET_ATR_FRAC * float(ctx.atr_ltf[-1])
+        entry = ctx.price - offset if direction == "long" else ctx.price + offset
         stop = pool.level * 0.997 if direction == "long" else pool.level * 1.003
         confluences = ["liquidity_sweep_reclaim", f"{pool.kind}_pool_swept"]
         confidence = 0.55
@@ -1301,8 +1324,9 @@ class ReversalEngine(BaseEngine):
         exhausted = (direction == "long" and r < 35) or (direction == "short" and r > 65)
         if not exhausted:
             return out
-        entry = ctx.price
         atr_v = float(ctx.atr_ltf[-1])
+        entry_offset = MOMENTUM_STYLE_ENTRY_OFFSET_ATR_FRAC * atr_v
+        entry = ctx.price - entry_offset if direction == "long" else ctx.price + entry_offset
         stop = entry - 1.4 * atr_v if direction == "long" else entry + 1.4 * atr_v
         confluences = ["mid_tf_choch", "rsi_exhaustion"]
         confidence = 0.48
@@ -1325,11 +1349,11 @@ class MeanReversionEngine(BaseEngine):
         lower, mid, upper = bollinger(close, 20, 2.0)
         if close[-1] < lower[-1]:
             direction = "long"
-            entry = ctx.price
+            entry = ctx.price - MOMENTUM_STYLE_ENTRY_OFFSET_ATR_FRAC * float(ctx.atr_ltf[-1])
             stop = float(ctx.ltf["low"][-10:].min()) - 0.2 * float(ctx.atr_ltf[-1])
         elif close[-1] > upper[-1]:
             direction = "short"
-            entry = ctx.price
+            entry = ctx.price + MOMENTUM_STYLE_ENTRY_OFFSET_ATR_FRAC * float(ctx.atr_ltf[-1])
             stop = float(ctx.ltf["high"][-10:].max()) + 0.2 * float(ctx.atr_ltf[-1])
         else:
             return out
@@ -1360,8 +1384,9 @@ class RangeTradingEngine(BaseEngine):
         if not (near_top or near_bottom):
             return out
         direction = "short" if near_top else "long"
-        entry = ctx.price
         atr_v = float(ctx.atr_ltf[-1])
+        entry_offset = MOMENTUM_STYLE_ENTRY_OFFSET_ATR_FRAC * atr_v
+        entry = ctx.price - entry_offset if direction == "long" else ctx.price + entry_offset
         stop = rng_high + 0.5 * atr_v if direction == "short" else rng_low - 0.5 * atr_v
         confluences = ["range_extreme_fade", "confirmed_horizontal_range"]
         confidence = 0.47
