@@ -144,16 +144,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1355,
-        "rejected": 554
+        "seen": 1379,
+        "rejected": 565
       },
       "liquidity_sanity": {
-        "seen": 801,
+        "seen": 814,
         "rejected": 16
       },
       "min_confidence": {
-        "seen": 785,
-        "rejected": 730
+        "seen": 798,
+        "rejected": 743
       },
       "min_score": {
         "seen": 55,
@@ -915,8 +915,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784223900000,
-      "bars_pending": 10,
+      "last_checked_ts": 1784224800000,
+      "bars_pending": 11,
       "telegram_message_id": 3608
     },
     {
@@ -952,8 +952,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784223900000,
-      "bars_pending": 8,
+      "last_checked_ts": 1784224800000,
+      "bars_pending": 9,
       "telegram_message_id": 3613
     },
     {
@@ -989,8 +989,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784223900000,
-      "bars_pending": 8,
+      "last_checked_ts": 1784224800000,
+      "bars_pending": 9,
       "telegram_message_id": 3614
     },
     {
@@ -1026,8 +1026,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784223900000,
-      "bars_pending": 2,
+      "last_checked_ts": 1784224800000,
+      "bars_pending": 3,
       "telegram_message_id": 3625
     },
     {
@@ -1063,8 +1063,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784223900000,
-      "bars_pending": 1,
+      "last_checked_ts": 1784224800000,
+      "bars_pending": 2,
       "telegram_message_id": 3627
     },
     {
@@ -1100,10 +1100,10 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784223936296,
-      "bars_pending": 0,
+      "last_checked_ts": 1784224800000,
+      "bars_pending": 1,
       "telegram_message_id": 3630
     }
   ],
-  "last_run_ts": 1784223944390
+  "last_run_ts": 1784224860212
 }
