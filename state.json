@@ -111,6 +111,14 @@
           "sum_r": 2.300000000000057,
           "sum_conf": 0.55,
           "sum_conf_correct": 1.0
+        },
+        "LTC": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 2.300000000000021,
+          "sum_conf": 0.55,
+          "sum_conf_correct": 1.0
         }
       },
       "by_regime": {
@@ -123,32 +131,32 @@
           "sum_conf_correct": 3.0
         },
         "bull_trend": {
-          "n": 3,
-          "wins": 0,
+          "n": 4,
+          "wins": 1,
           "losses": 3,
-          "sum_r": -3.0,
-          "sum_conf": 1.6500000000000001,
-          "sum_conf_correct": 0.0
+          "sum_r": -0.6999999999999789,
+          "sum_conf": 2.2,
+          "sum_conf_correct": 1.0
         }
       },
       "by_timeframe": {
         "15m": {
-          "n": 11,
-          "wins": 3,
+          "n": 12,
+          "wins": 4,
           "losses": 8,
-          "sum_r": -0.39999999999998037,
-          "sum_conf": 6.1499999999999995,
-          "sum_conf_correct": 3.0
+          "sum_r": 1.9000000000000408,
+          "sum_conf": 6.699999999999999,
+          "sum_conf_correct": 4.0
         }
       },
       "by_engine": {
         "liquidity_sweep": {
-          "n": 10,
-          "wins": 2,
+          "n": 11,
+          "wins": 3,
           "losses": 8,
-          "sum_r": -3.3999999999999804,
-          "sum_conf": 5.499999999999999,
-          "sum_conf_correct": 2.0
+          "sum_r": -1.0999999999999592,
+          "sum_conf": 6.049999999999999,
+          "sum_conf_correct": 3.0
         },
         "trend_continuation": {
           "n": 1,
@@ -161,12 +169,12 @@
       },
       "by_confluence": {
         "liquidity_sweep_reclaim": {
-          "n": 10,
-          "wins": 2,
+          "n": 11,
+          "wins": 3,
           "losses": 8,
-          "sum_r": -3.3999999999999804,
-          "sum_conf": 5.499999999999999,
-          "sum_conf_correct": 2.0
+          "sum_r": -1.0999999999999592,
+          "sum_conf": 6.049999999999999,
+          "sum_conf_correct": 3.0
         },
         "sell_side_pool_swept": {
           "n": 10,
@@ -191,6 +199,14 @@
           "sum_r": 3.0,
           "sum_conf": 0.65,
           "sum_conf_correct": 1.0
+        },
+        "buy_side_pool_swept": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 2.300000000000021,
+          "sum_conf": 0.55,
+          "sum_conf_correct": 1.0
         }
       },
       "by_direction": {
@@ -203,12 +219,12 @@
           "sum_conf_correct": 2.0
         },
         "short": {
-          "n": 1,
-          "wins": 1,
+          "n": 2,
+          "wins": 2,
           "losses": 0,
-          "sum_r": 3.0,
-          "sum_conf": 0.65,
-          "sum_conf_correct": 1.0
+          "sum_r": 5.300000000000021,
+          "sum_conf": 1.2000000000000002,
+          "sum_conf_correct": 2.0
         }
       },
       "by_setup_direction": {
@@ -227,21 +243,29 @@
           "sum_r": 3.0,
           "sum_conf": 0.65,
           "sum_conf_correct": 1.0
+        },
+        "liquidity_sweep|short": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 2.300000000000021,
+          "sum_conf": 0.55,
+          "sum_conf_correct": 1.0
         }
       }
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 2327,
-        "rejected": 961
+        "seen": 2349,
+        "rejected": 972
       },
       "liquidity_sanity": {
-        "seen": 1366,
+        "seen": 1377,
         "rejected": 22
       },
       "min_confidence": {
-        "seen": 1344,
-        "rejected": 1265
+        "seen": 1355,
+        "rejected": 1276
       },
       "min_score": {
         "seen": 79,
@@ -297,6 +321,10 @@
       {
         "r": -1.0,
         "win": false
+      },
+      {
+        "r": 2.300000000000021,
+        "win": true
       }
     ],
     "active_baseline": {
@@ -1649,10 +1677,7 @@
       "resolved_ts": 1784254500000,
       "outcome": "expired_no_fill",
       "forensic_tag": "no_fill_expired"
-    }
-  ],
-  "pending_signals": [],
-  "active_signals": [
+    },
     {
       "setup_type": "liquidity_sweep",
       "symbol": "LTC",
@@ -1681,15 +1706,19 @@
       },
       "tier": "B",
       "score": 0.6482500000000005,
-      "status": "pending",
+      "status": "closed_win",
       "tp1_hit": true,
       "tp1_r": 2.300000000000021,
       "mae_r": -0.025679042794546084,
       "mfe_r": 3.977319666437706,
-      "last_checked_ts": 1784256300000,
+      "last_checked_ts": 1784257200000,
       "bars_pending": 1,
       "telegram_message_id": 3655,
-      "fill_ts": 1784240100000
+      "fill_ts": 1784240100000,
+      "resolved_ts": 1784257200000,
+      "outcome": "win",
+      "r_realized": 2.300000000000021,
+      "forensic_tag": "correct_read_tp1_secured"
     },
     {
       "setup_type": "liquidity_sweep",
@@ -1719,15 +1748,21 @@
       },
       "tier": "A",
       "score": 0.71575,
-      "status": "pending",
+      "status": "expired_no_fill",
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784257200000,
-      "bars_pending": 11,
-      "telegram_message_id": 3690
-    },
+      "last_checked_ts": 1784258100000,
+      "bars_pending": 12,
+      "telegram_message_id": 3690,
+      "resolved_ts": 1784258100000,
+      "outcome": "expired_no_fill",
+      "forensic_tag": "no_fill_expired"
+    }
+  ],
+  "pending_signals": [],
+  "active_signals": [
     {
       "setup_type": "liquidity_sweep",
       "symbol": "SOL",
@@ -1761,8 +1796,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784257200000,
-      "bars_pending": 9,
+      "last_checked_ts": 1784258100000,
+      "bars_pending": 10,
       "telegram_message_id": 3693
     },
     {
@@ -1798,10 +1833,10 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784257200000,
-      "bars_pending": 9,
+      "last_checked_ts": 1784258100000,
+      "bars_pending": 10,
       "telegram_message_id": 3694
     }
   ],
-  "last_run_ts": 1784257259208
+  "last_run_ts": 1784258158376
 }
