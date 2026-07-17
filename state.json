@@ -256,19 +256,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 2515,
-        "rejected": 1056
+        "seen": 2531,
+        "rejected": 1067
       },
       "liquidity_sanity": {
-        "seen": 1459,
+        "seen": 1464,
         "rejected": 27
       },
       "min_confidence": {
-        "seen": 1432,
-        "rejected": 1350
+        "seen": 1437,
+        "rejected": 1354
       },
       "min_score": {
-        "seen": 82,
+        "seen": 83,
         "rejected": 12
       }
     },
@@ -1882,8 +1882,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784264400000,
-      "bars_pending": 2,
+      "last_checked_ts": 1784265300000,
+      "bars_pending": 3,
       "telegram_message_id": 3718
     },
     {
@@ -1919,10 +1919,47 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784264400000,
-      "bars_pending": 2,
+      "last_checked_ts": 1784265300000,
+      "bars_pending": 3,
       "telegram_message_id": 3719
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "HYPE",
+      "direction": "long",
+      "entry": 59.56340193364889,
+      "sl": 59.396275,
+      "tp1": 59.947793881041335,
+      "tp2": 66.17,
+      "confidence": 0.55,
+      "rr_tp1": 2.300000000000017,
+      "rr_tp2": 39.53042111231892,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept"
+      ],
+      "regime_at_signal": "bear_trend",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784265326415,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "15b6d713a115",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "B",
+      "score": 0.6482500000000004,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784265326415,
+      "bars_pending": 0,
+      "telegram_message_id": 3721
     }
   ],
-  "last_run_ts": 1784264460647
+  "last_run_ts": 1784265353804
 }
