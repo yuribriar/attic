@@ -264,19 +264,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 3155,
-        "rejected": 1316
+        "seen": 3173,
+        "rejected": 1327
       },
       "liquidity_sanity": {
-        "seen": 1839,
+        "seen": 1846,
         "rejected": 35
       },
       "min_confidence": {
-        "seen": 1804,
-        "rejected": 1716
+        "seen": 1811,
+        "rejected": 1722
       },
       "min_score": {
-        "seen": 88,
+        "seen": 89,
         "rejected": 12
       }
     },
@@ -2136,7 +2136,7 @@
       "tp1_r": 2.300000000000012,
       "mae_r": -0.6110858593168569,
       "mfe_r": 6.40910627814005,
-      "last_checked_ts": 1784289600000,
+      "last_checked_ts": 1784291400000,
       "bars_pending": 4,
       "telegram_message_id": 3718,
       "fill_ts": 1784266200000
@@ -2174,11 +2174,50 @@
       "tp1_r": 2.2999999999999985,
       "mae_r": -0.20741255386527702,
       "mfe_r": 6.885029952463777,
-      "last_checked_ts": 1784290500000,
+      "last_checked_ts": 1784291400000,
       "bars_pending": 5,
       "telegram_message_id": 3727,
       "fill_ts": 1784272500000
+    },
+    {
+      "setup_type": "trend_continuation",
+      "symbol": "TAO",
+      "direction": "short",
+      "entry": 192.02,
+      "sl": 193.6365,
+      "tp1": 188.68,
+      "tp2": 187.1705,
+      "confidence": 0.65,
+      "rr_tp1": 2.0661923909681406,
+      "rr_tp2": 3.0,
+      "confluences": [
+        "ema_stack_trend",
+        "shallow_pullback_resumption"
+      ],
+      "regime_at_signal": "bear_trend",
+      "entry_kind": "market",
+      "timeframe": "15m",
+      "created_ts": 1784291448351,
+      "entry_filled": true,
+      "pending_bars": 0,
+      "pending_expiry_bars": 0,
+      "signal_id": "6bacc77b6b63",
+      "confidence_components": {
+        "base": 0.5,
+        "adx_bonus": 0.15
+      },
+      "tier": "A",
+      "score": 0.7546512527064645,
+      "status": "active",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784291448351,
+      "bars_pending": 0,
+      "fill_ts": 1784291448351,
+      "telegram_message_id": 3757
     }
   ],
-  "last_run_ts": 1784290546447
+  "last_run_ts": 1784291460263
 }
