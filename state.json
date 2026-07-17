@@ -256,16 +256,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 2432,
-        "rejected": 1009
+        "seen": 2452,
+        "rejected": 1020
       },
       "liquidity_sanity": {
-        "seen": 1423,
+        "seen": 1432,
         "rejected": 27
       },
       "min_confidence": {
-        "seen": 1396,
-        "rejected": 1316
+        "seen": 1405,
+        "rejected": 1325
       },
       "min_score": {
         "seen": 80,
@@ -1849,5 +1849,5 @@
   ],
   "pending_signals": [],
   "active_signals": [],
-  "last_run_ts": 1784260859941
+  "last_run_ts": 1784261752260
 }
