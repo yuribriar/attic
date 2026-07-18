@@ -80,6 +80,34 @@ volume, and a 16.0% long vs 34.3% short split):
     tightened gates immediately rather than waiting for the adaptive
     loop to slowly get there.
 
+v1.2.1 changes (signal-flow fixes):
+  - New symbol cooldown (symbol_cooldowns in state, COOLDOWN_BARS_AFTER_LOSS
+    / COOLDOWN_BARS_AFTER_WIN): previously run_scan() computed which symbols
+    were "active" *after* monitor_all() had already resolved and removed
+    this scan's closed trades, so a symbol stopped out this scan was
+    immediately re-scanned and could receive a brand-new signal in the same
+    pass. A resolved trade now blocks new signals on that symbol for a
+    bars-based cooldown (longer after a loss than a win).
+  - New SETUP_PENDING_EXPIRY_BARS replacing the flat
+    DEFAULT_PENDING_EXPIRY_BARS[TF_LTF] (12 bars/3h) for every pending
+    setup. Near-market ATR-fraction entries (liquidity sweep, mean
+    reversion, range, reversal) keep the 3h window. Structural zone entries
+    -- especially SMC/order-block/breaker-block, drawn from 4H structure --
+    get a longer window (up to 12h), since giving a 4H-structure retest only
+    3h to happen was the main driver of "never filled within 12 bars"
+    expiries.
+
+v1.2.2 changes (notification quieting):
+  - The "TP1 secured, SL later hit -> WIN" resolution message is no longer
+    sent: TP1 was already reported when it hit, and SL later returning to
+    the (never-repositioned) original stop doesn't change the outcome or
+    require action, so the follow-up ping was pure noise. Still fully
+    resolved, still fully counted in stats/cooldown -- just not messaged.
+  - The "EXPIRED (no fill)" message is no longer sent. Expired pending
+    signals still resolve (removed from active_signals, logged to tier2 for
+    forensic review, excluded from win/loss stats as before) -- just
+    silently, since there's no position and nothing actionable to report.
+
 Scan-per-run model: an external scheduler (GitHub Actions, cron, etc.)
 invokes this script every 15 minutes. All persistence lives in state.json
 next to the script.
@@ -108,7 +136,7 @@ import numpy as np
 # ==============================================================================
 
 ENGINE_NAME = "Odyssey Adaptive Signal Engine"
-ENGINE_VERSION = "v1.2.0"
+ENGINE_VERSION = "v1.2.2"
 
 # Same watchlist across all six reference engines -> reused verbatim.
 WATCHLIST: List[str] = [
@@ -171,6 +199,20 @@ TARGET_SIGNALS_PER_DAY_MAX = 10
 
 # --- Pending-entry lifecycle ---
 DEFAULT_PENDING_EXPIRY_BARS = {TF_LTF: 12}   # ~3h on 15m bars for zone/limit-style entries
+# v1.2.1: SETUP_PENDING_EXPIRY_BARS (per-setup override of the above) is
+# defined right after the SetupType enum below, since it needs that type.
+
+# v1.2.1: cooldown, in LTF (15m) bars, before a symbol becomes eligible for a
+# new signal again after any active trade on it resolves. Previously there
+# was no cooldown at all -- run_scan() computed "which symbols are active"
+# *after* monitor_all() had already resolved and removed that scan's closed
+# trades, so a symbol stopped out this scan was immediately re-scanned and
+# could receive a brand-new signal in the same pass (visible as a loss
+# notification and a fresh signal on the same symbol at the same timestamp).
+# Longer after a loss than a win: a thesis that just got invalidated deserves
+# more room before being re-tried on the same symbol.
+COOLDOWN_BARS_AFTER_LOSS = 8   # ~2h on 15m bars
+COOLDOWN_BARS_AFTER_WIN = 4    # ~1h on 15m bars
 
 # --- Learning / adaptation bounds ---
 MIN_SAMPLE_SIZE = 20             # per-segment trades required before adapting
@@ -321,6 +363,33 @@ ENGINE_ENTRY_KIND: Dict[SetupType, str] = {
     SetupType.MEAN_REVERSION: "pending",
     SetupType.RANGE_TRADING: "pending",
     SetupType.VOLATILITY_EXPANSION: "market",
+}
+
+# v1.2.1: per-setup pending expiry, in LTF (15m) bars. Replaces the old flat
+# DEFAULT_PENDING_EXPIRY_BARS[TF_LTF] (12 bars / 3h) for every pending setup.
+# That flat window was fine for near-market ATR-fraction offsets but starved
+# structural zone entries -- especially SMC/order-block/breaker-block, whose
+# zones are drawn from 4H (TF_HTF) structure and can legitimately take much
+# longer than 3h to be retested. This only changes how long an entry is given
+# to fill, not how far it's allowed to sit from market (still governed by
+# MAX_PENDING_ENTRY_ATR_MULT).
+SETUP_PENDING_EXPIRY_BARS: Dict[SetupType, int] = {
+    # Near-market ATR-fraction offsets -- ordinary intrabar noise fills these
+    # within a bar or two, so the original 3h window is kept as a generous
+    # ceiling rather than a tight one.
+    SetupType.LIQUIDITY_SWEEP: 12,   # ~3h
+    SetupType.MEAN_REVERSION: 12,    # ~3h
+    SetupType.RANGE_TRADING: 12,     # ~3h
+    SetupType.REVERSAL: 12,          # ~3h
+    # LTF-derived structural zone -- moderate allowance.
+    SetupType.FAIR_VALUE_GAP: 16,    # ~4h
+    # Mid-TF (1h) fib retrace -- needs more room than a near-market offset.
+    SetupType.PULLBACK: 32,          # ~8h
+    # HTF (4h) structural zones -- these are the ones that were expiring
+    # unfilled most often under the old flat 3h window.
+    SetupType.ORDER_BLOCK: 48,       # ~12h
+    SetupType.BREAKER_BLOCK: 48,     # ~12h
+    SetupType.SMC: 48,               # ~12h
 }
 
 
@@ -1018,7 +1087,7 @@ def _mk_signal(setup: SetupType, ctx: MarketContext, direction: str, entry: floa
         tp1=tp1, tp2=tp2, confidence=confidence, rr_tp1=rr1, rr_tp2=rr2,
         confluences=confluences, regime_at_signal=ctx.regime.value, entry_kind=entry_kind,
         timeframe=TF_LTF, created_ts=ctx.now_ts,
-        pending_expiry_bars=DEFAULT_PENDING_EXPIRY_BARS[TF_LTF] if entry_kind == "pending" else 0,
+        pending_expiry_bars=SETUP_PENDING_EXPIRY_BARS.get(setup, DEFAULT_PENDING_EXPIRY_BARS[TF_LTF]) if entry_kind == "pending" else 0,
         confidence_components=dict(confidence_components) if confidence_components else {},
     )
     sig.finalize_id()
@@ -1482,6 +1551,9 @@ def _default_state() -> dict:
         "tier2_trade_log": [],
         "pending_signals": [],
         "active_signals": [],
+        # v1.2.1: symbol -> epoch-ms timestamp until which new signals on
+        # that symbol are suppressed. Set whenever a trade resolves.
+        "symbol_cooldowns": {},
         "last_run_ts": None,
     }
 
@@ -1525,6 +1597,16 @@ class StateStore:
                     os.remove(tmp_path)
                 except OSError:
                     pass
+
+    # --- Symbol cooldown (v1.2.1) -----------------------------------------
+
+    def cooldown_until(self, symbol: str) -> int:
+        """Epoch-ms timestamp until which `symbol` is excluded from new
+        signal generation. 0 if no cooldown is set."""
+        return self.data.setdefault("symbol_cooldowns", {}).get(symbol, 0)
+
+    def set_cooldown(self, symbol: str, until_ts: int):
+        self.data.setdefault("symbol_cooldowns", {})[symbol] = until_ts
 
     # --- Tier 1 accessors -----------------------------------------------
 
@@ -2259,14 +2341,28 @@ class TradeLifecycleManager:
         tag = forensic_tag("win", Signal(**{k: rec[k] for k in Signal.__dataclass_fields__ if k in rec}),
                             r_realized, rec["mae_r"])
         self._commit_resolution(rec, "win", r_realized, tag)
-        self.telegram.send_resolution(rec, "WIN", r_realized, reason)
+        self._apply_cooldown(rec, COOLDOWN_BARS_AFTER_WIN)
+        # v1.2.2: TP1 was already reported via send_status_update when it hit.
+        # SL later returning to breakeven-locked risk doesn't change the
+        # outcome (still a win, still fully counted in stats/cooldown above)
+        # and isn't actionable, so skip the redundant resolution ping for it.
+        if reason != "tp1_then_sl_still_win":
+            self.telegram.send_resolution(rec, "WIN", r_realized, reason)
 
     def _resolve_loss(self, rec: dict, r_realized: float):
         rec["status"] = "closed_loss"
         tag = forensic_tag("loss", Signal(**{k: rec[k] for k in Signal.__dataclass_fields__ if k in rec}),
                             r_realized, rec["mae_r"])
         self._commit_resolution(rec, "loss", r_realized, tag)
+        self._apply_cooldown(rec, COOLDOWN_BARS_AFTER_LOSS)
         self.telegram.send_resolution(rec, "LOSS", r_realized, "sl_hit_no_tp1")
+
+    def _apply_cooldown(self, rec: dict, bars: int):
+        """v1.2.1: block new signals on this symbol until `bars` LTF bars
+        after resolution, so a stop-out (or take-profit) can't be immediately
+        followed by a fresh signal on the same symbol in this same scan."""
+        until_ts = rec["resolved_ts"] + bars * TF_MS[TF_LTF]
+        self.store.set_cooldown(rec["symbol"], until_ts)
 
     def _resolve_expired(self, rec: dict):
         """Distinct, excluded result type — never touches win/loss
@@ -2275,7 +2371,9 @@ class TradeLifecycleManager:
         rec["status"] = "expired_no_fill"
         rec["resolved_ts"] = rec["last_checked_ts"]
         self.store.append_tier2({**rec, "outcome": "expired_no_fill", "forensic_tag": "no_fill_expired"})
-        self.telegram.send_expired(rec)
+        # v1.2.2: no telegram ping for silent-fail expiries -- not
+        # actionable, since there was never a position. Still resolved and
+        # logged to tier2 for forensic review; just not sent to chat.
 
     def _commit_resolution(self, rec: dict, outcome: str, r_realized: float, forensic: str):
         rec["resolved_ts"] = rec["last_checked_ts"]
@@ -2389,6 +2487,9 @@ class TelegramNotifier:
         self.send(text, reply_to=rec.get("telegram_message_id"))
 
     def send_expired(self, rec: dict):
+        # v1.2.2: kept for reference / easy re-enabling, but no longer
+        # called by _resolve_expired -- expired (never-filled) signals now
+        # resolve silently with no telegram notification.
         text = (
             f"*{rec['symbol']} — EXPIRED (no fill)*\n"
             f"Never filled within {rec.get('pending_expiry_bars', 0)} bars. Cancelled, excluded from stats."
@@ -2477,10 +2578,19 @@ def run_scan(store: StateStore, client: HyperliquidClient, decision: DecisionEng
     active_syms = _active_symbols(store)
     sector_counts = _current_active_sector_counts(store)
     all_ranked: List[RankedSignal] = []
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
 
     for symbol in WATCHLIST:
         if symbol in active_syms:
             continue  # avoid duplicate concurrent exposure on the same asset
+        # v1.2.1: also skip symbols whose trade resolved recently (cooldown
+        # set in TradeLifecycleManager._apply_cooldown). This is what
+        # actually prevents a stop-out from being immediately followed by a
+        # fresh signal on the same symbol -- active_syms alone isn't enough,
+        # since monitor_all() above already freed this symbol from
+        # active_signals before we got here.
+        if store.cooldown_until(symbol) > now_ms:
+            continue
         try:
             ctx = build_context(client, symbol)
             if ctx is None:
