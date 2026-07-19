@@ -224,20 +224,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 2160,
-        "rejected": 1019
+        "seen": 2183,
+        "rejected": 1029
       },
       "liquidity_sanity": {
-        "seen": 1141,
-        "rejected": 14
+        "seen": 1154,
+        "rejected": 15
       },
       "min_confidence": {
-        "seen": 1127,
-        "rejected": 1031
+        "seen": 1139,
+        "rejected": 1041
       },
       "min_score": {
-        "seen": 96,
-        "rejected": 24
+        "seen": 98,
+        "rejected": 25
       }
     },
     "circuit_breaker": {
@@ -1367,7 +1367,7 @@
       "tp1_r": null,
       "mae_r": -0.7022258139741129,
       "mfe_r": 1.9234396717998643,
-      "last_checked_ts": 1784491200000,
+      "last_checked_ts": 1784492100000,
       "bars_pending": 9,
       "telegram_message_id": 3952,
       "fill_ts": 1784457000000
@@ -1443,7 +1443,7 @@
       "tp1_r": null,
       "mae_r": -0.01687633545826019,
       "mfe_r": 1.3429260808653476,
-      "last_checked_ts": 1784491200000,
+      "last_checked_ts": 1784492100000,
       "bars_pending": 1,
       "telegram_message_id": 3971,
       "fill_ts": 1784475900000
@@ -1481,7 +1481,7 @@
       "tp1_r": null,
       "mae_r": -0.1123395901814403,
       "mfe_r": 0.12707837377970493,
-      "last_checked_ts": 1784491200000,
+      "last_checked_ts": 1784492100000,
       "bars_pending": 12,
       "telegram_message_id": 3973,
       "fill_ts": 1784491200000
@@ -1608,5 +1608,5 @@
     "DOT": 1784478600000,
     "LTC": 1784490300000
   },
-  "last_run_ts": 1784491251766
+  "last_run_ts": 1784492143429
 }
