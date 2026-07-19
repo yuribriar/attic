@@ -136,19 +136,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 781,
-        "rejected": 370
+        "seen": 801,
+        "rejected": 378
       },
       "liquidity_sanity": {
-        "seen": 411,
+        "seen": 423,
         "rejected": 4
       },
       "min_confidence": {
-        "seen": 407,
-        "rejected": 387
+        "seen": 419,
+        "rejected": 397
       },
       "min_score": {
-        "seen": 20,
+        "seen": 22,
         "rejected": 1
       }
     },
@@ -653,8 +653,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784431800000,
-      "bars_pending": 5,
+      "last_checked_ts": 1784432700000,
+      "bars_pending": 6,
       "telegram_message_id": 3937
     },
     {
@@ -690,8 +690,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784431800000,
-      "bars_pending": 5,
+      "last_checked_ts": 1784432700000,
+      "bars_pending": 6,
       "telegram_message_id": 3938
     },
     {
@@ -764,14 +764,51 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784431800000,
-      "bars_pending": 2,
+      "last_checked_ts": 1784432700000,
+      "bars_pending": 3,
       "telegram_message_id": 3940
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "ETH",
+      "direction": "short",
+      "entry": 1866.3096916290235,
+      "sl": 1871.4977,
+      "tp1": 1854.377272375778,
+      "tp2": 1803.3,
+      "confidence": 0.55,
+      "rr_tp1": 2.299999999999987,
+      "rr_tp2": 12.145256353386573,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "buy_side_pool_swept"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784432725873,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "706048c1611c",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "A",
+      "score": 0.7157499999999996,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784432725873,
+      "bars_pending": 0,
+      "telegram_message_id": 3941
     }
   ],
   "symbol_cooldowns": {
     "LINK": 1784421900000,
     "PENDLE": 1784434500000
   },
-  "last_run_ts": 1784431939714
+  "last_run_ts": 1784432746448
 }
