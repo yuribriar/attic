@@ -200,16 +200,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1563,
-        "rejected": 759
+        "seen": 1578,
+        "rejected": 767
       },
       "liquidity_sanity": {
-        "seen": 804,
+        "seen": 811,
         "rejected": 5
       },
       "min_confidence": {
-        "seen": 799,
-        "rejected": 752
+        "seen": 806,
+        "rejected": 759
       },
       "min_score": {
         "seen": 47,
@@ -1053,7 +1053,7 @@
       "tp1_r": 1.7780308718712483,
       "mae_r": -0.8785151657917505,
       "mfe_r": 2.7461943167084404,
-      "last_checked_ts": 1784464200000,
+      "last_checked_ts": 1784465100000,
       "bars_pending": 8,
       "telegram_message_id": 3931,
       "fill_ts": 1784427300000
@@ -1091,7 +1091,7 @@
       "tp1_r": null,
       "mae_r": -0.16915352160147812,
       "mfe_r": 1.2179023688802502,
-      "last_checked_ts": 1784464200000,
+      "last_checked_ts": 1784465100000,
       "bars_pending": 4,
       "telegram_message_id": 3944,
       "fill_ts": 1784441700000
@@ -1129,7 +1129,7 @@
       "tp1_r": null,
       "mae_r": -0.6725758900444183,
       "mfe_r": 1.1657193935965744,
-      "last_checked_ts": 1784464200000,
+      "last_checked_ts": 1784465100000,
       "bars_pending": 9,
       "telegram_message_id": 3952,
       "fill_ts": 1784457000000
@@ -1205,8 +1205,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784464200000,
-      "bars_pending": 8,
+      "last_checked_ts": 1784465100000,
+      "bars_pending": 9,
       "telegram_message_id": 3957
     },
     {
@@ -1242,8 +1242,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784464200000,
-      "bars_pending": 4,
+      "last_checked_ts": 1784465100000,
+      "bars_pending": 5,
       "telegram_message_id": 3959
     }
   ],
@@ -1253,5 +1253,5 @@
     "ETH": 1784458800000,
     "XLM": 1784466900000
   },
-  "last_run_ts": 1784464334645
+  "last_run_ts": 1784465200722
 }
