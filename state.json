@@ -128,19 +128,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 491,
-        "rejected": 238
+        "seen": 504,
+        "rejected": 245
       },
       "liquidity_sanity": {
-        "seen": 253,
+        "seen": 259,
         "rejected": 3
       },
       "min_confidence": {
-        "seen": 250,
-        "rejected": 241
+        "seen": 256,
+        "rejected": 246
       },
       "min_score": {
-        "seen": 9,
+        "seen": 10,
         "rejected": 0
       }
     },
@@ -481,8 +481,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784419200000,
-      "bars_pending": 4,
+      "last_checked_ts": 1784420100000,
+      "bars_pending": 5,
       "telegram_message_id": 3929
     },
     {
@@ -518,13 +518,50 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784419200000,
-      "bars_pending": 3,
+      "last_checked_ts": 1784420100000,
+      "bars_pending": 4,
       "telegram_message_id": 3930
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "DOT",
+      "direction": "short",
+      "entry": 0.8365555734212602,
+      "sl": 0.8416373599999999,
+      "tp1": 0.82752,
+      "tp2": 0.8213102136850411,
+      "confidence": 0.55,
+      "rr_tp1": 1.7780308718712483,
+      "rr_tp2": 3.0,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "buy_side_pool_swept"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784420225697,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "3dd9d20f6b6c",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "B",
+      "score": 0.6126081975025339,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784420225697,
+      "bars_pending": 0,
+      "telegram_message_id": 3931
     }
   ],
   "symbol_cooldowns": {
     "LINK": 1784421900000
   },
-  "last_run_ts": 1784419260765
+  "last_run_ts": 1784420238447
 }
