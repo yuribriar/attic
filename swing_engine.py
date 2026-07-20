@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ODYSSEY ADAPTIVE SIGNAL ENGINE — v1.2.0
+ODYSSEY ADAPTIVE SIGNAL ENGINE -- v1.2.2
 ========================================
 Institutional-grade, self-learning, multi-strategy crypto signal engine for
 Hyperliquid perpetuals. Single-file, dependency-light, GitHub-Actions-ready.
@@ -14,99 +14,17 @@ Key components:
   - PendingEntryTracker enforces real fill verification for every
     non-market entry; SL is never auto-repositioned to breakeven.
   - Tier 1 (permanent aggregates) / Tier 2 (bounded raw log) state split
-    driving fully automatic, bounded, incremental learning.
-  - Live-performance circuit breaker against a documented pre-deployment
-    baseline.
-
-v1.1.0 changes (signal-quality learning):
-  - active_baseline now actually updates from live results once enough
-    trades resolve (previously frozen at BASELINE_NOTE forever — the old
-    docstring claimed it self-updated but no code path ever did it).
-  - New confluence-level learning: each confluence tag (e.g.
-    "liquidity_sweep", "fvg_reclaim") gets its own tracked win rate / avg-R
-    and a learned quality multiplier, gated by the same MIN_SAMPLE_SIZE and
-    ADAPT_MAX_STEP damping as everything else. The old confluence_bonus was
-    purely a count of tags with zero notion of which tags actually predict
-    wins — this replaces that with real per-tag learning.
-  - New per-asset quality multiplier, same treatment, using the by_asset
-    segment stats that were already being tracked but never fed back into
-    scoring.
-  - final_score now multiplies in engine_weight * confluence_quality_mult *
-    asset_quality_mult, so signal quality is shaped by everything the
-    engine has actually learned about what wins, not just its type.
-
-v1.2.0 changes (signal-quality corrections, driven by 60-trade forensic
-review showing 26.7% blended win rate, momentum at 20.6% WR / 57% of
-volume, and a 16.0% long vs 34.3% short split):
-  - update_engine_weights() now applies an accelerated (but still bounded
-    and damped) step when a segment's trailing win rate is far below the
-    live baseline, instead of always using the same ADAPT_MAX_STEP as a
-    segment performing near baseline. Previously a segment could sit at a
-    materially bad win rate for dozens of trades and only crawl a few
-    points off its starting weight, because the fixed per-step cap
-    shrinks geometrically as the weight approaches its target.
-  - New setup-type-specific filter overrides
-    (tier1.filter_thresholds["setup_overrides"]): a setup type whose
-    realized win rate is materially below baseline gets its own, stricter
-    min_confidence/min_score gate layered on top of (never below) the
-    global thresholds, damped/bounded the same way as every other
-    adaptive parameter via update_setup_overrides(). This lets a single
-    bad-performing setup type get filtered harder without penalizing
-    every other engine the way a global threshold bump would.
-  - New setup_type+direction segment tracking (by_setup_direction) and a
-    matching learned quality multiplier
-    (tier1.setup_direction_quality), applied in final_score. This is what
-    lets the engine learn that e.g. "momentum + long" specifically has
-    been a worse combination than either factor alone would predict, and
-    suppress that combination without touching momentum shorts or other
-    engines' longs.
-  - New optional per-signal confidence_components on Signal/RankedSignal
-    records: each engine now records the individual terms that summed
-    into its stated `confidence` (base rate, ADX bonus, alignment bonus,
-    etc). These are persisted to the Tier-2 log for later analysis and
-    are NOT fed back into scoring — confidence itself is not treated as
-    reliable enough yet to be recalibrated from a components model this
-    small; this just makes that recalibration possible once there's
-    enough data, without materially changing filtering behavior today.
-  - forensic_tag() now classifies wins using r_realized vs rr_tp1/rr_tp2
-    instead of mfe_r. mfe_r is never updated on the same-candle
-    tp1_tp2_same_candle resolution path, so trades that hit TP2 in the
-    same candle as TP1 were being mislabeled as "TP1 secured" rather than
-    a full extension. r_realized is always correct at resolution time and
-    doesn't depend on that intra-candle bookkeeping.
-  - One-time state migration (schema_version 2 -> 3) raises any
-    filter_thresholds below the new tightened floor and seeds the
-    momentum setup_override, so an existing deployment picks up the
-    tightened gates immediately rather than waiting for the adaptive
-    loop to slowly get there.
-
-v1.2.1 changes (signal-flow fixes):
-  - New symbol cooldown (symbol_cooldowns in state, COOLDOWN_BARS_AFTER_LOSS
-    / COOLDOWN_BARS_AFTER_WIN): previously run_scan() computed which symbols
-    were "active" *after* monitor_all() had already resolved and removed
-    this scan's closed trades, so a symbol stopped out this scan was
-    immediately re-scanned and could receive a brand-new signal in the same
-    pass. A resolved trade now blocks new signals on that symbol for a
-    bars-based cooldown (longer after a loss than a win).
-  - New SETUP_PENDING_EXPIRY_BARS replacing the flat
-    DEFAULT_PENDING_EXPIRY_BARS[TF_LTF] (12 bars/3h) for every pending
-    setup. Near-market ATR-fraction entries (liquidity sweep, mean
-    reversion, range, reversal) keep the 3h window. Structural zone entries
-    -- especially SMC/order-block/breaker-block, drawn from 4H structure --
-    get a longer window (up to 12h), since giving a 4H-structure retest only
-    3h to happen was the main driver of "never filled within 12 bars"
-    expiries.
-
-v1.2.2 changes (notification quieting):
-  - The "TP1 secured, SL later hit -> WIN" resolution message is no longer
-    sent: TP1 was already reported when it hit, and SL later returning to
-    the (never-repositioned) original stop doesn't change the outcome or
-    require action, so the follow-up ping was pure noise. Still fully
-    resolved, still fully counted in stats/cooldown -- just not messaged.
-  - The "EXPIRED (no fill)" message is no longer sent. Expired pending
-    signals still resolve (removed from active_signals, logged to tier2 for
-    forensic review, excluded from win/loss stats as before) -- just
-    silently, since there's no position and nothing actionable to report.
+    driving fully automatic, bounded, incremental learning: per-confluence-tag
+    and per-asset quality multipliers, per-setup-type+direction quality,
+    accelerated weight correction for badly underperforming segments,
+    setup-specific filter overrides, and a live-performance circuit breaker
+    against a documented pre-deployment baseline.
+  - Per-setup pending-entry expiry windows (near-market ATR entries get a
+    short window; structural 4H-zone entries get a longer one) and a
+    post-resolution symbol cooldown (longer after a loss than a win) that
+    blocks re-signaling the same symbol until the cooldown lapses.
+  - Notifications are quiet by design: only actionable events are sent
+    (no ping for a TP1-then-breakeven-stop win, or for a silent expiry).
 
 Scan-per-run model: an external scheduler (GitHub Actions, cron, etc.)
 invokes this script every 15 minutes. All persistence lives in state.json
@@ -131,22 +49,18 @@ from typing import Optional, List, Dict, Tuple
 
 import numpy as np
 
-# ==============================================================================
-# SECTION A — GLOBAL CONFIGURATION
-# ==============================================================================
 
 ENGINE_NAME = "Odyssey Adaptive Signal Engine"
 ENGINE_VERSION = "v1.2.2"
 
-# Same watchlist across all six reference engines -> reused verbatim.
+
 WATCHLIST: List[str] = [
     "BTC", "ETH", "HYPE", "ZEC", "NEAR", "ONDO", "SUI", "PENGU", "BNB", "SOL",
     "TRX", "BCH", "DOGE", "ADA", "DOT", "TAO", "AVAX", "LINK", "AAVE", "XRP",
     "XLM", "UNI", "LTC", "APT", "PENDLE",
 ]
 
-# Rough sector map for the correlation cap; unknown symbols default to
-# their own singleton sector.
+
 SECTOR_MAP: Dict[str, str] = {
     "BTC": "btc", "ETH": "eth",
     "SOL": "l1_alt", "AVAX": "l1_alt", "SUI": "l1_alt", "APT": "l1_alt",
@@ -159,12 +73,12 @@ SECTOR_MAP: Dict[str, str] = {
     "ADA": "l1_alt", "HYPE": "exchange", "ZEC": "privacy",
 }
 
-# Timeframes: 15M is the hard floor. 1M/2M/3M/5M are forbidden.
+
 FORBIDDEN_TIMEFRAMES = {"1m", "2m", "3m", "5m"}
-TF_MACRO = "1d"     # regime / macro bias
-TF_HTF = "4h"       # structure, order blocks, breaker blocks
-TF_MID = "1h"       # confirmation / MTF alignment
-TF_LTF = "15m"      # execution / precision entry timing
+TF_MACRO = "1d"
+TF_HTF = "4h"
+TF_MID = "1h"
+TF_LTF = "15m"
 ALL_TIMEFRAMES = [TF_MACRO, TF_HTF, TF_MID, TF_LTF]
 assert not (set(ALL_TIMEFRAMES) & FORBIDDEN_TIMEFRAMES), "Forbidden timeframe configured"
 
@@ -173,112 +87,70 @@ TF_MS = {"15m": 15 * 60_000, "1h": 60 * 60_000, "4h": 4 * 60 * 60_000, "1d": 24 
 
 SCAN_INTERVAL_MINUTES = 15
 
-# --- Risk / signal-shape hard floors ---
-TP1_RR_MIN = 1.5                 # hard floor, never relaxed
-TP1_RR_SOFT_CEILING = 2.0        # natural upper end of TP1's honest range
-MIN_ENTRY_SL_ATR_FRAC = 0.15     # min |entry-SL| as a fraction of ATR(LTF)
-MIN_ENTRY_TP1_ATR_FRAC = 0.30    # min |entry-TP1| as a fraction of ATR(LTF)
-MAX_PENDING_ENTRY_ATR_MULT = 2.5 # max distance a pending/zone entry may sit from market, in ATRs
-LIQUIDITY_SWEEP_ENTRY_OFFSET_ATR_FRAC = 0.15  # limit offset from market for sweep-reclaim entries;
-                                               # small enough that normal candle noise fills it within
-                                               # a bar or two, instead of waiting for a full retest of
-                                               # the (already-left-behind) reclaim price
-MOMENTUM_STYLE_ENTRY_OFFSET_ATR_FRAC = 0.08   # tighter offset for momentum/breakout/trend/vol-expansion
-                                               # entries. These theses are directional, not mean-reverting
-                                               # -- a wide offset would only get filled on the weak setups
-                                               # that stall and pull back, while the clean, strong moves
-                                               # (the ones actually worth taking) run away unfilled. Kept
-                                               # small enough to just need ordinary intrabar noise, not a
-                                               # real retracement.
 
-# --- Concurrency / breadth ---
+TP1_RR_MIN = 1.5
+TP1_RR_SOFT_CEILING = 2.0
+MIN_ENTRY_SL_ATR_FRAC = 0.15
+MIN_ENTRY_TP1_ATR_FRAC = 0.30
+MAX_PENDING_ENTRY_ATR_MULT = 2.5
+LIQUIDITY_SWEEP_ENTRY_OFFSET_ATR_FRAC = 0.15
+
+
+MOMENTUM_STYLE_ENTRY_OFFSET_ATR_FRAC = 0.08
+
+
 MAX_CONCURRENT_ACTIVE_SIGNALS = 8
 MAX_CONCURRENT_PER_SECTOR = 2
 TARGET_SIGNALS_PER_DAY_MIN = 5
 TARGET_SIGNALS_PER_DAY_MAX = 10
 
-# --- Pending-entry lifecycle ---
-DEFAULT_PENDING_EXPIRY_BARS = {TF_LTF: 12}   # ~3h on 15m bars for zone/limit-style entries
-# v1.2.1: SETUP_PENDING_EXPIRY_BARS (per-setup override of the above) is
-# defined right after the SetupType enum below, since it needs that type.
 
-# v1.2.1: cooldown, in LTF (15m) bars, before a symbol becomes eligible for a
-# new signal again after any active trade on it resolves. Previously there
-# was no cooldown at all -- run_scan() computed "which symbols are active"
-# *after* monitor_all() had already resolved and removed that scan's closed
-# trades, so a symbol stopped out this scan was immediately re-scanned and
-# could receive a brand-new signal in the same pass (visible as a loss
-# notification and a fresh signal on the same symbol at the same timestamp).
-# Longer after a loss than a win: a thesis that just got invalidated deserves
-# more room before being re-tried on the same symbol.
-COOLDOWN_BARS_AFTER_LOSS = 8   # ~2h on 15m bars
-COOLDOWN_BARS_AFTER_WIN = 4    # ~1h on 15m bars
+DEFAULT_PENDING_EXPIRY_BARS = {TF_LTF: 12}
 
-# --- Learning / adaptation bounds ---
-MIN_SAMPLE_SIZE = 20             # per-segment trades required before adapting
-ADAPT_MAX_STEP = 0.08            # max fractional change to any adaptive param per run
-ENGINE_WEIGHT_MIN, ENGINE_WEIGHT_MAX = 0.35, 1.75   # relative to baseline 1.0
+
+COOLDOWN_BARS_AFTER_LOSS = 8
+COOLDOWN_BARS_AFTER_WIN = 4
+
+
+MIN_SAMPLE_SIZE = 20
+ADAPT_MAX_STEP = 0.08
+ENGINE_WEIGHT_MIN, ENGINE_WEIGHT_MAX = 0.35, 1.75
 CONF_CALIBRATION_MIN, CONF_CALIBRATION_MAX = -0.20, 0.20
 FILTER_THRESHOLD_MIN, FILTER_THRESHOLD_MAX = 0.30, 0.95
 
-# Secondary, more conservative quality multipliers (v1.1.0). Kept tighter
-# than ENGINE_WEIGHT bounds since these compound multiplicatively with
-# engine_weight in final_score — wide bounds on every layer would let a
-# signal's score swing far more than any single layer's own trustworthiness
-# justifies at small sample sizes.
+
 CONFLUENCE_QUALITY_MIN, CONFLUENCE_QUALITY_MAX = 0.70, 1.30
 ASSET_QUALITY_MIN, ASSET_QUALITY_MAX = 0.70, 1.30
 
-# Setup-type + direction combination quality (v1.2.0). Wider downside bound
-# than confluence/asset quality on purpose: a specific setup+direction
-# combination that's badly underperforming (e.g. momentum longs) should be
-# suppressible much harder than a single confluence tag or asset, without
-# needing a separate hard-coded gate for it. Upside bound stays modest —
-# this system should be conservative about ever rewarding a combination
-# more than the setup type's own engine_weight already does.
+
 SETUP_DIRECTION_QUALITY_MIN, SETUP_DIRECTION_QUALITY_MAX = 0.40, 1.20
 
-# --- Accelerated decay for severely underperforming segments (v1.2.0) ---
-# The standard ADAPT_MAX_STEP is deliberately conservative so a handful of
-# trades can't yank a weight around. But that same conservatism means a
-# segment sitting far below baseline for many resolved trades in a row
-# converges to its target very slowly (each step is a fraction of the
-# *current* value, so it's a geometric, not linear, approach). When a
-# segment's edge is this bad, "don't overfit to noise" no longer applies —
-# there's enough signal to move faster while still remaining a damped,
-# bounded step rather than a jump straight to target.
-SEVERE_UNDERPERFORM_WR_GAP = 0.15     # win-rate gap below baseline to trigger acceleration
-ACCELERATED_ADAPT_STEP_MULT = 3.0     # multiplier applied to ADAPT_MAX_STEP when triggered
-ACCELERATED_ADAPT_STEP_CAP = 0.30     # hard ceiling on the accelerated step fraction itself
 
-# --- Setup-type-specific filter overrides (v1.2.0) ---
-SETUP_OVERRIDE_WR_GAP = 0.15          # win-rate gap below baseline to warrant its own gate
-SETUP_OVERRIDE_MAX_STEP = 0.05        # damped step size for tightening/relaxing an override
-SETUP_OVERRIDE_MAX_BUMP = 0.20        # max amount an override may sit above the global threshold
+SEVERE_UNDERPERFORM_WR_GAP = 0.15
+ACCELERATED_ADAPT_STEP_MULT = 3.0
+ACCELERATED_ADAPT_STEP_CAP = 0.30
 
-# --- Live baseline auto-update (v1.1.0) ---
-# The circuit breaker and engine-weight expectancy math compare live results
-# against this baseline. It starts at BASELINE_NOTE (a pre-deployment prior)
-# and blends toward realized live performance once there's enough data to
-# trust, using the same damped-step machinery as everything else so it can't
-# jump on a handful of trades.
-BASELINE_MIN_LIVE_TRADES = 40        # total resolved trades before blending starts
-BASELINE_ADAPT_MAX_STEP = 0.05       # slower than parameter adaptation on purpose
 
-# --- Live-performance circuit breaker ---
-CIRCUIT_BREAKER_WINDOW = 30                  # rolling trades
-CIRCUIT_BREAKER_WR_DROP = 0.15               # absolute win-rate drop vs baseline
-CIRCUIT_BREAKER_PF_DROP = 0.35               # relative profit-factor drop vs baseline
+SETUP_OVERRIDE_WR_GAP = 0.15
+SETUP_OVERRIDE_MAX_STEP = 0.05
+SETUP_OVERRIDE_MAX_BUMP = 0.20
 
-# --- Tier-2 raw log retention ---
+
+BASELINE_MIN_LIVE_TRADES = 40
+BASELINE_ADAPT_MAX_STEP = 0.05
+
+
+CIRCUIT_BREAKER_WINDOW = 30
+CIRCUIT_BREAKER_WR_DROP = 0.15
+CIRCUIT_BREAKER_PF_DROP = 0.35
+
+
 TIER2_RETENTION_DAYS = 15
 TIER2_MAX_RECORDS = 1500
 
-# --- Pre-deployment baseline for the circuit breaker ---
-# Conservative institutional-SMC prior; replaced by live stats once enough
-# trades resolve (see StateStore.get_effective_baseline).
+
 BASELINE_NOTE = {
-    "win_rate": 0.46,        # expected win rate at TP1-RR ~1.5-2.0 floor
+    "win_rate": 0.46,
     "profit_factor": 1.35,
     "avg_rr": 1.7,
 }
@@ -295,9 +167,6 @@ logging.basicConfig(
 )
 log = logging.getLogger("odyssey")
 
-# ==============================================================================
-# SECTION B — CORE DATA STRUCTURES
-# ==============================================================================
 
 class Regime(str, Enum):
     BULL_TREND = "bull_trend"
@@ -324,8 +193,6 @@ class SetupType(str, Enum):
     VOLATILITY_EXPANSION = "volatility_expansion"
 
 
-# Regimes each engine is best suited for; feeds the Decision Engine's
-# regime-fit multiplier (never a hard gate).
 ENGINE_REGIME_FIT: Dict[SetupType, List[Regime]] = {
     SetupType.SMC: [Regime.BULL_TREND, Regime.BEAR_TREND, Regime.EXPANSION],
     SetupType.TREND_CONTINUATION: [Regime.BULL_TREND, Regime.BEAR_TREND],
@@ -342,13 +209,7 @@ ENGINE_REGIME_FIT: Dict[SetupType, List[Regime]] = {
     SetupType.VOLATILITY_EXPANSION: [Regime.CONSOLIDATION, Regime.EXPANSION],
 }
 
-# Entry mechanism per engine: fade/reversal setups use "pending" limit entries
-# near market (the small pullback IS the thesis, so no downside to waiting for
-# it). Directional/momentum setups use "market" -- the cleanest, strongest
-# moves in this category don't give back a pullback before running, so a
-# limit offset would systematically filter out the best setups in exchange
-# for a small maker-fee saving. "market" entries fill immediately (skip
-# PendingEntryTracker); "pending" entries wait for price to touch a limit.
+
 ENGINE_ENTRY_KIND: Dict[SetupType, str] = {
     SetupType.SMC: "pending",
     SetupType.TREND_CONTINUATION: "market",
@@ -365,31 +226,23 @@ ENGINE_ENTRY_KIND: Dict[SetupType, str] = {
     SetupType.VOLATILITY_EXPANSION: "market",
 }
 
-# v1.2.1: per-setup pending expiry, in LTF (15m) bars. Replaces the old flat
-# DEFAULT_PENDING_EXPIRY_BARS[TF_LTF] (12 bars / 3h) for every pending setup.
-# That flat window was fine for near-market ATR-fraction offsets but starved
-# structural zone entries -- especially SMC/order-block/breaker-block, whose
-# zones are drawn from 4H (TF_HTF) structure and can legitimately take much
-# longer than 3h to be retested. This only changes how long an entry is given
-# to fill, not how far it's allowed to sit from market (still governed by
-# MAX_PENDING_ENTRY_ATR_MULT).
+
 SETUP_PENDING_EXPIRY_BARS: Dict[SetupType, int] = {
-    # Near-market ATR-fraction offsets -- ordinary intrabar noise fills these
-    # within a bar or two, so the original 3h window is kept as a generous
-    # ceiling rather than a tight one.
-    SetupType.LIQUIDITY_SWEEP: 12,   # ~3h
-    SetupType.MEAN_REVERSION: 12,    # ~3h
-    SetupType.RANGE_TRADING: 12,     # ~3h
-    SetupType.REVERSAL: 12,          # ~3h
-    # LTF-derived structural zone -- moderate allowance.
-    SetupType.FAIR_VALUE_GAP: 16,    # ~4h
-    # Mid-TF (1h) fib retrace -- needs more room than a near-market offset.
-    SetupType.PULLBACK: 32,          # ~8h
-    # HTF (4h) structural zones -- these are the ones that were expiring
-    # unfilled most often under the old flat 3h window.
-    SetupType.ORDER_BLOCK: 48,       # ~12h
-    SetupType.BREAKER_BLOCK: 48,     # ~12h
-    SetupType.SMC: 48,               # ~12h
+
+
+    SetupType.LIQUIDITY_SWEEP: 12,
+    SetupType.MEAN_REVERSION: 12,
+    SetupType.RANGE_TRADING: 12,
+    SetupType.REVERSAL: 12,
+
+    SetupType.FAIR_VALUE_GAP: 16,
+
+    SetupType.PULLBACK: 32,
+
+
+    SetupType.ORDER_BLOCK: 48,
+    SetupType.BREAKER_BLOCK: 48,
+    SetupType.SMC: 48,
 }
 
 
@@ -408,27 +261,25 @@ class Signal:
     """Independent output contract every specialized engine must produce."""
     setup_type: SetupType
     symbol: str
-    direction: str                 # "long" | "short"
+    direction: str
     entry: float
     sl: float
     tp1: float
     tp2: float
-    confidence: float              # 0-1 raw, pre-calibration
+    confidence: float
     rr_tp1: float
     rr_tp2: float
     confluences: List[str]
     regime_at_signal: Regime
-    entry_kind: str                # "market" | "pending"
+    entry_kind: str
     timeframe: str = TF_LTF
     created_ts: int = 0
     entry_filled: bool = False
     pending_bars: int = 0
     pending_expiry_bars: int = 0
     signal_id: str = ""
-    # v1.2.0: the individual terms each engine summed to produce `confidence`
-    # (e.g. {"base": 0.45, "adx_bonus": 0.12}). Logged for later recalibration
-    # of the confidence field against realized outcomes — not read by any
-    # scoring or filtering path today.
+
+
     confidence_components: Dict[str, float] = field(default_factory=dict)
 
     def finalize_id(self):
@@ -440,17 +291,14 @@ class Signal:
 class RankedSignal:
     signal: Signal
     score: float
-    tier: str                      # "A+" | "A" | "B"
+    tier: str
     ev: float
     engine_weight: float
     regime_fit_mult: float
-    confluence_quality_mult: float = 1.0   # v1.1.0
-    asset_quality_mult: float = 1.0        # v1.1.0
-    setup_direction_quality_mult: float = 1.0  # v1.2.0
+    confluence_quality_mult: float = 1.0
+    asset_quality_mult: float = 1.0
+    setup_direction_quality_mult: float = 1.0
 
-# ==============================================================================
-# SECTION C — HTTP / RETRY UTILITIES
-# ==============================================================================
 
 def http_post_json(url: str, payload: dict, timeout: float = 10.0,
                     max_retries: int = 4) -> Optional[dict]:
@@ -499,10 +347,6 @@ def http_get_form(url: str, params: dict, timeout: float = 10.0,
             time.sleep(sleep_s)
     return None
 
-
-# ==============================================================================
-# SECTION D — HYPERLIQUID DATA LAYER
-# ==============================================================================
 
 class HyperliquidClient:
     """Thin client around Hyperliquid's public /info endpoint. Read-only market
@@ -571,9 +415,6 @@ class HyperliquidClient:
         except (TypeError, ValueError):
             return None
 
-# ==============================================================================
-# SECTION E — SHARED INDICATOR LIBRARY (computed once, reused by every engine)
-# ==============================================================================
 
 def to_arrays(candles: List[Candle]) -> Dict[str, np.ndarray]:
     return {
@@ -660,13 +501,9 @@ def swing_points(high: np.ndarray, low: np.ndarray, window: int = 3):
     return is_high, is_low
 
 
-# ==============================================================================
-# SECTION F — SMC PRIMITIVES (structure, order blocks, breakers, FVGs, liquidity)
-# ==============================================================================
-
 @dataclass
 class StructureState:
-    bias: str                     # "bullish" | "bearish" | "neutral"
+    bias: str
     last_bos_idx: int
     last_choch_idx: int
     last_swing_high: float
@@ -701,8 +538,7 @@ def detect_structure(arr: Dict[str, np.ndarray], window: int = 3) -> StructureSt
         elif lower_highs and lower_lows:
             bias = "bearish"
 
-        # BOS: close breaks beyond the last confirmed swing in trend direction.
-        # CHoCH: close breaks the last swing against the prevailing bias.
+
         for i in range(swing_high_idxs[-1], len(close)):
             if close[i] > last_sh:
                 if bias == "bullish":
@@ -723,8 +559,8 @@ def detect_structure(arr: Dict[str, np.ndarray], window: int = 3) -> StructureSt
 
 @dataclass
 class Zone:
-    kind: str            # "order_block" | "breaker_block" | "fvg"
-    direction: str        # "bullish" | "bearish"
+    kind: str
+    direction: str
     top: float
     bottom: float
     idx: int
@@ -799,7 +635,7 @@ def _mark_mitigation(zones: List[Zone], close: np.ndarray, start_idx: int):
 @dataclass
 class LiquidityPool:
     level: float
-    kind: str   # "buy_side" (above, resting sell-stops/shorts) | "sell_side" (below)
+    kind: str
     idx: int
     swept: bool = False
 
@@ -837,9 +673,6 @@ def premium_discount_zone(high: np.ndarray, low: np.ndarray, lookback: int = 50)
     eq = (rng_high + rng_low) / 2.0
     return rng_low, eq, rng_high
 
-# ==============================================================================
-# SECTION G — REGIME DETECTION
-# ==============================================================================
 
 def detect_regime(macro_arr: Dict[str, np.ndarray], htf_arr: Dict[str, np.ndarray]) -> Tuple[Regime, Dict[str, float]]:
     close_h, high_h, low_h = htf_arr["close"], htf_arr["high"], htf_arr["low"]
@@ -880,10 +713,6 @@ def session_window(ts_ms: int) -> str:
         return "london"
     return "ny"
 
-
-# ==============================================================================
-# SECTION H — RISK MANAGEMENT / ENTRY VALIDATION
-# ==============================================================================
 
 class RejectReason(str, Enum):
     RR_BELOW_FLOOR = "rr_below_floor"
@@ -938,9 +767,9 @@ def liquidity_sanity_check(sig: Signal, pools: List[LiquidityPool], atr_ltf: flo
         if p.swept:
             continue
         if abs(sig.entry - p.level) < near_thresh:
-            # Entry stacked into unmitigated opposing liquidity is a likely
-            # trap; heavy discount rather than an automatic zero.
-            if (sig.direction == "long" and p.kind == "sell_side") or \
+
+
+            if (sig.direction == "long" and p.kind == "sell_side") or\
                (sig.direction == "short" and p.kind == "buy_side"):
                 return 0.35
             return 0.75
@@ -961,11 +790,8 @@ def build_sl_tp_from_structure(direction: str, entry: float, structural_stop: fl
         sl = structural_stop
         tp1_floor = entry + TP1_RR_MIN * risk
         if target_pool is not None and target_pool > entry:
-            # Buffer applied to the risk-distance (not the absolute price) so a
-            # 15% allowance stays a 15% allowance regardless of how large entry
-            # is relative to risk. Previously `tp1_ceiling * 1.15` scaled the
-            # whole price, letting TP1 run out to whatever pool existed with
-            # almost no effective cap -> could end up past TP2.
+
+
             tp1_cap = entry + TP1_RR_SOFT_CEILING * risk * 1.15
             tp1 = min(max(target_pool, tp1_floor), tp1_cap)
             tp1 = max(tp1, tp1_floor)
@@ -977,12 +803,8 @@ def build_sl_tp_from_structure(direction: str, entry: float, structural_stop: fl
         sl = structural_stop
         tp1_floor = entry - TP1_RR_MIN * risk
         if target_pool is not None and target_pool < entry:
-            # Mirrors the long-side fix: buffer applied to the risk-distance,
-            # not the absolute price. Previously `tp1_ceiling * 1.15` scaled
-            # the whole price, which for short signals pushed the "cap" far
-            # above entry and caused the final `min(tp1, tp1_floor)` to almost
-            # always clamp TP1 back to the bare 1.5R floor -- silently
-            # discarding a valid, farther liquidity-pool target.
+
+
             tp1_cap = entry - TP1_RR_SOFT_CEILING * risk * 1.15
             tp1 = max(min(target_pool, tp1_floor), tp1_cap)
             tp1 = min(tp1, tp1_floor)
@@ -1002,9 +824,6 @@ def compute_rr(direction: str, entry: float, sl: float, tp1: float, tp2: float) 
     rr2 = abs(tp2 - entry) / risk
     return rr1, rr2
 
-# ==============================================================================
-# SECTION I — MARKET CONTEXT (shared computation across all specialized engines)
-# ==============================================================================
 
 @dataclass
 class MarketContext:
@@ -1094,12 +913,8 @@ def _mk_signal(setup: SetupType, ctx: MarketContext, direction: str, entry: floa
     return sig
 
 
-# ==============================================================================
-# SECTION J — SPECIALIZED ENGINES
-# ==============================================================================
-
 class BaseEngine:
-    setup_type: SetupType = None  # type: ignore
+    setup_type: SetupType = None
 
     def generate(self, ctx: MarketContext) -> List[Signal]:
         raise NotImplementedError
@@ -1259,28 +1074,19 @@ class LiquiditySweepEngine(BaseEngine):
             return out
         pool = recent_pools[-1]
         direction = "long" if pool.kind == "sell_side" else "short"
-        # Limit entry offset slightly off market rather than the exact reclaim
-        # price: the reclaim price is already left behind by the time the
-        # signal fires, so waiting for a full retest rarely fills. Placing the
-        # limit a small ATR-fraction to the *favorable* side of market keeps
-        # this a passive (maker-fee) order while only needing ordinary
-        # candle-to-candle noise to fill it within a bar or two.
+
+
         offset = LIQUIDITY_SWEEP_ENTRY_OFFSET_ATR_FRAC * float(ctx.atr_ltf[-1])
         entry = ctx.price - offset if direction == "long" else ctx.price + offset
         stop = pool.level * 0.997 if direction == "long" else pool.level * 1.003
         confluences = ["liquidity_sweep_reclaim", f"{pool.kind}_pool_swept"]
         components = {"base": 0.55}
         confidence = 0.55
-        # Forensic review of the chased_a_swept_liquidity_pool loss tag showed the
-        # failure mode is concentrated in sweeps taken against the prevailing HTF
-        # bias (10 of 12 such losses were shorts fired into an uptrend) — the
-        # reclaim looked like a reversal but was actually continuation resuming.
-        # Penalize (not hard-gate, since countertrend sweeps at genuine range
-        # extremes are still a valid setup) counter-trend entries, and reward
-        # ones that agree with HTF bias.
-        counter_trend = (direction == "long" and ctx.structure_htf.bias == "bearish") or \
+
+
+        counter_trend = (direction == "long" and ctx.structure_htf.bias == "bearish") or\
                         (direction == "short" and ctx.structure_htf.bias == "bullish")
-        aligned = (direction == "long" and ctx.structure_htf.bias == "bullish") or \
+        aligned = (direction == "long" and ctx.structure_htf.bias == "bullish") or\
                   (direction == "short" and ctx.structure_htf.bias == "bearish")
         if counter_trend:
             confidence -= 0.08
@@ -1420,16 +1226,16 @@ class ReversalEngine(BaseEngine):
         confluences = ["mid_tf_choch", "rsi_exhaustion"]
         components = {"base": 0.48}
         confidence = 0.48
-        # Deeper RSI exhaustion beyond the 35/65 trigger is a stronger case for
-        # reversal, not just a binary yes/no
+
+
         rsi_extremity = (35 - r) if direction == "long" else (r - 65)
         extremity_bonus = min(max(rsi_extremity, 0.0) / 100, 0.12)
         if extremity_bonus > 0:
             confidence += extremity_bonus
             components["rsi_extremity_bonus"] = extremity_bonus
             confluences.append("deep_rsi_exhaustion")
-        # HTF bias alignment: a mid-TF CHoCH reversal that also matches the
-        # higher-timeframe bias is better supported than one fighting it
+
+
         htf_dir = "long" if ctx.structure_htf.bias == "bullish" else (
             "short" if ctx.structure_htf.bias == "bearish" else None)
         if htf_dir == direction:
@@ -1469,15 +1275,15 @@ class MeanReversionEngine(BaseEngine):
         confluences = ["bollinger_band_extreme", "ranging_regime"]
         components = {"base": 0.45}
         confidence = 0.45
-        # A deeper close-beyond-band extreme is a more stretched (and historically
-        # more mean-reversion-prone) read than a marginal band touch
+
+
         penetration_bonus = min(max(band_penetration, 0.0) * 0.1, 0.15)
         if penetration_bonus > 0:
             confidence += penetration_bonus
             components["band_penetration_bonus"] = penetration_bonus
             confluences.append("deep_band_penetration")
-        # Low ADX confirms the market is genuinely range-bound rather than just
-        # carrying the regime label
+
+
         if ctx.adx_ltf[-1] < 20:
             confidence += 0.1
             components["low_adx_range_confirmed"] = 0.1
@@ -1514,16 +1320,16 @@ class RangeTradingEngine(BaseEngine):
         confluences = ["range_extreme_fade", "confirmed_horizontal_range"]
         components = {"base": 0.47}
         confidence = 0.47
-        # Reward proximity to the actual extreme, not just being anywhere inside
-        # the 15% edge zone
+
+
         edge_dist_frac = ((rng_high - ctx.price) / band) if near_top else ((ctx.price - rng_low) / band)
         proximity_bonus = max((0.15 - edge_dist_frac) / 0.15, 0.0) * 0.1
         if proximity_bonus > 0:
             confidence += proximity_bonus
             components["extreme_proximity_bonus"] = proximity_bonus
             confluences.append("tight_range_extreme")
-        # Low ADX confirms the market is genuinely range-bound rather than just
-        # carrying the regime label
+
+
         if ctx.adx_ltf[-1] < 20:
             confidence += 0.1
             components["low_adx_range_confirmed"] = 0.1
@@ -1569,9 +1375,6 @@ ALL_ENGINES: List[BaseEngine] = [
     VolatilityExpansionEngine(),
 ]
 
-# ==============================================================================
-# SECTION K — STATE STORE (Tier 1 aggregates + Tier 2 raw log)
-# ==============================================================================
 
 def _default_segment_stat() -> dict:
     return {"n": 0, "wins": 0, "losses": 0, "sum_r": 0.0, "sum_conf": 0.0, "sum_conf_correct": 0.0}
@@ -1582,46 +1385,42 @@ def _default_state() -> dict:
         "schema_version": 3,
         "engine_name": ENGINE_NAME,
         "engine_version": ENGINE_VERSION,
-        # Tier 1 — permanent, incrementally-updated aggregates. Never rebuilt
-        # by rescanning Tier 2; this is the sole source auto-tuning reads/writes.
+
+
         "tier1": {
             "engine_weights": {e.setup_type.value: 1.0 for e in ALL_ENGINES},
             "confidence_calibration": {e.setup_type.value: 0.0 for e in ALL_ENGINES},
-            "confluence_quality": {},  # tag -> learned multiplier, default 1.0 (v1.1.0)
-            "asset_quality": {},       # symbol -> learned multiplier, default 1.0 (v1.1.0)
-            "setup_direction_quality": {},  # v1.2.0: "{setup_type}|{direction}" -> learned multiplier, default 1.0
+            "confluence_quality": {},
+            "asset_quality": {},
+            "setup_direction_quality": {},
             "filter_thresholds": {
                 "min_confidence": 0.55,
                 "min_score": 0.55,
-                # v1.2.0: setup_type -> {"min_confidence": x, "min_score": y} overrides,
-                # layered on top of the global thresholds above for setup types whose
-                # realized win rate is materially below baseline. Populated/adapted by
-                # update_setup_overrides(); seeded for momentum since it's the known
-                # worst-performing setup type at 20.6% WR / 57% of volume as of the
-                # v1.2.0 upgrade.
+
+
                 "setup_overrides": {
                     SetupType.MOMENTUM.value: {"min_confidence": 0.68, "min_score": 0.65},
                 },
             },
             "segment_stats": {
                 "by_asset": {}, "by_regime": {}, "by_timeframe": {}, "by_engine": {},
-                "by_confluence": {},  # v1.1.0
-                "by_direction": {},           # v1.2.0
-                "by_setup_direction": {},     # v1.2.0: "{setup_type}|{direction}"
+                "by_confluence": {},
+                "by_direction": {},
+                "by_setup_direction": {},
             },
-            "filter_funnel": {},  # stage_name -> {"seen": n, "rejected": n}
+            "filter_funnel": {},
             "circuit_breaker": {"tripped": False, "tripped_at": None, "reason": None},
-            "rolling_live_trades": [],   # list of {"r": float, "win": bool} capped to CIRCUIT_BREAKER_WINDOW*3
+            "rolling_live_trades": [],
             "active_baseline": dict(BASELINE_NOTE),
             "last_daily_summary_date": None,
         },
-        # Tier 2 — bounded, prunable raw trade log used for forensic review.
-        # Safe to prune on a schedule without affecting Tier 1 / learned behavior.
+
+
         "tier2_trade_log": [],
         "pending_signals": [],
         "active_signals": [],
-        # v1.2.1: symbol -> epoch-ms timestamp until which new signals on
-        # that symbol are suppressed. Set whenever a trade resolves.
+
+
         "symbol_cooldowns": {},
         "last_run_ts": None,
     }
@@ -1667,7 +1466,6 @@ class StateStore:
                 except OSError:
                     pass
 
-    # --- Symbol cooldown (v1.2.1) -----------------------------------------
 
     def cooldown_until(self, symbol: str) -> int:
         """Epoch-ms timestamp until which `symbol` is excluded from new
@@ -1677,7 +1475,6 @@ class StateStore:
     def set_cooldown(self, symbol: str, until_ts: int):
         self.data.setdefault("symbol_cooldowns", {})[symbol] = until_ts
 
-    # --- Tier 1 accessors -----------------------------------------------
 
     def engine_weight(self, setup_type: SetupType) -> float:
         return self.data["tier1"]["engine_weights"].get(setup_type.value, 1.0)
@@ -1724,7 +1521,6 @@ class StateStore:
         if rejected:
             entry["rejected"] += 1
 
-    # --- Segment stats (Tier 1, incremental) ------------------------------
 
     def _segment(self, bucket: str, key: str) -> dict:
         b = self.data["tier1"]["segment_stats"][bucket]
@@ -1749,10 +1545,7 @@ class StateStore:
             seg["sum_conf"] += confidence
             seg["sum_conf_correct"] += 1 if confidence_correct else 0
 
-        # v1.1.0: same treatment, one bucket per distinct confluence tag that
-        # fired on this signal. A signal with 3 tags contributes once to each
-        # of those 3 tags' stats — deliberately mirrors how by_asset/by_regime
-        # already work (the trade "belongs" to every segment it touches).
+
         for tag in set(confluences or []):
             seg = self._segment("by_confluence", tag)
             seg["n"] += 1
@@ -1762,11 +1555,7 @@ class StateStore:
             seg["sum_conf"] += confidence
             seg["sum_conf_correct"] += 1 if confidence_correct else 0
 
-        # v1.2.0: setup_type + direction combination, e.g. "momentum|long".
-        # Lets the learning system suppress a specific bad combination (a
-        # setup type that's fine in one direction but poor in the other)
-        # instead of only ever being able to act on setup type or direction
-        # in isolation.
+
         if direction:
             seg = self._segment("by_setup_direction", _setup_direction_key(engine, direction))
             seg["n"] += 1
@@ -1807,12 +1596,6 @@ def _deep_merge_defaults(data: dict, defaults: dict):
             _deep_merge_defaults(data[k], v)
 
 
-# Tightened filter-threshold floor introduced in the v1.2.0 upgrade. A
-# one-time migration (schema_version < 3) raises any existing deployment's
-# thresholds up to this floor — never down — so a live engine that had
-# drifted or been adapted down to permissive values (e.g. min_confidence
-# 0.3) picks up the correction immediately rather than waiting for
-# update_filter_thresholds() to slowly climb back up.
 SCHEMA_V3_THRESHOLD_FLOOR = {"min_confidence": 0.55, "min_score": 0.55}
 
 
@@ -1836,9 +1619,6 @@ def _migrate_schema(data: dict):
                   "seeded momentum setup_override.", SCHEMA_V3_THRESHOLD_FLOOR)
         data["schema_version"] = 3
 
-# ==============================================================================
-# SECTION L — FORENSIC TAGGING
-# ==============================================================================
 
 def forensic_tag(outcome: str, sig: Signal, r_realized: float, mae_r: float) -> str:
     """Concrete, specific reason a trade won or lost — feeds the learning
@@ -1866,10 +1646,6 @@ def forensic_tag(outcome: str, sig: Signal, r_realized: float, mae_r: float) -> 
         return "chased_a_swept_liquidity_pool" if any("sweep" in c for c in sig.confluences) else "correct_read_poor_rr"
     return "expired_no_fill"
 
-
-# ==============================================================================
-# SECTION M — CONTINUOUS LEARNING / ADAPTIVE PARAMETER UPDATES
-# ==============================================================================
 
 def _damped_step(old: float, target: float, max_step_frac: float, lo: float, hi: float) -> float:
     """Exponential-smoothing-style bounded update: blends toward `target` by at
@@ -2022,14 +1798,14 @@ def update_setup_overrides(store: StateStore):
         old_score = existing.get("min_score", global_min_score)
 
         if wr_gap >= SETUP_OVERRIDE_WR_GAP:
-            # Scale the bump with how bad the gap is, capped so a single
-            # setup type can never be gated into practical non-existence.
+
+
             bump = min(SETUP_OVERRIDE_MAX_BUMP, wr_gap)
             target_conf = min(global_min_conf + bump, FILTER_THRESHOLD_MAX)
             target_score = min(global_min_score + bump, FILTER_THRESHOLD_MAX)
         else:
-            # Recovered (or never was bad) -> relax back toward the global
-            # threshold, never below it.
+
+
             target_conf = global_min_conf
             target_score = global_min_score
 
@@ -2060,7 +1836,7 @@ def update_baseline_from_live(store: StateStore):
     total_r = sum(s["sum_r"] for s in by_engine.values())
     total_losses = total_n - total_wins
     live_win_rate = total_wins / total_n
-    # Recover average winning-trade R from the aggregate: sum_r = wins*avg_win_r - losses*1.0
+
     live_avg_rr = ((total_r + total_losses) / total_wins) if total_wins > 0 else BASELINE_NOTE["avg_rr"]
 
     rolling = store.data["tier1"]["rolling_live_trades"]
@@ -2093,12 +1869,12 @@ def update_filter_thresholds(store: StateStore):
         attrition = conf_stage["rejected"] / conf_stage["seen"]
         old = thresholds.get("min_confidence", 0.55)
         if realized_wr <= baseline_wr:
-            target = old + 0.05    # quality at/below baseline -> tighten the gate, regardless
-                                    # of attrition; this is the case that most needs a stricter
-                                    # filter, not a looser one
+            target = old + 0.05
+
+
         elif attrition > 0.6 and realized_wr >= baseline_wr + 0.05:
-            target = old - 0.03    # filter is over-rejecting even though the signals that DO
-                                    # pass are already meeting/beating baseline -> safe to relax
+            target = old - 0.03
+
         else:
             target = old
         thresholds["min_confidence"] = _damped_step(old, target, ADAPT_MAX_STEP, FILTER_THRESHOLD_MIN, FILTER_THRESHOLD_MAX)
@@ -2109,7 +1885,7 @@ def evaluate_circuit_breaker(store: StateStore, telegram: "TelegramNotifier"):
     rolling = store.data["tier1"]["rolling_live_trades"][-CIRCUIT_BREAKER_WINDOW:]
     cb = store.data["tier1"]["circuit_breaker"]
     if len(rolling) < CIRCUIT_BREAKER_WINDOW:
-        return  # not statistically meaningful yet — same min-sample-size rule
+        return
 
     wins = sum(1 for t in rolling if t["win"])
     win_rate = wins / len(rolling)
@@ -2154,20 +1930,17 @@ def run_learning_cycle(store: StateStore, telegram: "TelegramNotifier"):
     if store.is_circuit_breaker_tripped():
         log.info("Circuit breaker tripped — skipping all adaptive updates this run.")
         return
-    update_baseline_from_live(store)      # v1.1.0 — do this first so today's
-                                           # weight/calibration/threshold math
-                                           # below reads the freshest baseline
+    update_baseline_from_live(store)
+
+
     update_engine_weights(store)
     update_confidence_calibration(store)
-    update_confluence_quality(store)      # v1.1.0
-    update_asset_quality(store)           # v1.1.0
-    update_setup_direction_quality(store) # v1.2.0
+    update_confluence_quality(store)
+    update_asset_quality(store)
+    update_setup_direction_quality(store)
     update_filter_thresholds(store)
-    update_setup_overrides(store)         # v1.2.0
+    update_setup_overrides(store)
 
-# ==============================================================================
-# SECTION N — DECISION ENGINE
-# ==============================================================================
 
 class DecisionEngine:
     def __init__(self, store: StateStore):
@@ -2176,7 +1949,7 @@ class DecisionEngine:
     def score_signal(self, sig: Signal, ctx: MarketContext) -> Optional[RankedSignal]:
         store = self.store
 
-        # Hard invalidation gates.
+
         atr_ltf = float(ctx.atr_ltf[-1])
         shape = validate_signal_shape(sig, ctx.price, atr_ltf)
         store.log_filter_funnel("shape_validation", rejected=not shape.ok)
@@ -2188,7 +1961,7 @@ class DecisionEngine:
         if liq_mult <= 0.35:
             return None
 
-        # Regime-fit: a strong multiplier, never a hard gate.
+
         best_regimes = ENGINE_REGIME_FIT.get(sig.setup_type, [])
         regime_fit_mult = 1.0 if ctx.regime in best_regimes else 0.55
 
@@ -2196,21 +1969,17 @@ class DecisionEngine:
         calibration = store.confidence_calibration(sig.setup_type)
         calibrated_conf = max(0.01, min(0.99, sig.confidence + calibration))
 
-        # v1.2.0: setup-type-specific override, layered on top of (never
-        # below) the global gate. This is what lets a materially
-        # underperforming setup type like momentum get filtered harder
-        # without a global threshold bump also cutting into a strong
-        # performer like liquidity_sweep.
+
         min_conf = store.filter_threshold_for_setup(sig.setup_type.value, "min_confidence", 0.55)
         store.log_filter_funnel("min_confidence", rejected=calibrated_conf < min_conf)
         if calibrated_conf < min_conf:
             return None
 
-        confluence_bonus = min(len(sig.confluences) * 0.03, 0.15)  # additive, not an AND-gate
+        confluence_bonus = min(len(sig.confluences) * 0.03, 0.15)
         rr_quality = min((sig.rr_tp1 - TP1_RR_MIN) / (TP1_RR_SOFT_CEILING - TP1_RR_MIN + 1e-9), 1.0)
         rr_quality = max(rr_quality, 0.0)
 
-        ev = calibrated_conf * sig.rr_tp1 - (1 - calibrated_conf) * 1.0  # EV in R, loss = -1R
+        ev = calibrated_conf * sig.rr_tp1 - (1 - calibrated_conf) * 1.0
 
         raw_score = (
             0.30 * calibrated_conf +
@@ -2221,14 +1990,7 @@ class DecisionEngine:
             0.10 * min(max(ev, -1.0), 2.0) / 2.0
         )
 
-        # v1.1.0: confluence_bonus above only ever rewarded *how many* tags a
-        # signal had, never *which* ones — the engine had no way to learn that
-        # e.g. a liquidity-sweep tag has actually been a better predictor than
-        # a generic momentum tag. These two multipliers close that gap using
-        # the same per-segment win-rate/avg-R learning as engine_weight,
-        # applied to confluence tags and to the traded asset itself. Tags/
-        # assets with no data yet default to a neutral 1.0 (no free bonus,
-        # no unearned penalty).
+
         conf_tags = set(sig.confluences)
         confluence_quality_mult = (
             sum(store.confluence_quality(t) for t in conf_tags) / len(conf_tags)
@@ -2236,9 +1998,7 @@ class DecisionEngine:
         )
         asset_quality_mult = store.asset_quality(sig.symbol)
 
-        # v1.2.0: learned quality of this exact setup_type+direction
-        # combination (e.g. "momentum|long"), independent of the setup
-        # type's own engine_weight — see update_setup_direction_quality().
+
         setup_direction_quality_mult = store.setup_direction_quality(sig.setup_type.value, sig.direction)
 
         final_score = (raw_score * engine_weight * confluence_quality_mult *
@@ -2285,14 +2045,6 @@ class DecisionEngine:
 
         return selected
 
-# ==============================================================================
-# SECTION O — TRADE LIFECYCLE
-# ==============================================================================
-#
-# Evaluation order: entry fill is checked before any SL/TP evaluation. If a
-# single candle contains both SL and TP1, the one closer to that candle's
-# open is assumed reached first, instead of defaulting to "SL always wins."
-# ==============================================================================
 
 class TradeLifecycleManager:
     def __init__(self, client: HyperliquidClient, store: StateStore, telegram: "TelegramNotifier"):
@@ -2322,7 +2074,7 @@ class TradeLifecycleManager:
             outcome = self._monitor_one(rec)
             if outcome is None:
                 still_active.append(rec)
-            # else: resolved, dropped from active_signals, recorded to state.
+
         self.store.data["active_signals"] = still_active
 
     def _monitor_one(self, rec: dict) -> Optional[str]:
@@ -2348,7 +2100,7 @@ class TradeLifecycleManager:
                     continue
                 rec["entry_filled"] = True
                 rec["fill_ts"] = c.ts
-                # fall through: this same candle may still register SL/TP.
+
 
             hit_sl = (c.low <= sl) if direction == "long" else (c.high >= sl)
             hit_tp1 = (c.high >= tp1) if direction == "long" else (c.low <= tp1)
@@ -2362,13 +2114,13 @@ class TradeLifecycleManager:
                 tp1_first = False
 
             if rec["tp1_hit"]:
-                # Original SL never moves — still checked as-is.
+
                 if hit_tp2:
                     self._resolve_win(rec, r_realized=self._rr(direction, entry, sl, tp2), reason="tp2_hit")
                     return "tp2"
                 if hit_sl:
-                    # TP1 already secured, later returns to original SL -> WIN,
-                    # credited at TP1's realized R.
+
+
                     self._resolve_win(rec, r_realized=rec["tp1_r"], reason="tp1_then_sl_still_win")
                     return "sl_after_tp1"
                 mfe_now = self._rr(direction, entry, sl, c.high if direction == "long" else c.low)
@@ -2414,10 +2166,8 @@ class TradeLifecycleManager:
                             r_realized, rec["mae_r"])
         self._commit_resolution(rec, "win", r_realized, tag)
         self._apply_cooldown(rec, COOLDOWN_BARS_AFTER_WIN)
-        # v1.2.2: TP1 was already reported via send_status_update when it hit.
-        # SL later returning to breakeven-locked risk doesn't change the
-        # outcome (still a win, still fully counted in stats/cooldown above)
-        # and isn't actionable, so skip the redundant resolution ping for it.
+
+
         if reason != "tp1_then_sl_still_win":
             self.telegram.send_resolution(rec, "WIN", r_realized, reason)
 
@@ -2443,9 +2193,7 @@ class TradeLifecycleManager:
         rec["status"] = "expired_no_fill"
         rec["resolved_ts"] = rec["last_checked_ts"]
         self.store.append_tier2({**rec, "outcome": "expired_no_fill", "forensic_tag": "no_fill_expired"})
-        # v1.2.2: no telegram ping for silent-fail expiries -- not
-        # actionable, since there was never a position. Still resolved and
-        # logged to tier2 for forensic review; just not sent to chat.
+
 
     def _commit_resolution(self, rec: dict, outcome: str, r_realized: float, forensic: str):
         rec["resolved_ts"] = rec["last_checked_ts"]
@@ -2458,9 +2206,6 @@ class TradeLifecycleManager:
         )
         self.store.append_tier2({**rec, "outcome": outcome, "r_realized": r_realized, "forensic_tag": forensic})
 
-# ==============================================================================
-# SECTION P — TELEGRAM INTEGRATION
-# ==============================================================================
 
 _ACRONYMS = {"htf", "ltf", "mtf", "tf", "rsi", "adx", "fvg", "ob", "bos", "tp", "sl", "ema"}
 
@@ -2502,9 +2247,8 @@ class TelegramNotifier:
 
     @staticmethod
     def _price_line(label: str, value: float) -> str:
-        # Bare number only inside the monospace span; label stays outside so a
-        # single tap copies exactly that number. Precision scales with price
-        # magnitude: fewer decimals for BTC-sized prices, more for sub-$1 alts.
+
+
         if not value:
             formatted = "0"
         else:
@@ -2559,9 +2303,8 @@ class TelegramNotifier:
         self.send(text, reply_to=rec.get("telegram_message_id"))
 
     def send_expired(self, rec: dict):
-        # v1.2.2: kept for reference / easy re-enabling, but no longer
-        # called by _resolve_expired -- expired (never-filled) signals now
-        # resolve silently with no telegram notification.
+
+
         text = (
             f"*{rec['symbol']} — EXPIRED (no fill)*\n"
             f"Never filled within {rec.get('pending_expiry_bars', 0)} bars. Cancelled, excluded from stats."
@@ -2622,9 +2365,6 @@ class TelegramNotifier:
         )
         self.send(text)
 
-# ==============================================================================
-# SECTION Q — MAIN ORCHESTRATION
-# ==============================================================================
 
 def _current_active_sector_counts(store: StateStore) -> Dict[str, int]:
     counts: Dict[str, int] = {}
@@ -2642,11 +2382,10 @@ def run_scan(store: StateStore, client: HyperliquidClient, decision: DecisionEng
              lifecycle: TradeLifecycleManager):
     log.info("=== %s %s — scan start ===", ENGINE_NAME, ENGINE_VERSION)
 
-    # 1. Resolve/monitor everything already in flight first, so this run's
-    #    learning update reflects trades that just closed.
+
     lifecycle.monitor_all()
 
-    # 2. Generate + rank fresh candidates across the full watchlist.
+
     active_syms = _active_symbols(store)
     sector_counts = _current_active_sector_counts(store)
     all_ranked: List[RankedSignal] = []
@@ -2654,13 +2393,9 @@ def run_scan(store: StateStore, client: HyperliquidClient, decision: DecisionEng
 
     for symbol in WATCHLIST:
         if symbol in active_syms:
-            continue  # avoid duplicate concurrent exposure on the same asset
-        # v1.2.1: also skip symbols whose trade resolved recently (cooldown
-        # set in TradeLifecycleManager._apply_cooldown). This is what
-        # actually prevents a stop-out from being immediately followed by a
-        # fresh signal on the same symbol -- active_syms alone isn't enough,
-        # since monitor_all() above already freed this symbol from
-        # active_signals before we got here.
+            continue
+
+
         if store.cooldown_until(symbol) > now_ms:
             continue
         try:
@@ -2689,7 +2424,7 @@ def run_scan(store: StateStore, client: HyperliquidClient, decision: DecisionEng
     else:
         log.info("No qualifying candidates this scan — producing nothing is correct.")
 
-    # 3. Learning cycle + persistence.
+
     telegram = lifecycle.telegram
     run_learning_cycle(store, telegram)
     store.prune_tier2()
