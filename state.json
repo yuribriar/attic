@@ -344,16 +344,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 3601,
-        "rejected": 1624
+        "seen": 3657,
+        "rejected": 1640
       },
       "liquidity_sanity": {
-        "seen": 1977,
+        "seen": 2017,
         "rejected": 50
       },
       "min_confidence": {
-        "seen": 1927,
-        "rejected": 1808
+        "seen": 1967,
+        "rejected": 1848
       },
       "min_score": {
         "seen": 119,
@@ -2223,5 +2223,5 @@
     "APT": 1784528100000,
     "AAVE": 1784544300000
   },
-  "last_run_ts": 1784547061560
+  "last_run_ts": 1784547958390
 }
