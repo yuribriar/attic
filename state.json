@@ -304,16 +304,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 2983,
-        "rejected": 1368
+        "seen": 3014,
+        "rejected": 1381
       },
       "liquidity_sanity": {
-        "seen": 1615,
+        "seen": 1633,
         "rejected": 48
       },
       "min_confidence": {
-        "seen": 1567,
-        "rejected": 1452
+        "seen": 1585,
+        "rejected": 1470
       },
       "min_score": {
         "seen": 115,
@@ -1897,7 +1897,7 @@
       "tp1_r": 2.299999999999996,
       "mae_r": -0.7798932073437667,
       "mfe_r": 2.5973084254731416,
-      "last_checked_ts": 1784528100000,
+      "last_checked_ts": 1784529000000,
       "bars_pending": 12,
       "telegram_message_id": 3973,
       "fill_ts": 1784491200000
@@ -1974,8 +1974,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784528100000,
-      "bars_pending": 4,
+      "last_checked_ts": 1784529000000,
+      "bars_pending": 5,
       "telegram_message_id": 4016
     },
     {
@@ -1997,7 +1997,7 @@
       "entry_kind": "pending",
       "timeframe": "15m",
       "created_ts": 1784524674772,
-      "entry_filled": false,
+      "entry_filled": true,
       "pending_bars": 0,
       "pending_expiry_bars": 12,
       "signal_id": "2330f0bfba7d",
@@ -2009,11 +2009,12 @@
       "status": "pending",
       "tp1_hit": false,
       "tp1_r": null,
-      "mae_r": 0.0,
-      "mfe_r": 0.0,
-      "last_checked_ts": 1784527200000,
-      "bars_pending": 3,
-      "telegram_message_id": 4017
+      "mae_r": -0.1954991763810039,
+      "mfe_r": 0.4299390247213398,
+      "last_checked_ts": 1784529000000,
+      "bars_pending": 4,
+      "telegram_message_id": 4017,
+      "fill_ts": 1784528100000
     },
     {
       "setup_type": "liquidity_sweep",
@@ -2086,8 +2087,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784527200000,
-      "bars_pending": 1,
+      "last_checked_ts": 1784529000000,
+      "bars_pending": 3,
       "telegram_message_id": 4021
     }
   ],
@@ -2105,5 +2106,5 @@
     "BTC": 1784513700000,
     "APT": 1784528100000
   },
-  "last_run_ts": 1784528144184
+  "last_run_ts": 1784529052044
 }
