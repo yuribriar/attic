@@ -37,7 +37,7 @@
     "asset_quality": {},
     "setup_direction_quality": {},
     "filter_thresholds": {
-      "min_confidence": 0.46552,
+      "min_confidence": 0.4282784,
       "min_score": 0.55,
       "setup_overrides": {
         "momentum": {
@@ -344,20 +344,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 4055,
-        "rejected": 1809
+        "seen": 4104,
+        "rejected": 1834
       },
       "liquidity_sanity": {
-        "seen": 2246,
-        "rejected": 53
+        "seen": 2270,
+        "rejected": 54
       },
       "min_confidence": {
-        "seen": 2193,
-        "rejected": 2070
+        "seen": 2216,
+        "rejected": 2082
       },
       "min_score": {
-        "seen": 123,
-        "rejected": 38
+        "seen": 134,
+        "rejected": 45
       }
     },
     "circuit_breaker": {
@@ -2260,7 +2260,119 @@
     }
   ],
   "pending_signals": [],
-  "active_signals": [],
+  "active_signals": [
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "ZEC",
+      "direction": "short",
+      "entry": 538.6526153582591,
+      "sl": 541.85069,
+      "tp1": 531.2970436822552,
+      "tp2": 524.24,
+      "confidence": 0.55,
+      "rr_tp1": 2.2999999999999963,
+      "rr_tp2": 4.5066538379522445,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "buy_side_pool_swept"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784560531506,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "ce853ca8feec",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "A",
+      "score": 0.7157499999999999,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784560531506,
+      "bars_pending": 0,
+      "telegram_message_id": 4061
+    },
+    {
+      "setup_type": "fair_value_gap",
+      "symbol": "PENDLE",
+      "direction": "long",
+      "entry": 1.5987,
+      "sl": 1.5952144638232948,
+      "tp1": 1.606716733206422,
+      "tp2": 1.6182,
+      "confidence": 0.5,
+      "rr_tp1": 2.3000000000000127,
+      "rr_tp2": 5.594548158852533,
+      "confluences": [
+        "unmitigated_fvg",
+        "htf_bias_alignment"
+      ],
+      "regime_at_signal": "bull_trend",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784560563523,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 16,
+      "signal_id": "a5a7bac3dc90",
+      "confidence_components": {
+        "base": 0.5
+      },
+      "tier": "A",
+      "score": 0.6925000000000002,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784560563523,
+      "bars_pending": 0,
+      "telegram_message_id": 4062
+    },
+    {
+      "setup_type": "range_trading",
+      "symbol": "SUI",
+      "direction": "short",
+      "entry": 0.7607323263956774,
+      "sl": 0.7700795399729837,
+      "tp1": 0.739233735167873,
+      "tp2": 0.72132,
+      "confidence": 0.47,
+      "rr_tp1": 2.2999999999999954,
+      "rr_tp2": 4.216478640368834,
+      "confluences": [
+        "range_extreme_fade",
+        "confirmed_horizontal_range"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784560536242,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "17c485b53540",
+      "confidence_components": {
+        "base": 0.47
+      },
+      "tier": "B",
+      "score": 0.6785499999999998,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784560536242,
+      "bars_pending": 0,
+      "telegram_message_id": 4063
+    }
+  ],
   "symbol_cooldowns": {
     "LINK": 1784513700000,
     "PENDLE": 1784532600000,
@@ -2276,5 +2388,5 @@
     "APT": 1784528100000,
     "AAVE": 1784544300000
   },
-  "last_run_ts": 1784559662410
+  "last_run_ts": 1784560565475
 }
