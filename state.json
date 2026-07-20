@@ -336,16 +336,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 3165,
-        "rejected": 1455
+        "seen": 3187,
+        "rejected": 1466
       },
       "liquidity_sanity": {
-        "seen": 1710,
+        "seen": 1721,
         "rejected": 48
       },
       "min_confidence": {
-        "seen": 1662,
-        "rejected": 1547
+        "seen": 1673,
+        "rejected": 1558
       },
       "min_score": {
         "seen": 115,
@@ -428,7 +428,7 @@
       "profit_factor": 1.35,
       "avg_rr": 1.7
     },
-    "last_daily_summary_date": "2026-07-19"
+    "last_daily_summary_date": "2026-07-20"
   },
   "tier2_trade_log": [
     {
@@ -2022,7 +2022,7 @@
       "tp1_r": 2.299999999999996,
       "mae_r": -0.7798932073437667,
       "mfe_r": 4.171833623758899,
-      "last_checked_ts": 1784533500000,
+      "last_checked_ts": 1784534400000,
       "bars_pending": 12,
       "telegram_message_id": 3973,
       "fill_ts": 1784491200000
@@ -2060,8 +2060,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784533500000,
-      "bars_pending": 10,
+      "last_checked_ts": 1784534400000,
+      "bars_pending": 11,
       "telegram_message_id": 4016
     },
     {
@@ -2097,7 +2097,7 @@
       "tp1_r": null,
       "mae_r": -0.9480317712902268,
       "mfe_r": 0.4299390247213398,
-      "last_checked_ts": 1784533500000,
+      "last_checked_ts": 1784534400000,
       "bars_pending": 4,
       "telegram_message_id": 4017,
       "fill_ts": 1784528100000
@@ -2135,8 +2135,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784532600000,
-      "bars_pending": 7,
+      "last_checked_ts": 1784534400000,
+      "bars_pending": 9,
       "telegram_message_id": 4021
     }
   ],
@@ -2154,5 +2154,5 @@
     "BTC": 1784513700000,
     "APT": 1784528100000
   },
-  "last_run_ts": 1784533541346
+  "last_run_ts": 1784534462750
 }
