@@ -57,19 +57,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 103,
-        "rejected": 43
+        "seen": 136,
+        "rejected": 62
       },
       "liquidity_sanity": {
-        "seen": 60,
-        "rejected": 1
+        "seen": 74,
+        "rejected": 2
       },
       "min_confidence": {
-        "seen": 59,
-        "rejected": 55
+        "seen": 72,
+        "rejected": 67
       },
       "min_score": {
-        "seen": 4,
+        "seen": 5,
         "rejected": 0
       }
     },
@@ -122,8 +122,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784564145652,
-      "bars_pending": 0,
+      "last_checked_ts": 1784565900000,
+      "bars_pending": 2,
       "telegram_message_id": 4078
     },
     {
@@ -159,8 +159,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784565000000,
-      "bars_pending": 1,
+      "last_checked_ts": 1784565900000,
+      "bars_pending": 2,
       "telegram_message_id": 4079
     },
     {
@@ -236,8 +236,45 @@
       "last_checked_ts": 1784565000000,
       "bars_pending": 1,
       "telegram_message_id": 4081
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "ADA",
+      "direction": "short",
+      "entry": 0.16613063837459793,
+      "sl": 0.16666851,
+      "tp1": 0.1648935336361732,
+      "tp2": 0.15767,
+      "confidence": 0.55,
+      "rr_tp1": 2.2999999999999847,
+      "rr_tp2": 15.729847002569814,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "buy_side_pool_swept"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784565937874,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "4e1ec93dd87a",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "A",
+      "score": 0.7157499999999996,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784565937874,
+      "bars_pending": 0,
+      "telegram_message_id": 4083
     }
   ],
   "symbol_cooldowns": {},
-  "last_run_ts": 1784565055270
+  "last_run_ts": 1784565946439
 }
