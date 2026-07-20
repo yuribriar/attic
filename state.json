@@ -304,16 +304,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 2840,
-        "rejected": 1319
+        "seen": 2877,
+        "rejected": 1330
       },
       "liquidity_sanity": {
-        "seen": 1521,
-        "rejected": 43
+        "seen": 1547,
+        "rejected": 44
       },
       "min_confidence": {
-        "seen": 1478,
-        "rejected": 1364
+        "seen": 1503,
+        "rejected": 1389
       },
       "min_score": {
         "seen": 114,
@@ -1897,7 +1897,7 @@
       "tp1_r": 2.299999999999996,
       "mae_r": -0.7798932073437667,
       "mfe_r": 2.5973084254731416,
-      "last_checked_ts": 1784524500000,
+      "last_checked_ts": 1784525400000,
       "bars_pending": 12,
       "telegram_message_id": 3973,
       "fill_ts": 1784491200000
@@ -1936,7 +1936,7 @@
       "tp1_r": 1.974671388272004,
       "mae_r": -0.7742632495048379,
       "mfe_r": 2.4968489286357354,
-      "last_checked_ts": 1784524500000,
+      "last_checked_ts": 1784525400000,
       "bars_pending": 0,
       "fill_ts": 1784483227057,
       "telegram_message_id": 3978
@@ -1974,8 +1974,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784524658014,
-      "bars_pending": 0,
+      "last_checked_ts": 1784525400000,
+      "bars_pending": 1,
       "telegram_message_id": 4016
     },
     {
@@ -2011,8 +2011,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784524674772,
-      "bars_pending": 0,
+      "last_checked_ts": 1784525400000,
+      "bars_pending": 1,
       "telegram_message_id": 4017
     },
     {
@@ -2048,8 +2048,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784524668190,
-      "bars_pending": 0,
+      "last_checked_ts": 1784525400000,
+      "bars_pending": 1,
       "telegram_message_id": 4018
     }
   ],
@@ -2067,5 +2067,5 @@
     "BTC": 1784513700000,
     "APT": 1784528100000
   },
-  "last_run_ts": 1784524676889
+  "last_run_ts": 1784525600251
 }
