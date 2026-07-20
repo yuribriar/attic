@@ -1269,9 +1269,29 @@ class LiquiditySweepEngine(BaseEngine):
         entry = ctx.price - offset if direction == "long" else ctx.price + offset
         stop = pool.level * 0.997 if direction == "long" else pool.level * 1.003
         confluences = ["liquidity_sweep_reclaim", f"{pool.kind}_pool_swept"]
+        components = {"base": 0.55}
         confidence = 0.55
-        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences,
-                          confidence_components={"base": 0.55})
+        # Forensic review of the chased_a_swept_liquidity_pool loss tag showed the
+        # failure mode is concentrated in sweeps taken against the prevailing HTF
+        # bias (10 of 12 such losses were shorts fired into an uptrend) — the
+        # reclaim looked like a reversal but was actually continuation resuming.
+        # Penalize (not hard-gate, since countertrend sweeps at genuine range
+        # extremes are still a valid setup) counter-trend entries, and reward
+        # ones that agree with HTF bias.
+        counter_trend = (direction == "long" and ctx.structure_htf.bias == "bearish") or \
+                        (direction == "short" and ctx.structure_htf.bias == "bullish")
+        aligned = (direction == "long" and ctx.structure_htf.bias == "bullish") or \
+                  (direction == "short" and ctx.structure_htf.bias == "bearish")
+        if counter_trend:
+            confidence -= 0.08
+            components["counter_trend_penalty"] = -0.08
+            confluences.append("counter_htf_bias_sweep")
+        elif aligned:
+            confidence += 0.05
+            components["htf_bias_alignment"] = 0.05
+            confluences.append("htf_bias_alignment")
+        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, max(min(confidence, 0.85), 0.30), confluences,
+                          confidence_components=components)
         if sig:
             out.append(sig)
         return out
@@ -1398,9 +1418,26 @@ class ReversalEngine(BaseEngine):
         entry = ctx.price - entry_offset if direction == "long" else ctx.price + entry_offset
         stop = entry - 1.4 * atr_v if direction == "long" else entry + 1.4 * atr_v
         confluences = ["mid_tf_choch", "rsi_exhaustion"]
+        components = {"base": 0.48}
         confidence = 0.48
-        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences,
-                          confidence_components={"base": 0.48})
+        # Deeper RSI exhaustion beyond the 35/65 trigger is a stronger case for
+        # reversal, not just a binary yes/no
+        rsi_extremity = (35 - r) if direction == "long" else (r - 65)
+        extremity_bonus = min(max(rsi_extremity, 0.0) / 100, 0.12)
+        if extremity_bonus > 0:
+            confidence += extremity_bonus
+            components["rsi_extremity_bonus"] = extremity_bonus
+            confluences.append("deep_rsi_exhaustion")
+        # HTF bias alignment: a mid-TF CHoCH reversal that also matches the
+        # higher-timeframe bias is better supported than one fighting it
+        htf_dir = "long" if ctx.structure_htf.bias == "bullish" else (
+            "short" if ctx.structure_htf.bias == "bearish" else None)
+        if htf_dir == direction:
+            confidence += 0.1
+            components["htf_bias_alignment"] = 0.1
+            confluences.append("htf_bias_alignment")
+        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, min(confidence, 0.85), confluences,
+                          confidence_components=components)
         if sig:
             out.append(sig)
         return out
@@ -1416,20 +1453,37 @@ class MeanReversionEngine(BaseEngine):
             return out
         close = ctx.ltf["close"]
         lower, mid, upper = bollinger(close, 20, 2.0)
+        atr_v = float(ctx.atr_ltf[-1])
         if close[-1] < lower[-1]:
             direction = "long"
-            entry = ctx.price - MOMENTUM_STYLE_ENTRY_OFFSET_ATR_FRAC * float(ctx.atr_ltf[-1])
-            stop = float(ctx.ltf["low"][-10:].min()) - 0.2 * float(ctx.atr_ltf[-1])
+            entry = ctx.price - MOMENTUM_STYLE_ENTRY_OFFSET_ATR_FRAC * atr_v
+            stop = float(ctx.ltf["low"][-10:].min()) - 0.2 * atr_v
+            band_penetration = (float(lower[-1]) - close[-1]) / atr_v if atr_v > 0 else 0.0
         elif close[-1] > upper[-1]:
             direction = "short"
-            entry = ctx.price + MOMENTUM_STYLE_ENTRY_OFFSET_ATR_FRAC * float(ctx.atr_ltf[-1])
-            stop = float(ctx.ltf["high"][-10:].max()) + 0.2 * float(ctx.atr_ltf[-1])
+            entry = ctx.price + MOMENTUM_STYLE_ENTRY_OFFSET_ATR_FRAC * atr_v
+            stop = float(ctx.ltf["high"][-10:].max()) + 0.2 * atr_v
+            band_penetration = (close[-1] - float(upper[-1])) / atr_v if atr_v > 0 else 0.0
         else:
             return out
         confluences = ["bollinger_band_extreme", "ranging_regime"]
+        components = {"base": 0.45}
         confidence = 0.45
-        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences,
-                          confidence_components={"base": 0.45})
+        # A deeper close-beyond-band extreme is a more stretched (and historically
+        # more mean-reversion-prone) read than a marginal band touch
+        penetration_bonus = min(max(band_penetration, 0.0) * 0.1, 0.15)
+        if penetration_bonus > 0:
+            confidence += penetration_bonus
+            components["band_penetration_bonus"] = penetration_bonus
+            confluences.append("deep_band_penetration")
+        # Low ADX confirms the market is genuinely range-bound rather than just
+        # carrying the regime label
+        if ctx.adx_ltf[-1] < 20:
+            confidence += 0.1
+            components["low_adx_range_confirmed"] = 0.1
+            confluences.append("low_adx_range_confirmed")
+        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, min(confidence, 0.85), confluences,
+                          confidence_components=components)
         if sig:
             out.append(sig)
         return out
@@ -1458,9 +1512,24 @@ class RangeTradingEngine(BaseEngine):
         entry = ctx.price - entry_offset if direction == "long" else ctx.price + entry_offset
         stop = rng_high + 0.5 * atr_v if direction == "short" else rng_low - 0.5 * atr_v
         confluences = ["range_extreme_fade", "confirmed_horizontal_range"]
+        components = {"base": 0.47}
         confidence = 0.47
-        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, confidence, confluences,
-                          confidence_components={"base": 0.47})
+        # Reward proximity to the actual extreme, not just being anywhere inside
+        # the 15% edge zone
+        edge_dist_frac = ((rng_high - ctx.price) / band) if near_top else ((ctx.price - rng_low) / band)
+        proximity_bonus = max((0.15 - edge_dist_frac) / 0.15, 0.0) * 0.1
+        if proximity_bonus > 0:
+            confidence += proximity_bonus
+            components["extreme_proximity_bonus"] = proximity_bonus
+            confluences.append("tight_range_extreme")
+        # Low ADX confirms the market is genuinely range-bound rather than just
+        # carrying the regime label
+        if ctx.adx_ltf[-1] < 20:
+            confidence += 0.1
+            components["low_adx_range_confirmed"] = 0.1
+            confluences.append("low_adx_range_confirmed")
+        sig = _mk_signal(self.setup_type, ctx, direction, entry, stop, min(confidence, 0.85), confluences,
+                          confidence_components=components)
         if sig:
             out.append(sig)
         return out
@@ -2023,10 +2092,13 @@ def update_filter_thresholds(store: StateStore):
     if conf_stage["seen"] >= 20:
         attrition = conf_stage["rejected"] / conf_stage["seen"]
         old = thresholds.get("min_confidence", 0.55)
-        if attrition > 0.6 and realized_wr <= baseline_wr:
-            target = old - 0.05    # over-filtering with no quality payoff -> relax
-        elif realized_wr > baseline_wr + 0.05:
-            target = old + 0.03    # quality is strong -> can afford to tighten slightly
+        if realized_wr <= baseline_wr:
+            target = old + 0.05    # quality at/below baseline -> tighten the gate, regardless
+                                    # of attrition; this is the case that most needs a stricter
+                                    # filter, not a looser one
+        elif attrition > 0.6 and realized_wr >= baseline_wr + 0.05:
+            target = old - 0.03    # filter is over-rejecting even though the signals that DO
+                                    # pass are already meeting/beating baseline -> safe to relax
         else:
             target = old
         thresholds["min_confidence"] = _damped_step(old, target, ADAPT_MAX_STEP, FILTER_THRESHOLD_MIN, FILTER_THRESHOLD_MAX)
