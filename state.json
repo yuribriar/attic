@@ -136,19 +136,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 338,
-        "rejected": 175
+        "seen": 357,
+        "rejected": 188
       },
       "liquidity_sanity": {
-        "seen": 163,
+        "seen": 169,
         "rejected": 6
       },
       "min_confidence": {
-        "seen": 157,
-        "rejected": 148
+        "seen": 163,
+        "rejected": 153
       },
       "min_score": {
-        "seen": 9,
+        "seen": 10,
         "rejected": 0
       }
     },
@@ -523,14 +523,55 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784572200000,
-      "bars_pending": 2,
+      "last_checked_ts": 1784573100000,
+      "bars_pending": 3,
       "telegram_message_id": 4097
+    },
+    {
+      "setup_type": "range_trading",
+      "symbol": "AAVE",
+      "direction": "long",
+      "entry": 89.50753523057872,
+      "sl": 87.32884519111701,
+      "tp1": 92.7755702897713,
+      "tp2": 96.04360534896387,
+      "confidence": 0.5714659582841402,
+      "rr_tp1": 1.5,
+      "rr_tp2": 3.0,
+      "confluences": [
+        "range_extreme_fade",
+        "confirmed_horizontal_range",
+        "tight_range_extreme",
+        "low_adx_range_confirmed"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784573134742,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "6d4cfda28ed7",
+      "confidence_components": {
+        "base": 0.47,
+        "extreme_proximity_bonus": 0.0014659582841401453,
+        "low_adx_range_confirmed": 0.1
+      },
+      "tier": "B",
+      "score": 0.5628730322707596,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784573134742,
+      "bars_pending": 0,
+      "telegram_message_id": 4102
     }
   ],
   "symbol_cooldowns": {
     "ADA": 1784575800000,
     "ETH": 1784577600000
   },
-  "last_run_ts": 1784572250790
+  "last_run_ts": 1784573139216
 }
