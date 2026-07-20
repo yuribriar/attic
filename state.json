@@ -336,16 +336,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 3330,
-        "rejected": 1535
+        "seen": 3357,
+        "rejected": 1545
       },
       "liquidity_sanity": {
-        "seen": 1795,
+        "seen": 1812,
         "rejected": 48
       },
       "min_confidence": {
-        "seen": 1747,
-        "rejected": 1628
+        "seen": 1764,
+        "rejected": 1645
       },
       "min_score": {
         "seen": 119,
@@ -2148,7 +2148,7 @@
       "tp1_r": 2.299999999999996,
       "mae_r": -0.7798932073437667,
       "mfe_r": 4.171833623758899,
-      "last_checked_ts": 1784538900000,
+      "last_checked_ts": 1784539800000,
       "bars_pending": 12,
       "telegram_message_id": 3973,
       "fill_ts": 1784491200000
@@ -2186,8 +2186,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784538900000,
-      "bars_pending": 1,
+      "last_checked_ts": 1784539800000,
+      "bars_pending": 2,
       "telegram_message_id": 4039
     }
   ],
@@ -2205,5 +2205,5 @@
     "BTC": 1784513700000,
     "APT": 1784528100000
   },
-  "last_run_ts": 1784538953703
+  "last_run_ts": 1784539852979
 }
