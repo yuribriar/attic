@@ -264,19 +264,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 2139,
-        "rejected": 1204
+        "seen": 2167,
+        "rejected": 1223
       },
       "liquidity_sanity": {
-        "seen": 935,
+        "seen": 944,
         "rejected": 17
       },
       "min_confidence": {
-        "seen": 918,
-        "rejected": 887
+        "seen": 927,
+        "rejected": 895
       },
       "min_score": {
-        "seen": 31,
+        "seen": 32,
         "rejected": 2
       }
     },
@@ -995,7 +995,7 @@
       "tp1_r": 1.5,
       "mae_r": -0.12122675588276981,
       "mfe_r": 2.7417422727090663,
-      "last_checked_ts": 1784623500000,
+      "last_checked_ts": 1784624400000,
       "bars_pending": 1,
       "telegram_message_id": 4118,
       "fill_ts": 1784585700000
@@ -1037,7 +1037,7 @@
       "tp1_r": null,
       "mae_r": -0.8575941896633303,
       "mfe_r": 0.14817022692143386,
-      "last_checked_ts": 1784623500000,
+      "last_checked_ts": 1784624400000,
       "bars_pending": 3,
       "telegram_message_id": 4202,
       "fill_ts": 1784618100000
@@ -1077,7 +1077,7 @@
       "tp1_r": null,
       "mae_r": -0.12941176470588056,
       "mfe_r": 0.011764705882351158,
-      "last_checked_ts": 1784623500000,
+      "last_checked_ts": 1784624400000,
       "bars_pending": 0,
       "fill_ts": 1784620853280,
       "telegram_message_id": 4222
@@ -1117,9 +1117,46 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784622648904,
-      "bars_pending": 0,
+      "last_checked_ts": 1784624400000,
+      "bars_pending": 2,
       "telegram_message_id": 4243
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "UNI",
+      "direction": "short",
+      "entry": 3.714247383770384,
+      "sl": 3.7477094999999996,
+      "tp1": 3.6372845164422687,
+      "tp2": 3.41,
+      "confidence": 0.55,
+      "rr_tp1": 2.300000000000005,
+      "rr_tp2": 9.092293556171215,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "buy_side_pool_swept"
+      ],
+      "regime_at_signal": "bull_trend",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784624461721,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "aa3b21672956",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "B",
+      "score": 0.6482500000000001,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784624461721,
+      "bars_pending": 0,
+      "telegram_message_id": 4253
     }
   ],
   "symbol_cooldowns": {
@@ -1132,5 +1169,5 @@
     "LTC": 1784628900000,
     "DOGE": 1784625300000
   },
-  "last_run_ts": 1784623546656
+  "last_run_ts": 1784624465014
 }
