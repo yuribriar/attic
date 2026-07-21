@@ -264,19 +264,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 2347,
-        "rejected": 1344
+        "seen": 2377,
+        "rejected": 1362
       },
       "liquidity_sanity": {
-        "seen": 1003,
+        "seen": 1015,
         "rejected": 21
       },
       "min_confidence": {
-        "seen": 982,
-        "rejected": 948
+        "seen": 994,
+        "rejected": 959
       },
       "min_score": {
-        "seen": 34,
+        "seen": 35,
         "rejected": 3
       }
     },
@@ -1043,7 +1043,7 @@
       "tp1_r": 1.5,
       "mae_r": -0.12122675588276981,
       "mfe_r": 2.861315040727697,
-      "last_checked_ts": 1784629800000,
+      "last_checked_ts": 1784630700000,
       "bars_pending": 1,
       "telegram_message_id": 4118,
       "fill_ts": 1784585700000
@@ -1125,7 +1125,7 @@
       "tp1_r": null,
       "mae_r": -0.12941176470588056,
       "mfe_r": 0.3678431372549018,
-      "last_checked_ts": 1784629800000,
+      "last_checked_ts": 1784630700000,
       "bars_pending": 0,
       "fill_ts": 1784620853280,
       "telegram_message_id": 4222
@@ -1203,6 +1203,43 @@
       "last_checked_ts": 1784629800000,
       "bars_pending": 1,
       "telegram_message_id": 4269
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "BCH",
+      "direction": "short",
+      "entry": 225.0939972815906,
+      "sl": 225.85554,
+      "tp1": 223.34244902924897,
+      "tp2": 209.68,
+      "confidence": 0.55,
+      "rr_tp1": 2.2999999999999963,
+      "rr_tp2": 20.240489350072274,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "buy_side_pool_swept"
+      ],
+      "regime_at_signal": "bear_trend",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784630737900,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "3352bf14d371",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "B",
+      "score": 0.6482499999999999,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784630737900,
+      "bars_pending": 0,
+      "telegram_message_id": 4275
     }
   ],
   "symbol_cooldowns": {
@@ -1215,5 +1252,5 @@
     "LTC": 1784628900000,
     "DOGE": 1784625300000
   },
-  "last_run_ts": 1784629851455
+  "last_run_ts": 1784630747462
 }
