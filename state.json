@@ -192,16 +192,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1552,
-        "rejected": 868
+        "seen": 1581,
+        "rejected": 887
       },
       "liquidity_sanity": {
-        "seen": 684,
+        "seen": 694,
         "rejected": 15
       },
       "min_confidence": {
-        "seen": 669,
-        "rejected": 641
+        "seen": 679,
+        "rejected": 651
       },
       "min_score": {
         "seen": 28,
@@ -651,7 +651,7 @@
       "tp1_r": null,
       "mae_r": -0.6096074464122363,
       "mfe_r": 1.6404611423435695,
-      "last_checked_ts": 1784608200000,
+      "last_checked_ts": 1784609100000,
       "bars_pending": 6,
       "telegram_message_id": 4079,
       "fill_ts": 1784569500000
@@ -689,7 +689,7 @@
       "tp1_r": 2.299999999999994,
       "mae_r": -0.82846909505891,
       "mfe_r": 3.0934686812330985,
-      "last_checked_ts": 1784608200000,
+      "last_checked_ts": 1784609100000,
       "bars_pending": 2,
       "telegram_message_id": 4080,
       "fill_ts": 1784565900000
@@ -727,7 +727,7 @@
       "tp1_r": null,
       "mae_r": -0.6931303912175553,
       "mfe_r": 1.2242130238172328,
-      "last_checked_ts": 1784607300000,
+      "last_checked_ts": 1784609100000,
       "bars_pending": 1,
       "telegram_message_id": 4112,
       "fill_ts": 1784580300000
@@ -768,8 +768,8 @@
       "tp1_hit": true,
       "tp1_r": 1.5,
       "mae_r": -0.12122675588276981,
-      "mfe_r": 1.434671529185569,
-      "last_checked_ts": 1784608200000,
+      "mfe_r": 1.4559719413022534,
+      "last_checked_ts": 1784609100000,
       "bars_pending": 1,
       "telegram_message_id": 4118,
       "fill_ts": 1784585700000
@@ -849,8 +849,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784607300000,
-      "bars_pending": 6,
+      "last_checked_ts": 1784609100000,
+      "bars_pending": 8,
       "telegram_message_id": 4131
     },
     {
@@ -897,5 +897,5 @@
     "HYPE": 1784598300000,
     "SUI": 1784598300000
   },
-  "last_run_ts": 1784608246101
+  "last_run_ts": 1784609141564
 }
