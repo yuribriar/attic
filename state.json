@@ -336,16 +336,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 7218,
-        "rejected": 3501
+        "seen": 7250,
+        "rejected": 3515
       },
       "liquidity_sanity": {
-        "seen": 3717,
-        "rejected": 88
+        "seen": 3735,
+        "rejected": 89
       },
       "min_confidence": {
-        "seen": 3629,
-        "rejected": 3581
+        "seen": 3646,
+        "rejected": 3598
       },
       "min_score": {
         "seen": 48,
@@ -1753,7 +1753,7 @@
       "tp1_r": null,
       "mae_r": -0.5858823529411786,
       "mfe_r": 0.45725490196078306,
-      "last_checked_ts": 1784758500000,
+      "last_checked_ts": 1784760300000,
       "bars_pending": 0,
       "fill_ts": 1784620853280,
       "telegram_message_id": 4222
@@ -1775,5 +1775,5 @@
     "ZEC": 1784668500000,
     "ONDO": 1784720700000
   },
-  "last_run_ts": 1784759458934
+  "last_run_ts": 1784760343608
 }
