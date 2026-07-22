@@ -328,16 +328,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 5303,
-        "rejected": 2696
+        "seen": 5333,
+        "rejected": 2712
       },
       "liquidity_sanity": {
-        "seen": 2607,
+        "seen": 2621,
         "rejected": 59
       },
       "min_confidence": {
-        "seen": 2548,
-        "rejected": 2500
+        "seen": 2562,
+        "rejected": 2514
       },
       "min_score": {
         "seen": 48,
@@ -436,7 +436,7 @@
       "profit_factor": 1.35,
       "avg_rr": 1.7
     },
-    "last_daily_summary_date": "2026-07-21"
+    "last_daily_summary_date": "2026-07-22"
   },
   "tier2_trade_log": [
     {
@@ -1697,9 +1697,9 @@
       "status": "active",
       "tp1_hit": false,
       "tp1_r": null,
-      "mae_r": -0.4776470588235274,
+      "mae_r": -0.5858823529411786,
       "mfe_r": 0.45725490196078306,
-      "last_checked_ts": 1784706300000,
+      "last_checked_ts": 1784707200000,
       "bars_pending": 0,
       "fill_ts": 1784620853280,
       "telegram_message_id": 4222
@@ -1737,7 +1737,7 @@
       "tp1_r": 2.3000000000000087,
       "mae_r": -0.09801333688734254,
       "mfe_r": 16.91604425902534,
-      "last_checked_ts": 1784705400000,
+      "last_checked_ts": 1784707200000,
       "bars_pending": 2,
       "telegram_message_id": 4292,
       "fill_ts": 1784645100000
@@ -1758,5 +1758,5 @@
     "SOL": 1784668500000,
     "ZEC": 1784668500000
   },
-  "last_run_ts": 1784706350237
+  "last_run_ts": 1784707265488
 }
