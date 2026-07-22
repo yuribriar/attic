@@ -336,16 +336,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 6654,
-        "rejected": 3272
+        "seen": 6684,
+        "rejected": 3285
       },
       "liquidity_sanity": {
-        "seen": 3382,
+        "seen": 3399,
         "rejected": 84
       },
       "min_confidence": {
-        "seen": 3298,
-        "rejected": 3250
+        "seen": 3315,
+        "rejected": 3267
       },
       "min_score": {
         "seen": 48,
@@ -1775,5 +1775,5 @@
     "ZEC": 1784668500000,
     "ONDO": 1784720700000
   },
-  "last_run_ts": 1784743263073
+  "last_run_ts": 1784744152025
 }
