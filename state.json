@@ -248,20 +248,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 562,
-        "rejected": 246
+        "seen": 585,
+        "rejected": 260
       },
       "liquidity_sanity": {
-        "seen": 316,
+        "seen": 325,
         "rejected": 10
       },
       "min_confidence": {
-        "seen": 306,
-        "rejected": 284
+        "seen": 315,
+        "rejected": 292
       },
       "min_score": {
-        "seen": 22,
-        "rejected": 4
+        "seen": 23,
+        "rejected": 5
       }
     },
     "circuit_breaker": {
@@ -687,8 +687,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784817000000,
-      "bars_pending": 7,
+      "last_checked_ts": 1784817900000,
+      "bars_pending": 8,
       "telegram_message_id": 4449
     },
     {
@@ -726,8 +726,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784816100000,
-      "bars_pending": 5,
+      "last_checked_ts": 1784817900000,
+      "bars_pending": 7,
       "telegram_message_id": 4451
     },
     {
@@ -800,8 +800,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784817000000,
-      "bars_pending": 5,
+      "last_checked_ts": 1784817900000,
+      "bars_pending": 6,
       "telegram_message_id": 4456
     },
     {
@@ -839,8 +839,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784817000000,
-      "bars_pending": 3,
+      "last_checked_ts": 1784817900000,
+      "bars_pending": 4,
       "telegram_message_id": 4463
     },
     {
@@ -874,9 +874,9 @@
       "status": "pending",
       "tp1_hit": false,
       "tp1_r": null,
-      "mae_r": -0.42223002927819225,
+      "mae_r": -0.5524103216932751,
       "mfe_r": 0.5948035052146041,
-      "last_checked_ts": 1784817000000,
+      "last_checked_ts": 1784817900000,
       "bars_pending": 2,
       "telegram_message_id": 4464,
       "fill_ts": 1784816100000
@@ -891,5 +891,5 @@
     "DOT": 1784821500000,
     "ADA": 1784823300000
   },
-  "last_run_ts": 1784817053679
+  "last_run_ts": 1784817947404
 }
