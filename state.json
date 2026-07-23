@@ -57,16 +57,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 289,
-        "rejected": 158
+        "seen": 309,
+        "rejected": 171
       },
       "liquidity_sanity": {
-        "seen": 131,
+        "seen": 138,
         "rejected": 1
       },
       "min_confidence": {
-        "seen": 130,
-        "rejected": 125
+        "seen": 137,
+        "rejected": 132
       },
       "min_score": {
         "seen": 5,
@@ -86,7 +86,48 @@
     },
     "last_daily_summary_date": null
   },
-  "tier2_trade_log": [],
+  "tier2_trade_log": [
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "ONDO",
+      "direction": "long",
+      "entry": 0.3985848353477503,
+      "sl": 0.39741417,
+      "tp1": 0.401277365647576,
+      "tp2": 0.40929,
+      "confidence": 0.55,
+      "rr_tp1": 2.300000000000024,
+      "rr_tp2": 9.144513137612048,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept"
+      ],
+      "regime_at_signal": "bull_trend",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784834128071,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "492226c40f71",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "B",
+      "score": 0.6482500000000005,
+      "status": "expired_no_fill",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784844900000,
+      "bars_pending": 12,
+      "telegram_message_id": 4497,
+      "resolved_ts": 1784844900000,
+      "outcome": "expired_no_fill",
+      "forensic_tag": "no_fill_expired"
+    }
+  ],
   "pending_signals": [],
   "active_signals": [
     {
@@ -127,43 +168,6 @@
       "telegram_message_id": 4496
     },
     {
-      "setup_type": "liquidity_sweep",
-      "symbol": "ONDO",
-      "direction": "long",
-      "entry": 0.3985848353477503,
-      "sl": 0.39741417,
-      "tp1": 0.401277365647576,
-      "tp2": 0.40929,
-      "confidence": 0.55,
-      "rr_tp1": 2.300000000000024,
-      "rr_tp2": 9.144513137612048,
-      "confluences": [
-        "liquidity_sweep_reclaim",
-        "sell_side_pool_swept"
-      ],
-      "regime_at_signal": "bull_trend",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1784834128071,
-      "entry_filled": false,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "492226c40f71",
-      "confidence_components": {
-        "base": 0.55
-      },
-      "tier": "B",
-      "score": 0.6482500000000005,
-      "status": "pending",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": 0.0,
-      "mfe_r": 0.0,
-      "last_checked_ts": 1784844000000,
-      "bars_pending": 11,
-      "telegram_message_id": 4497
-    },
-    {
       "setup_type": "range_trading",
       "symbol": "NEAR",
       "direction": "long",
@@ -200,7 +204,7 @@
       "tp1_r": null,
       "mae_r": -0.06286897621519993,
       "mfe_r": 0.42196533428168204,
-      "last_checked_ts": 1784844000000,
+      "last_checked_ts": 1784844900000,
       "bars_pending": 3,
       "telegram_message_id": 4498,
       "fill_ts": 1784836800000
@@ -281,11 +285,11 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784844000000,
-      "bars_pending": 4,
+      "last_checked_ts": 1784844900000,
+      "bars_pending": 5,
       "telegram_message_id": 4502
     }
   ],
   "symbol_cooldowns": {},
-  "last_run_ts": 1784844057434
+  "last_run_ts": 1784844942399
 }
