@@ -85,7 +85,29 @@ TF_MS: Dict[str, int] = {
 CANDLE_COUNT: Dict[str, int] = {
     TF_WEEKLY: 156, TF_DAILY: 260, TF_4H: 260, TF_1H: 300, TF_15M: 300, TF_5M: 300,
 }
-CANDLE_DELTA_OVERLAP_BARS = 3
+
+# On every incremental fetch, re-request this many already-cached trailing
+# *closed* candles (in addition to anything newer) instead of starting exactly
+# at the last cached timestamp. The merge step overwrites cached rows with
+# whatever comes back, so this makes the cache self-healing against an
+# exchange-side candle that was still finalizing (missing/short-lived stale
+# close) at the moment a previous run fetched it. 5M and 15M are the
+# entry-vehicle timeframes (Section 7), so they get the widest overlap;
+# everything else gets a minimal 1-bar safety net. (Ported from PRISM.)
+CANDLE_REFETCH_OVERLAP_BARS: Dict[str, int] = {
+    TF_5M: 3, TF_15M: 3, TF_1H: 1, TF_4H: 1, TF_DAILY: 1, TF_WEEKLY: 1,
+}
+
+# If a timeframe's cache hasn't been updated in longer than this many
+# seconds * 3, treat it as stale beyond the point where a normal incremental
+# fetch is trustworthy (e.g. after a long GitHub Actions outage or several
+# missed runs) and force a full re-fetch of the whole lookback window instead
+# of an incremental one. (Ported from PRISM.)
+CANDLE_STALE_AFTER_SEC: Dict[str, int] = {
+    TF_5M: 20 * 60, TF_15M: 45 * 60, TF_1H: 3 * 3600, TF_4H: 6 * 3600,
+    TF_DAILY: 3 * 86400, TF_WEEKLY: 3 * 7 * 86400,
+}
+
 MONITOR_TF = TF_15M
 
 # Stage 4 entry-vehicle search order: try the finer 5M MSS->FVG first, then
@@ -340,7 +362,45 @@ def load_state() -> dict:
     for k in loaded:
         if k != "tier1" and k in base:
             base[k] = loaded[k]
+    _migrate_active_signals(base)
     return base
+
+
+# Fields added to the signal-record schema after v1.0.0's initial release.
+# Signals persisted by older engine versions won't have these keys; every
+# consumer that does a hard sig["key"] lookup (rather than sig.get(...)) will
+# KeyError on such legacy records unless we backfill them here at load time.
+SIGNAL_RECORD_SCHEMA_DEFAULTS: Dict[str, Any] = {
+    "counter_trend": False,
+    "sl_anchor_tf": TF_15M,
+    "entry_tf": TF_15M,
+    "entry_filled": False,
+    "pending_bars": 0,
+    "status": "pending",
+    "filled_ts": None,
+    "mae_r": 0.0,
+    "mfe_r": 0.0,
+    "resolution_logic_version": RESOLUTION_LOGIC_VERSION,
+    "tg_message_id": None,
+    "session_anchored": False,
+    "regime_at_entry": {},
+    "_last_checked_t": -1,
+}
+
+
+def _migrate_active_signals(state: dict) -> None:
+    active = state.get("active_signals")
+    if not isinstance(active, list):
+        return
+    for sig in active:
+        if not isinstance(sig, dict):
+            continue
+        missing = [k for k in SIGNAL_RECORD_SCHEMA_DEFAULTS if k not in sig]
+        if missing:
+            log.warning("Backfilling legacy signal %s with default(s) for missing field(s): %s",
+                        sig.get("id", "?"), ", ".join(missing))
+            for k in missing:
+                sig[k] = SIGNAL_RECORD_SCHEMA_DEFAULTS[k]
 
 
 def save_state(state: dict) -> bool:
@@ -482,15 +542,31 @@ def _request_candles(symbol: str, interval: str, start_ms: int, end_ms: int) -> 
     return out
 
 
+def _full_lookback_fetch(symbol: str, interval: str, n: int, reference_ms: int) -> list:
+    lookback_ms = n * TF_MS[interval] * 2 + TF_MS[interval] * 5
+    raw = _request_candles(symbol, interval, reference_ms - lookback_ms, reference_ms)
+    return filter_closed_candles(raw, interval, reference_ms)[-n:]
+
+
 def get_candles(symbol: str, interval: str, n: int, reference_ms: Optional[int] = None,
                 cache_entry: Optional[list] = None) -> list:
     reference_ms = reference_ms or utcnow_ms()
     if cache_entry:
         step = TF_MS[interval]
         last_cached_t = cache_entry[-1]["t"]
+
+        stale_threshold = CANDLE_STALE_AFTER_SEC.get(interval)
+        if stale_threshold is not None:
+            age_sec = (reference_ms - last_cached_t) / 1000.0
+            if age_sec > stale_threshold * 3:
+                log.warning("Cache for %s/%s stale beyond threshold (%.0fs old) -- full re-fetch.",
+                            symbol, interval, age_sec)
+                return _full_lookback_fetch(symbol, interval, n, reference_ms)
+
         if current_bar_open_ms(reference_ms, interval) <= last_cached_t + step:
             return filter_closed_candles(cache_entry, interval, reference_ms)[-n:]
-        start_ms = last_cached_t - step * CANDLE_DELTA_OVERLAP_BARS
+        overlap_bars = CANDLE_REFETCH_OVERLAP_BARS.get(interval, 1)
+        start_ms = last_cached_t - step * overlap_bars
         new_raw = _request_candles(symbol, interval, start_ms, reference_ms)
         if new_raw:
             merged = {c["t"]: c for c in cache_entry}
@@ -500,9 +576,7 @@ def get_candles(symbol: str, interval: str, n: int, reference_ms: Optional[int] 
         else:
             candles = cache_entry
         return filter_closed_candles(candles, interval, reference_ms)[-n:]
-    lookback_ms = n * TF_MS[interval] * 2 + TF_MS[interval] * 5
-    raw = _request_candles(symbol, interval, reference_ms - lookback_ms, reference_ms)
-    return filter_closed_candles(raw, interval, reference_ms)[-n:]
+    return _full_lookback_fetch(symbol, interval, n, reference_ms)
 
 
 def fetch_all_candles(symbol: str, candle_cache: dict, reference_ms: Optional[int] = None) -> Optional[dict]:
