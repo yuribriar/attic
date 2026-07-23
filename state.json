@@ -1,1 +1,210 @@
-{}
+{
+  "schema_version": 3,
+  "engine_name": "Odyssey Adaptive Signal Engine",
+  "engine_version": "v1.2.2",
+  "tier1": {
+    "engine_weights": {
+      "smc": 1.0,
+      "trend_continuation": 1.0,
+      "breakout": 1.0,
+      "pullback": 1.0,
+      "liquidity_sweep": 1.0,
+      "order_block": 1.0,
+      "breaker_block": 1.0,
+      "fair_value_gap": 1.0,
+      "momentum": 1.0,
+      "reversal": 1.0,
+      "mean_reversion": 1.0,
+      "range_trading": 1.0,
+      "volatility_expansion": 1.0
+    },
+    "confidence_calibration": {
+      "smc": 0.0,
+      "trend_continuation": 0.0,
+      "breakout": 0.0,
+      "pullback": 0.0,
+      "liquidity_sweep": 0.0,
+      "order_block": 0.0,
+      "breaker_block": 0.0,
+      "fair_value_gap": 0.0,
+      "momentum": 0.0,
+      "reversal": 0.0,
+      "mean_reversion": 0.0,
+      "range_trading": 0.0,
+      "volatility_expansion": 0.0
+    },
+    "confluence_quality": {},
+    "asset_quality": {},
+    "setup_direction_quality": {},
+    "filter_thresholds": {
+      "min_confidence": 0.55,
+      "min_score": 0.55,
+      "setup_overrides": {
+        "momentum": {
+          "min_confidence": 0.68,
+          "min_score": 0.65
+        }
+      }
+    },
+    "segment_stats": {
+      "by_asset": {},
+      "by_regime": {},
+      "by_timeframe": {},
+      "by_engine": {},
+      "by_confluence": {},
+      "by_direction": {},
+      "by_setup_direction": {}
+    },
+    "filter_funnel": {
+      "shape_validation": {
+        "seen": 32,
+        "rejected": 17
+      },
+      "liquidity_sanity": {
+        "seen": 15,
+        "rejected": 0
+      },
+      "min_confidence": {
+        "seen": 15,
+        "rejected": 12
+      },
+      "min_score": {
+        "seen": 3,
+        "rejected": 0
+      }
+    },
+    "circuit_breaker": {
+      "tripped": false,
+      "tripped_at": null,
+      "reason": null
+    },
+    "rolling_live_trades": [],
+    "active_baseline": {
+      "win_rate": 0.46,
+      "profit_factor": 1.35,
+      "avg_rr": 1.7
+    },
+    "last_daily_summary_date": null
+  },
+  "tier2_trade_log": [],
+  "pending_signals": [],
+  "active_signals": [
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "PENGU",
+      "direction": "long",
+      "entry": 0.006038765536477347,
+      "sl": 0.006016895,
+      "tp1": 0.006089067770375243,
+      "tp2": 0.006339,
+      "confidence": 0.55,
+      "rr_tp1": 2.2999999999999883,
+      "rr_tp2": 13.72780516077597,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784834130203,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "b5e9703f7379",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "A",
+      "score": 0.7157499999999997,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784834130203,
+      "bars_pending": 0,
+      "telegram_message_id": 4496
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "ONDO",
+      "direction": "long",
+      "entry": 0.3985848353477503,
+      "sl": 0.39741417,
+      "tp1": 0.401277365647576,
+      "tp2": 0.40929,
+      "confidence": 0.55,
+      "rr_tp1": 2.300000000000024,
+      "rr_tp2": 9.144513137612048,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept"
+      ],
+      "regime_at_signal": "bull_trend",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784834128071,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "492226c40f71",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "B",
+      "score": 0.6482500000000005,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784834128071,
+      "bars_pending": 0,
+      "telegram_message_id": 4497
+    },
+    {
+      "setup_type": "range_trading",
+      "symbol": "NEAR",
+      "direction": "long",
+      "entry": 1.877845065814879,
+      "sl": 1.8469066613429939,
+      "tp1": 1.924252672522707,
+      "tp2": 1.9706602792305348,
+      "confidence": 0.599078014184397,
+      "rr_tp1": 1.5,
+      "rr_tp2": 3.0,
+      "confluences": [
+        "range_extreme_fade",
+        "confirmed_horizontal_range",
+        "tight_range_extreme",
+        "low_adx_range_confirmed"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784834127148,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "156ddfea63d4",
+      "confidence_components": {
+        "base": 0.47,
+        "extreme_proximity_bonus": 0.029078014184397007,
+        "low_adx_range_confirmed": 0.1
+      },
+      "tier": "B",
+      "score": 0.5746081560283687,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784834127148,
+      "bars_pending": 0,
+      "telegram_message_id": 4498
+    }
+  ],
+  "symbol_cooldowns": {},
+  "last_run_ts": 1784834170861
+}
