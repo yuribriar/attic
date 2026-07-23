@@ -256,16 +256,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 713,
-        "rejected": 329
+        "seen": 734,
+        "rejected": 346
       },
       "liquidity_sanity": {
-        "seen": 384,
-        "rejected": 13
+        "seen": 388,
+        "rejected": 14
       },
       "min_confidence": {
-        "seen": 371,
-        "rejected": 348
+        "seen": 374,
+        "rejected": 351
       },
       "min_score": {
         "seen": 23,
@@ -744,10 +744,7 @@
       "resolved_ts": 1784821500000,
       "outcome": "expired_no_fill",
       "forensic_tag": "no_fill_expired"
-    }
-  ],
-  "pending_signals": [],
-  "active_signals": [
+    },
     {
       "setup_type": "liquidity_sweep",
       "symbol": "LINK",
@@ -778,14 +775,17 @@
       },
       "tier": "A",
       "score": 0.7015000000000005,
-      "status": "pending",
+      "status": "expired_no_fill",
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784821500000,
-      "bars_pending": 11,
-      "telegram_message_id": 4451
+      "last_checked_ts": 1784822400000,
+      "bars_pending": 12,
+      "telegram_message_id": 4451,
+      "resolved_ts": 1784822400000,
+      "outcome": "expired_no_fill",
+      "forensic_tag": "no_fill_expired"
     },
     {
       "setup_type": "liquidity_sweep",
@@ -815,15 +815,21 @@
       },
       "tier": "B",
       "score": 0.6482499999999998,
-      "status": "pending",
+      "status": "expired_no_fill",
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784821500000,
-      "bars_pending": 11,
-      "telegram_message_id": 4452
-    },
+      "last_checked_ts": 1784822400000,
+      "bars_pending": 12,
+      "telegram_message_id": 4452,
+      "resolved_ts": 1784822400000,
+      "outcome": "expired_no_fill",
+      "forensic_tag": "no_fill_expired"
+    }
+  ],
+  "pending_signals": [],
+  "active_signals": [
     {
       "setup_type": "liquidity_sweep",
       "symbol": "BNB",
@@ -857,8 +863,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784821500000,
-      "bars_pending": 10,
+      "last_checked_ts": 1784822400000,
+      "bars_pending": 11,
       "telegram_message_id": 4456
     },
     {
@@ -896,8 +902,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784821500000,
-      "bars_pending": 8,
+      "last_checked_ts": 1784822400000,
+      "bars_pending": 9,
       "telegram_message_id": 4463
     }
   ],
@@ -911,5 +917,5 @@
     "ADA": 1784823300000,
     "AAVE": 1784826000000
   },
-  "last_run_ts": 1784821542084
+  "last_run_ts": 1784822470621
 }
