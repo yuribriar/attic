@@ -272,19 +272,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 2513,
-        "rejected": 1112
+        "seen": 2537,
+        "rejected": 1121
       },
       "liquidity_sanity": {
-        "seen": 1401,
+        "seen": 1416,
         "rejected": 17
       },
       "min_confidence": {
-        "seen": 1384,
-        "rejected": 1354
+        "seen": 1399,
+        "rejected": 1368
       },
       "min_score": {
-        "seen": 30,
+        "seen": 31,
         "rejected": 9
       }
     },
@@ -997,6 +997,45 @@
       "bars_pending": 2,
       "telegram_message_id": 4522,
       "fill_ts": 1784868300000
+    },
+    {
+      "setup_type": "range_trading",
+      "symbol": "PENDLE",
+      "direction": "long",
+      "entry": 1.4992119552026697,
+      "sl": 1.4939122200166857,
+      "tp1": 1.511401346130433,
+      "tp2": 1.5976,
+      "confidence": 0.5627455357142861,
+      "rr_tp1": 2.3,
+      "rr_tp2": 18.56470962125288,
+      "confluences": [
+        "range_extreme_fade",
+        "confirmed_horizontal_range",
+        "tight_range_extreme"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784915144780,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "91ae57cdc4ae",
+      "confidence_components": {
+        "base": 0.47,
+        "extreme_proximity_bonus": 0.09274553571428612
+      },
+      "tier": "A",
+      "score": 0.751676674107143,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784915144780,
+      "bars_pending": 0,
+      "telegram_message_id": 4574
     }
   ],
   "symbol_cooldowns": {
@@ -1007,5 +1046,5 @@
     "NEAR": 1784906100000,
     "HYPE": 1784912400000
   },
-  "last_run_ts": 1784914259101
+  "last_run_ts": 1784915145496
 }
