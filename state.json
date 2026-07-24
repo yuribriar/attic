@@ -200,16 +200,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1361,
-        "rejected": 618
+        "seen": 1382,
+        "rejected": 629
       },
       "liquidity_sanity": {
-        "seen": 743,
+        "seen": 753,
         "rejected": 12
       },
       "min_confidence": {
-        "seen": 731,
-        "rejected": 711
+        "seen": 741,
+        "rejected": 721
       },
       "min_score": {
         "seen": 20,
@@ -697,8 +697,8 @@
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": -0.0984234923183004,
-      "mfe_r": 1.0522499379276258,
-      "last_checked_ts": 1784882700000,
+      "mfe_r": 1.0781077678207898,
+      "last_checked_ts": 1784883600000,
       "bars_pending": 3,
       "telegram_message_id": 4498,
       "fill_ts": 1784836800000
@@ -735,8 +735,8 @@
       "tp1_hit": true,
       "tp1_r": 2.2999999999999914,
       "mae_r": -0.3501616081152974,
-      "mfe_r": 5.539589137229808,
-      "last_checked_ts": 1784882700000,
+      "mfe_r": 6.7144677083351345,
+      "last_checked_ts": 1784883600000,
       "bars_pending": 2,
       "telegram_message_id": 4522,
       "fill_ts": 1784868300000
@@ -774,8 +774,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784882700000,
-      "bars_pending": 5,
+      "last_checked_ts": 1784883600000,
+      "bars_pending": 6,
       "telegram_message_id": 4532
     },
     {
@@ -811,8 +811,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784882700000,
-      "bars_pending": 5,
+      "last_checked_ts": 1784883600000,
+      "bars_pending": 6,
       "telegram_message_id": 4533
     },
     {
@@ -850,8 +850,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784882700000,
-      "bars_pending": 2,
+      "last_checked_ts": 1784883600000,
+      "bars_pending": 3,
       "telegram_message_id": 4541
     }
   ],
@@ -860,5 +860,5 @@
     "LINK": 1784868300000,
     "DOGE": 1784880900000
   },
-  "last_run_ts": 1784882743294
+  "last_run_ts": 1784883704893
 }
