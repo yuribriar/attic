@@ -272,20 +272,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 2585,
-        "rejected": 1142
+        "seen": 2608,
+        "rejected": 1154
       },
       "liquidity_sanity": {
-        "seen": 1443,
+        "seen": 1454,
         "rejected": 17
       },
       "min_confidence": {
-        "seen": 1426,
-        "rejected": 1394
+        "seen": 1437,
+        "rejected": 1404
       },
       "min_score": {
-        "seen": 32,
-        "rejected": 9
+        "seen": 33,
+        "rejected": 10
       }
     },
     "circuit_breaker": {
@@ -993,7 +993,7 @@
       "tp1_r": 2.2999999999999914,
       "mae_r": -0.3501616081152974,
       "mfe_r": 16.674059255548407,
-      "last_checked_ts": 1784916900000,
+      "last_checked_ts": 1784917800000,
       "bars_pending": 2,
       "telegram_message_id": 4522,
       "fill_ts": 1784868300000
@@ -1033,8 +1033,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784916000000,
-      "bars_pending": 1,
+      "last_checked_ts": 1784916900000,
+      "bars_pending": 2,
       "telegram_message_id": 4574
     },
     {
@@ -1058,7 +1058,7 @@
       "entry_kind": "pending",
       "timeframe": "15m",
       "created_ts": 1784916064017,
-      "entry_filled": false,
+      "entry_filled": true,
       "pending_bars": 0,
       "pending_expiry_bars": 12,
       "signal_id": "a70755af5edc",
@@ -1072,11 +1072,12 @@
       "status": "pending",
       "tp1_hit": false,
       "tp1_r": null,
-      "mae_r": 0.0,
-      "mfe_r": 0.0,
-      "last_checked_ts": 1784916064017,
-      "bars_pending": 0,
-      "telegram_message_id": 4575
+      "mae_r": -0.1327994371267994,
+      "mfe_r": 0.1175730410832602,
+      "last_checked_ts": 1784917800000,
+      "bars_pending": 1,
+      "telegram_message_id": 4575,
+      "fill_ts": 1784916900000
     }
   ],
   "symbol_cooldowns": {
@@ -1087,5 +1088,5 @@
     "NEAR": 1784906100000,
     "HYPE": 1784912400000
   },
-  "last_run_ts": 1784916947447
+  "last_run_ts": 1784917855718
 }
