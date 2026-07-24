@@ -192,16 +192,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 705,
-        "rejected": 370
+        "seen": 724,
+        "rejected": 378
       },
       "liquidity_sanity": {
-        "seen": 335,
-        "rejected": 3
+        "seen": 346,
+        "rejected": 4
       },
       "min_confidence": {
-        "seen": 332,
-        "rejected": 319
+        "seen": 342,
+        "rejected": 329
       },
       "min_score": {
         "seen": 13,
@@ -479,8 +479,8 @@
       "tp1_hit": true,
       "tp1_r": 2.2999999999999883,
       "mae_r": -0.08072671098743317,
-      "mfe_r": 3.074202756402239,
-      "last_checked_ts": 1784861100000,
+      "mfe_r": 3.5314389110963726,
+      "last_checked_ts": 1784862000000,
       "bars_pending": 12,
       "telegram_message_id": 4496,
       "fill_ts": 1784844900000
@@ -522,7 +522,7 @@
       "tp1_r": null,
       "mae_r": -0.0984234923183004,
       "mfe_r": 0.7581171228928496,
-      "last_checked_ts": 1784862000000,
+      "last_checked_ts": 1784862900000,
       "bars_pending": 3,
       "telegram_message_id": 4498,
       "fill_ts": 1784836800000
@@ -559,8 +559,8 @@
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": -0.6995984100842385,
-      "mfe_r": 0.9304988538240376,
-      "last_checked_ts": 1784862000000,
+      "mfe_r": 1.6093076851289774,
+      "last_checked_ts": 1784862900000,
       "bars_pending": 9,
       "telegram_message_id": 4510,
       "fill_ts": 1784861100000
@@ -600,8 +600,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784862000000,
-      "bars_pending": 8,
+      "last_checked_ts": 1784862900000,
+      "bars_pending": 9,
       "telegram_message_id": 4513
     },
     {
@@ -674,8 +674,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784862000000,
-      "bars_pending": 8,
+      "last_checked_ts": 1784862900000,
+      "bars_pending": 9,
       "telegram_message_id": 4516
     }
   ],
@@ -683,5 +683,5 @@
     "ZEC": 1784862000000,
     "LINK": 1784868300000
   },
-  "last_run_ts": 1784862059810
+  "last_run_ts": 1784862963282
 }
