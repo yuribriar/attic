@@ -200,20 +200,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1581,
-        "rejected": 702
+        "seen": 1620,
+        "rejected": 714
       },
       "liquidity_sanity": {
-        "seen": 879,
+        "seen": 906,
         "rejected": 13
       },
       "min_confidence": {
-        "seen": 866,
-        "rejected": 843
+        "seen": 893,
+        "rejected": 868
       },
       "min_score": {
-        "seen": 23,
-        "rejected": 3
+        "seen": 25,
+        "rejected": 5
       }
     },
     "circuit_breaker": {
@@ -659,6 +659,46 @@
       "resolved_ts": 1784889000000,
       "outcome": "expired_no_fill",
       "forensic_tag": "no_fill_expired"
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "BNB",
+      "direction": "short",
+      "entry": 570.1020976664627,
+      "sl": 571.8805099999998,
+      "tp1": 566.0117492993272,
+      "tp2": 563.31,
+      "confidence": 0.55,
+      "rr_tp1": 2.299999999999968,
+      "rr_tp2": 3.8191917242013105,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "buy_side_pool_swept"
+      ],
+      "regime_at_signal": "consolidation",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1784878235021,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "9d03302155f5",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "B",
+      "score": 0.6482499999999991,
+      "status": "expired_no_fill",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1784889000000,
+      "bars_pending": 12,
+      "telegram_message_id": 4533,
+      "resolved_ts": 1784889000000,
+      "outcome": "expired_no_fill",
+      "forensic_tag": "no_fill_expired"
     }
   ],
   "pending_signals": [],
@@ -696,7 +736,7 @@
       "tp1_r": 2.2999999999999883,
       "mae_r": -0.08072671098743317,
       "mfe_r": 4.491634835954101,
-      "last_checked_ts": 1784888100000,
+      "last_checked_ts": 1784889000000,
       "bars_pending": 12,
       "telegram_message_id": 4496,
       "fill_ts": 1784844900000
@@ -738,7 +778,7 @@
       "tp1_r": null,
       "mae_r": -0.0984234923183004,
       "mfe_r": 1.0781077678207898,
-      "last_checked_ts": 1784889000000,
+      "last_checked_ts": 1784889900000,
       "bars_pending": 3,
       "telegram_message_id": 4498,
       "fill_ts": 1784836800000
@@ -776,47 +816,10 @@
       "tp1_r": 2.2999999999999914,
       "mae_r": -0.3501616081152974,
       "mfe_r": 10.74591378565738,
-      "last_checked_ts": 1784889000000,
+      "last_checked_ts": 1784889900000,
       "bars_pending": 2,
       "telegram_message_id": 4522,
       "fill_ts": 1784868300000
-    },
-    {
-      "setup_type": "liquidity_sweep",
-      "symbol": "BNB",
-      "direction": "short",
-      "entry": 570.1020976664627,
-      "sl": 571.8805099999998,
-      "tp1": 566.0117492993272,
-      "tp2": 563.31,
-      "confidence": 0.55,
-      "rr_tp1": 2.299999999999968,
-      "rr_tp2": 3.8191917242013105,
-      "confluences": [
-        "liquidity_sweep_reclaim",
-        "buy_side_pool_swept"
-      ],
-      "regime_at_signal": "consolidation",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1784878235021,
-      "entry_filled": false,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "9d03302155f5",
-      "confidence_components": {
-        "base": 0.55
-      },
-      "tier": "B",
-      "score": 0.6482499999999991,
-      "status": "pending",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": 0.0,
-      "mfe_r": 0.0,
-      "last_checked_ts": 1784888100000,
-      "bars_pending": 11,
-      "telegram_message_id": 4533
     },
     {
       "setup_type": "liquidity_sweep",
@@ -853,8 +856,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1784889000000,
-      "bars_pending": 9,
+      "last_checked_ts": 1784889900000,
+      "bars_pending": 10,
       "telegram_message_id": 4541
     }
   ],
@@ -863,5 +866,5 @@
     "LINK": 1784868300000,
     "DOGE": 1784880900000
   },
-  "last_run_ts": 1784889047914
+  "last_run_ts": 1784889954294
 }
