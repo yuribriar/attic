@@ -1,1 +1,91 @@
-{"schema_version": 2, "resolution_logic_version": 1, "tier1": {"baseline_profit_factor": 1.6, "adaptive_params": {"sl_buffer_percentile": {}, "sl_buffer_percentile_dist": {"TAO:15M": 0.1916238437437262}, "tp1_target_rank_preference": {}, "regime_fit_discount": {}, "mtf_alignment_weight": {}, "liquidity_sanity_threshold": {}, "sfp_mss_strictness": {}, "confidence_calibration_shift": {}, "session_open_proximity_weight": {}}, "segment_stats": {}, "calibration": {}, "forensic_category_counts": {}, "forensic_category_r_drift": {}, "baseline_win_rate": 0.5, "rolling_win_rate": 0.5, "equity_curve_r": [], "signal_rate_history": {"2026-07-25": 0}, "fill_rate_stats": {"filled": 0, "expired": 0}, "filter_funnel": {"stage1_neutral": {"eliminated": 3, "passed": 72}, "SMC": {"eliminated": 72, "passed": 0}, "Breakout": {"eliminated": 72, "passed": 0}, "Momentum": {"eliminated": 72, "passed": 0}, "Mean Reversion": {"eliminated": 72, "passed": 0}, "Range Trading": {"eliminated": 72, "passed": 0}, "Volatility Expansion": {"eliminated": 72, "passed": 0}, "Order Block": {"eliminated": 72, "passed": 0}, "Breaker Block": {"eliminated": 72, "passed": 0}, "Fair Value Gap": {"eliminated": 72, "passed": 0}, "Reversal": {"eliminated": 72, "passed": 0}}, "circuit_breaker": {"tripped": false, "since": null}}, "tier2": {"trade_log": [], "active_signals": []}, "macro_events": [], "last_run_ts": "2026-07-25T08:50:53.162794+00:00", "last_daily_summary_date": "2026-07-25"}
+{
+  "last_daily_summary_date": "2026-07-25",
+  "last_run_ts": "2026-07-25T08:53:24.147740+00:00",
+  "macro_events": [],
+  "resolution_logic_version": 1,
+  "schema_version": 2,
+  "tier1": {
+    "adaptive_params": {
+      "confidence_calibration_shift": {},
+      "liquidity_sanity_threshold": {},
+      "mtf_alignment_weight": {},
+      "regime_fit_discount": {},
+      "session_open_proximity_weight": {},
+      "sfp_mss_strictness": {},
+      "sl_buffer_percentile": {},
+      "sl_buffer_percentile_dist": {
+        "TAO:15M": 0.1916238437437262
+      },
+      "tp1_target_rank_preference": {}
+    },
+    "baseline_profit_factor": 1.6,
+    "baseline_win_rate": 0.5,
+    "calibration": {},
+    "circuit_breaker": {
+      "since": null,
+      "tripped": false
+    },
+    "equity_curve_r": [],
+    "fill_rate_stats": {
+      "expired": 0,
+      "filled": 0
+    },
+    "filter_funnel": {
+      "Breaker Block": {
+        "eliminated": 96,
+        "passed": 0
+      },
+      "Breakout": {
+        "eliminated": 96,
+        "passed": 0
+      },
+      "Fair Value Gap": {
+        "eliminated": 96,
+        "passed": 0
+      },
+      "Mean Reversion": {
+        "eliminated": 96,
+        "passed": 0
+      },
+      "Momentum": {
+        "eliminated": 96,
+        "passed": 0
+      },
+      "Order Block": {
+        "eliminated": 96,
+        "passed": 0
+      },
+      "Range Trading": {
+        "eliminated": 96,
+        "passed": 0
+      },
+      "Reversal": {
+        "eliminated": 96,
+        "passed": 0
+      },
+      "SMC": {
+        "eliminated": 96,
+        "passed": 0
+      },
+      "Volatility Expansion": {
+        "eliminated": 96,
+        "passed": 0
+      },
+      "stage1_neutral": {
+        "eliminated": 4,
+        "passed": 96
+      }
+    },
+    "forensic_category_counts": {},
+    "forensic_category_r_drift": {},
+    "rolling_win_rate": 0.5,
+    "segment_stats": {},
+    "signal_rate_history": {
+      "2026-07-25": 0
+    }
+  },
+  "tier2": {
+    "active_signals": [],
+    "trade_log": []
+  }
+}
