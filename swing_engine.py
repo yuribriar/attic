@@ -1623,10 +1623,25 @@ def entry_distance_ok(direction: str, entry: float, market_price: float, view: V
 # SECTION 12/5.2 -- CONFLUENCE / COMPOSITE SCORING (DECISION ENGINE)
 # =============================================================================
 
-def _bounded_term(x: float) -> float:
-    """Clip any single scoring term so it can never saturate the blend alone
-    (Section 30 acceptance check)."""
-    return max(0.0, min(MAX_SINGLE_TERM_CONTRIBUTION, x))
+def _clip01(x: float) -> float:
+    """Keep an individual scoring term within its natural [0, 1] range."""
+    return max(0.0, min(1.0, x))
+
+
+def _cap_contribution(term_value: float, weight: float) -> float:
+    """Cap a single term's WEIGHTED contribution to the composite sum so no
+    one term can saturate the blend alone (Section 30 acceptance check).
+
+    This must be applied to (term * weight), not to the raw term. Capping
+    the raw term before weighting -- the prior implementation -- collapses
+    the entire achievable ceiling to exactly the cap value whenever the
+    category weights sum to 1.0 (sum(weight_i * min(term_i, cap)) <=
+    cap * sum(weight_i) = cap), which made every grade threshold above the
+    cap's logistic image mathematically unreachable regardless of setup
+    quality. Capping post-weight instead limits any single category's
+    *share* of the blend without capping the blend's overall ceiling.
+    """
+    return max(0.0, min(MAX_SINGLE_TERM_CONTRIBUTION, term_value * weight))
 
 
 def composite_score(direction: str, h1: View, h4: View, weekly: View, m15: View,
@@ -1637,37 +1652,37 @@ def composite_score(direction: str, h1: View, h4: View, weekly: View, m15: View,
     weights = regime_adjusted_weights(regime_label)
     reasons: list[str] = []
 
-    trend_term = _bounded_term(h1.trend_strength * (1.0 if h1.trend_direction == direction else 0.3))
+    trend_term = _clip01(h1.trend_strength * (1.0 if h1.trend_direction == direction else 0.3))
     reasons.append(f"1H trend strength {h1.trend_strength:.2f} aligned {direction}")
 
-    structure_term = _bounded_term(0.7 if zone_result.get("mss") else 0.0)
+    structure_term = _clip01(0.7 if zone_result.get("mss") else 0.0)
     if zone_result.get("poi") is not None:
         poi: Zone = zone_result["poi"]
-        structure_term = _bounded_term(structure_term + (0.15 if poi.kind == "breaker_block" else 0.05))
+        structure_term = _clip01(structure_term + (0.15 if poi.kind == "breaker_block" else 0.05))
         reasons.append(f"Validated {poi.kind.replace('_', ' ')} POI with confirmed MSS")
 
     rsi_val = h1.rsi[-1] if h1.rsi else 50.0
     momentum_aligned = (rsi_val > 50 if direction == "bullish" else rsi_val < 50)
-    momentum_term = _bounded_term((abs(rsi_val - 50) / 50.0) * (1.0 if momentum_aligned else 0.4))
+    momentum_term = _clip01((abs(rsi_val - 50) / 50.0) * (1.0 if momentum_aligned else 0.4))
     reasons.append(f"1H RSI {rsi_val:.1f} {'supports' if momentum_aligned else 'mixed vs'} {direction}")
 
     sweep = zone_result.get("sweep")
     liquidity_term = 0.0
     if sweep is not None:
-        liquidity_term = _bounded_term(0.5 + (0.25 if sweep.pool.is_equal_cluster else 0.0) +
+        liquidity_term = _clip01(0.5 + (0.25 if sweep.pool.is_equal_cluster else 0.0) +
                                         (0.15 if sweep.is_pure else 0.0))
         reasons.append(f"Liquidity sweep of {sweep.pool.kind} pool "
                         f"({'equal-cluster, ' if sweep.pool.is_equal_cluster else ''}"
                         f"{'pure' if sweep.is_pure else 'impure'} SFP)")
         if zone_result.get("session_anchored"):
             session_w = get_adaptive(state, "session_open_proximity_weight", "global", 0.05)
-            liquidity_term = _bounded_term(liquidity_term + session_w * rv.session_open_proximity)
+            liquidity_term = _clip01(liquidity_term + session_w * rv.session_open_proximity)
 
-    volume_term = _bounded_term(min(1.0, h1.rel_volume / 2.5))
+    volume_term = _clip01(min(1.0, h1.rel_volume / 2.5))
     reasons.append(f"Relative volume {h1.rel_volume:.2f}x")
 
-    volatility_term = _bounded_term(1.0 - abs(rv.volatility_percentile - 0.55))  # mid-range ATR percentile preferred
-    risk_term = _bounded_term(min(1.0, (plan["rr1"] - RR_MIN_GATE) / (RR_MAX_GATE - RR_MIN_GATE)))
+    volatility_term = _clip01(1.0 - abs(rv.volatility_percentile - 0.55))  # mid-range ATR percentile preferred
+    risk_term = _clip01(min(1.0, (plan["rr1"] - RR_MIN_GATE) / (RR_MAX_GATE - RR_MIN_GATE)))
     reasons.append(f"RR1 {plan['rr1']:.2f} (floor {RR_MIN_GATE})")
 
     htf_alignment = weekly.trend_direction == direction or h4.trend_direction == direction
@@ -1679,7 +1694,7 @@ def composite_score(direction: str, h1: View, h4: View, weekly: View, m15: View,
     terms = {"trend": trend_term, "structure": structure_term, "momentum": momentum_term,
              "liquidity": liquidity_term, "volume": volume_term, "volatility": volatility_term,
              "risk": risk_term}
-    raw = sum(weights.get(k, 0.0) * v for k, v in terms.items()) + mtf_bonus
+    raw = sum(_cap_contribution(v, weights.get(k, 0.0)) for k, v in terms.items()) + mtf_bonus
 
     regime_discount = get_adaptive(state, "regime_fit_discount", f"{engine_name}:{regime_label}", 0.0)
     raw = max(0.0, raw - regime_discount)
@@ -1689,7 +1704,7 @@ def composite_score(direction: str, h1: View, h4: View, weekly: View, m15: View,
     logistic = 1.0 / (1.0 + math.exp(-6.0 * (raw - 0.5)))
     confidence = max(0.0, min(100.0, (logistic + calibration_shift) * 100.0))
 
-    scores_scaled = {k: round(weights.get(k, 0.0) * v * 100, 2) for k, v in terms.items()}
+    scores_scaled = {k: round(_cap_contribution(v, weights.get(k, 0.0)) * 100, 2) for k, v in terms.items()}
     return confidence, scores_scaled, reasons
 
 
