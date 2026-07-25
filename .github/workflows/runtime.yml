@@ -29,7 +29,7 @@ jobs:
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID:   ${{ secrets.TG_CHAT_ID }}
-        run: python core.py
+        run: python swing_engine.py
         
       - name: Persist cooldown state
         if: always()
