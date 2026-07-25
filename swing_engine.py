@@ -1,132 +1,49 @@
 #!/usr/bin/env python3
 """
-MERIDIAN Signal Engine -- v2.0.0 ("V2")
-Institutional-grade adaptive hybrid crypto perpetual-futures signal engine
-for Hyperliquid, delivered as a single self-contained Python file.
+MERIDIAN Signal Engine -- v2.0.0
 
-V2 is built on the Meridian v1.0.0 base (selected as the strongest
-foundation across a five-engine audit: Arbiter, Crucible, Kairos, Meridian,
-Meridian X -- see `signal_engine_audit_ranking.md`) and integrates the
-highest-value features from the other four engines into Meridian's typed
-data model / single-code-path-per-engine architecture. Every V2 addition
-below is additive to Meridian's existing structure -- no architectural
-rewrite -- per the audit's explicit recommendation to add inputs to clean
-seams rather than fight the base engine's design.
+Adaptive hybrid crypto perpetual-futures signal engine for Hyperliquid,
+delivered as a single self-contained Python file. Runs stateless-between-
+invocations on a 15-minute external cron cadence. Learning/adaptation
+state persists in `state.json`; a shared candle cache persists in
+`candle_cache.json` (both written atomically, next to this script).
 
-Runs stateless-between-invocations on a 15-minute external cron cadence
-(GitHub Actions triggered by cron-job.org). All learning/adaptation state
-persists in `state.json`; a shared candle cache persists in
-`candle_cache.json`, both written atomically (write-temp-then-rename) and
-read/written next to this script.
-
-Architecture (single file, modular in design per Section 0 of the spec this
-engine was built against -- organized into clearly delimited sections):
-
+Sections:
   1.  Configuration & constants
   2.  Logging
   3.  Data models
   4.  Hyperliquid client
   5.  Candle cache store
-  6.  State store (Tier 1 permanent aggregates / Tier 2 bounded raw log)
+  6.  State store (Tier 1 aggregates / Tier 2 bounded raw log)
   7.  Feature primitives (Trend / Structure / SMC / Volume / Momentum / Vol)
   8.  Composite Regime Vector + discrete regime label
   9.  Regime-dependent adaptive filter weighting
   10. Top-down 4-stage mandatory sequence (Weekly/Daily -> 4H -> 1H -> 15M)
-      + optional Stage 5 (5M entry refine, ported from Crucible/Kairos)
+      + optional Stage 5 (5M entry refine)
   11. Zone-selection sequence (POI -> SFP -> MSS -> Breaker -> OTE)
   12. Confluence / composite scoring (Decision Engine)
-  13. Specialized engine ensemble (+ Counter-Trend Reversal, opt-in) --
-      widened in V2 with Order Block, Breaker Block, Fair Value Gap, and
-      dedicated Reversal engines (ported from Arbiter), each dispatched
-      through Meridian's single `_generic_setup_engine` code path and
-      individually fault-isolated (ported from Kairos)
+  13. Specialized engine ensemble (+ Counter-Trend Reversal, opt-in)
   14. Risk management & trade construction (SL/TP1/TP2 plan)
   15. Trade outcome model & resolution (single-TP1, no auto-breakeven)
   16. Entry-fill verification & pending-signal lifecycle
   17. Anti-repainting (closed-candle-only) helpers
-  18. Regime-fit veto, liquidity sanity check, macro blackout -- V2 default
-      event source is now a self-sufficient static recurring calendar
-      (ported from Meridian X), with `state["macro_events"]` retained as an
-      operator/live-feed override
+  18. Regime-fit veto, liquidity sanity check, macro blackout
   19. Failure/success forensic taxonomy & adaptive feedback routing
-  20. Explainability & self-health monitoring -- circuit breaker widened to
-      a dual win-rate + profit-factor trip condition
+  20. Explainability & self-health monitoring (dual win-rate + profit-
+      factor circuit breaker)
   21. Signal JSON schema
-  22. Correlation / concurrency / frequency-health mechanisms -- single
-      composed `portfolio_gate_ok` gate (ported from Crucible) layered over
-      Meridian's existing individual caps
+  22. Correlation / concurrency / frequency-health mechanisms
   23. Filter-funnel attrition logging
   24. Portfolio & position-sizing risk controls
-  25. Telegram integration -- refactored into a `TelegramNotifier` class
-      (ported from Meridian X / Kairos) with identical wire output
+  25. Telegram integration
   26. Orchestration (main scan loop)
 
-Identifier parity with the attached reference engines (all five agree):
-  - Telegram secrets:      TG_BOT_TOKEN, TG_CHAT_ID
-  - State file:            state.json          (env override: STATE_PATH)
-  - Candle cache file:     candle_cache.json    (env override: CANDLE_CACHE_PATH)
-  - Exchange API:          Hyperliquid public /info endpoint
-  - Watchlist:              bare Hyperliquid coin symbols (agreed format;
-    a Binance-style "...USDT" suffixed list seen in one reference engine
-    does not match Hyperliquid's actual coin symbols and would break the
-    exchange client, so it is not used here -- an explicit, documented
-    engineering judgment call carried over from Meridian v1.0.0).
-
-V2 CHANGELOG (each item traceable to `signal_engine_audit_ranking.md`):
-  - Widened base ensemble: + Order Block, + Breaker Block, + Fair Value Gap,
-    + Reversal engines (from Arbiter's engine list; implemented as new
-    `BASE_ENGINE_SETUPS` entries reusing Meridian's existing "reversal"
-    retracement path with a per-engine required POI-kind filter, not a
-    copy-pasted code path).
-  - Per-engine fault isolation in the scan loop (from Kairos): one
-    misbehaving engine can no longer zero out every other engine's
-    candidates for a symbol.
-  - Optional Stage 5 5M entry refinement (from Crucible/Kairos), env-gated
-    by ENABLE_5M_REFINE, strictly bounded inside the Stage-4 FVG and never
-    relocating outside it.
-  - Self-sufficient macro blackout calendar (from Meridian X): a static
-    recurring CPI/FOMC/NFP schedule is now the *default* event source;
-    `state["macro_events"]` remains a live-feed/operator override on top.
-  - `portfolio_gate_ok`: a single composed gate with a human-readable
-    rejection reason (from Crucible), layered over Meridian's existing
-    concurrency/correlation/exposure/daily-loss checks (none removed).
-  - `TelegramNotifier` class (from Meridian X/Kairos) replacing the
-    function-based dispatch code; identical wire format, truncation, and
-    six-status lifecycle -- a code-organization change, not a behavior
-    change.
-  - `DispatchedSignal`, a mutable dataclass wrapper (from Meridian X) used
-    internally for the active-signal lifecycle. Deliberately implemented
-    WITHOUT changing the on-disk `state.json` shape: active signals are
-    still persisted as plain dicts (`asdict()`/dataclass(**d) conversion
-    happens only in memory), so old state.json files from any prior
-    version load with zero migration code and zero schema-version risk --
-    a safer version of the audit's suggested port.
-  - Dual-metric circuit breaker: win-rate deviation (existing) OR
-    profit-factor collapse below BASELINE_PROFIT_FACTOR (new) trips
-    adaptation-freeze, per the roadmap's "wire profit factor in from day
-    one" guidance.
-  - STATE_SCHEMA_VERSION bumped 1 -> 2 for the new Tier-1 profit-factor
-    baseline field; `StateStore._load` merges old state.json files onto
-    fresh V2 defaults exactly as before (additive, non-breaking).
-  - Correlation-group taxonomy: Meridian's own `majors/l1_alt/defi_infra/
-    exchange_native/meme_narrative/privacy` grouping is retained as-is (the
-    audit's cross-cutting note explicitly says pick ONE taxonomy rather
-    than merge; Meridian's is kept because it is the base engine's own,
-    already-wired-through-every-caller taxonomy -- switching would touch
-    every correlation-cap call site for no functional gain).
-  - NOT ported, by deliberate audit-informed choice:
-      * Arbiter's whole-file templated-engine style -- Meridian's ensemble
-        widening reuses its *existing* shared-path pattern instead.
-      * Meridian X's D2 "rolling feature validation" claim -- only the
-        simpler, actually-implemented win-rate/calibration checks exist in
-        either engine, and only those are carried over here.
-      * Kairos's win-rate-only circuit breaker as-is -- superseded by the
-        dual-metric breaker above.
-      * Kairos's 4-candle fixed-window outcome resolution -- not applicable;
-        Meridian's own `resolve_signal` already walks forward from a
-        persisted `filled_bar_index`/`dispatched_bar_index` watermark on
-        every check, not a fixed trailing window, so there was no gap to
-        fix here.
+Identifiers:
+  - Telegram secrets:  TG_BOT_TOKEN, TG_CHAT_ID
+  - State file:        state.json        (env override: STATE_PATH)
+  - Candle cache file:  candle_cache.json (env override: CANDLE_CACHE_PATH)
+  - Exchange API:       Hyperliquid public /info endpoint
+  - Watchlist:          bare Hyperliquid coin symbols
 """
 
 from __future__ import annotations
@@ -152,7 +69,7 @@ from typing import Any, Optional
 ENGINE_NAME = "Meridian Signal Engine"
 ENGINE_VERSION = "v2.0.0"
 RESOLUTION_LOGIC_VERSION = 1  # bumped whenever outcome-scoring/SL-TP resolution logic changes (Section 19)
-STATE_SCHEMA_VERSION = 2      # bumped for V2's new Tier-1 profit-factor baseline field (additive, non-breaking)
+STATE_SCHEMA_VERSION = 2      # bumped for the Tier-1 profit-factor baseline field
 
 # --- Identifiers copied verbatim per identifier-parity requirement ---------
 TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "")
@@ -168,16 +85,9 @@ WATCHLIST: list[str] = [
     "XLM", "UNI", "LTC", "APT", "PENDLE",
 ]
 
-# Correlation groups for Section 22/28's correlated-asset concurrency cap.
-# Coarse, majors-vs-alts-vs-L1 groupings -- good enough to prevent the cap
-# from being consumed by near-duplicate bets without needing a live
-# correlation matrix recomputed every run.
-# V2 note: retained as-is (not merged with Meridian X's or Kairos's
-# differing taxonomies) per the audit's explicit cross-cutting guidance --
-# pick ONE taxonomy rather than merge, since a symbol belonging to two
-# "correlation groups" simultaneously would silently double-count against
-# the concurrency cap. This is the base engine's own, already-wired-through
-# every call site (correlation_cap_ok, portfolio_gate_ok) taxonomy.
+# Correlation groups for the correlated-asset concurrency cap (Section 22/28).
+# Coarse groupings, good enough to stop the cap being consumed by
+# near-duplicate bets without a live correlation matrix each run.
 CORRELATION_GROUPS: dict[str, str] = {
     "BTC": "majors", "ETH": "majors", "BNB": "majors", "SOL": "majors",
     "XRP": "majors", "DOGE": "majors", "TRX": "majors", "LTC": "majors", "BCH": "majors",
@@ -188,16 +98,14 @@ CORRELATION_GROUPS: dict[str, str] = {
     "HYPE": "exchange_native", "PENGU": "meme_narrative", "ZEC": "privacy", "XLM": "l1_alt",
 }
 
-# --- Timeframes (Section 10) ------------------------------------------------
-# 5M is used ONLY for the optional Stage 5 entry-timing refinement below --
-# it is never a live-trigger timeframe in its own right (Section 14.3 /
-# FORBIDDEN_TIMEFRAMES still governs signal-firing timeframes).
+# --- Timeframes (Section 10) -------------------------------------------------
+# 5M is used only for the optional Stage 5 entry-timing refinement, never
+# as a live-trigger timeframe on its own.
 FORBIDDEN_TIMEFRAMES = {"1m", "2m", "3m"}
 TF_WEEKLY, TF_DAILY, TF_4H, TF_1H, TF_15M, TF_5M = "1w", "1d", "4h", "1h", "15m", "5m"
 CANDLE_LOOKBACK = {TF_WEEKLY: 120, TF_DAILY: 200, TF_4H: 300, TF_1H: 400, TF_15M: 500, TF_5M: 200}
 
-# --- Optional Stage 5 5M entry refinement (Section 10, ported from
-# --- Crucible's stage5_5m_refine / Kairos's stage5_refine) -- opt-in -------
+# --- Optional Stage 5 5M entry refinement (Section 10) -- opt-in -------------
 ENABLE_5M_REFINE = os.environ.get("ENABLE_5M_REFINE", "false").lower() == "true"
 
 # --- Risk / trade construction constants (Section 14, spec-mandated values) -
@@ -221,10 +129,9 @@ COUNTERTREND_RETEST_EXPIRY_BARS = 12
 MAX_CONCURRENT_ACTIVE_SIGNALS = 6
 MAX_CONCURRENT_PER_CORRELATION_GROUP = 2
 
-# --- Scan-phase throughput (V2, ported from Kairos) --------------------------
-# Per-symbol scanning is I/O-bound (candle fetches), so a small thread pool
-# gives a real wall-clock win on larger watchlists without any change to the
-# per-symbol scan logic itself, which remains fault-isolated per symbol.
+# --- Scan-phase throughput ----------------------------------------------------
+# Per-symbol scanning is I/O-bound, so a small thread pool speeds up larger
+# watchlists; each symbol's scan stays fault-isolated.
 SCAN_MAX_WORKERS = int(os.environ.get("SCAN_MAX_WORKERS", "6"))
 FIXED_RISK_PCT_OF_EQUITY = 0.0075       # 0.75% fixed-fractional per-trade risk (position-sizing reference only)
 MAX_DAILY_LOSS_PCT = 0.04
@@ -248,10 +155,10 @@ ADAPTIVE_BOUNDS: dict[str, tuple[float, float, float]] = {
 }
 MIN_SAMPLE_SIZE_FOR_ADAPTATION = 20     # per segment/category before an adjustment is trusted
 
-# --- Live-performance circuit breaker (Section 7.3) -------------------------
-# V2: dual-metric -- win-rate deviation (as v1.0.0) OR a profit-factor
-# collapse (new) trips the breaker, so a stretch of many small wins offset
-# by a few large losses is caught even when the raw win rate looks fine.
+# --- Live-performance circuit breaker (Section 7.3) ---------------------------
+# Dual-metric: win-rate deviation OR a profit-factor collapse trips the
+# breaker, so a stretch of many small wins offset by a few large losses is
+# still caught even when the raw win rate looks fine.
 CIRCUIT_BREAKER_LOOKBACK_TRADES = 40
 CIRCUIT_BREAKER_MAX_WIN_RATE_DEVIATION = 0.20   # vs documented baseline win rate
 BASELINE_PROFIT_FACTOR = 1.6                    # documented, pre-deployment baseline (Section 7.3/19)
@@ -260,11 +167,9 @@ CIRCUIT_BREAKER_MIN_PROFIT_FACTOR = 1.0         # trip if rolling profit factor 
 # --- Macro/news blackout window (Section 19) --------------------------------
 MACRO_BLACKOUT_MINUTES_BEFORE = 30
 MACRO_BLACKOUT_MINUTES_AFTER = 30
-# V2: self-sufficient by default (ported from Meridian X) -- a small static,
-# documented, recurring UTC schedule of the highest-impact scheduled US
-# macro events, swappable for a live economic-calendar feed without touching
-# engine logic. weekday: 0=Mon .. 6=Sun; week_of_month counts occurrences of
-# that weekday within the calendar month (1-indexed).
+# Static recurring UTC schedule of the highest-impact scheduled US macro
+# events; swappable for a live feed without touching engine logic.
+# weekday: 0=Mon..6=Sun; week_of_month counts occurrences within the month.
 MACRO_EVENT_CALENDAR: list[dict[str, Any]] = [
     {"name": "us_cpi", "weekday": 2, "week_of_month": 2, "hour_utc": 13, "minute_utc": 30, "affects": "ALL"},
     {"name": "fomc_decision", "weekday": 2, "week_of_month": 3, "hour_utc": 18, "minute_utc": 0, "affects": "ALL"},
@@ -443,14 +348,10 @@ class Candidate:
 
 @dataclass
 class DispatchedSignal:
-    """V2 (ported from Meridian X): a mutable dataclass modeling one
-    dispatched signal's lifecycle (pending -> activated -> resolved), used
-    for in-memory ergonomics wherever the engine reads/mutates an active
-    signal. Deliberately NOT the on-disk representation -- state.json still
-    stores plain dicts (via `asdict()`/`DispatchedSignal(**d)` round-trip in
-    Section 26), so this adds type-safety without any state-schema
-    migration risk and without breaking loads of any prior version's
-    state.json."""
+    """Mutable dataclass modeling one dispatched signal's lifecycle
+    (pending -> activated -> resolved). Not the on-disk representation --
+    state.json still stores plain dicts via an asdict()/DispatchedSignal(**d)
+    round-trip, so this adds type safety without any schema migration risk."""
     symbol: str
     direction: str
     engine: str
@@ -668,7 +569,7 @@ def _default_state() -> dict:
         "resolution_logic_version": RESOLUTION_LOGIC_VERSION,
         # --- Tier 1: permanent, incrementally-updated aggregates ------------
         "tier1": {
-            "baseline_profit_factor": BASELINE_PROFIT_FACTOR,  # V2: dual-metric circuit breaker input
+            "baseline_profit_factor": BASELINE_PROFIT_FACTOR,  # circuit-breaker input
             "adaptive_params": {
                 "sl_buffer_percentile": {},          # "{asset}:{tf}" -> float, default 65.0
                 "sl_buffer_percentile_dist": {},      # "{asset}:15M" -> float
@@ -732,10 +633,6 @@ class StateStore:
             merged["macro_events"] = loaded.get("macro_events", [])
             merged["last_run_ts"] = loaded.get("last_run_ts")
             merged["resolution_logic_version"] = loaded.get("resolution_logic_version", RESOLUTION_LOGIC_VERSION)
-            # V2 (schema_version 1 -> 2): additive-only field; a v1.0.0
-            # state.json simply won't have it, and the shallow-merge onto
-            # `default["tier1"]` above already backfills it as long as the
-            # explicit override below prefers loaded data when present.
             merged["tier1"]["baseline_profit_factor"] = loaded.get("tier1", {}).get(
                 "baseline_profit_factor", BASELINE_PROFIT_FACTOR)
             merged["schema_version"] = STATE_SCHEMA_VERSION  # always upgrade in place; no destructive migration
@@ -748,11 +645,7 @@ class StateStore:
         self.state["last_run_ts"] = datetime.now(timezone.utc).isoformat()
         self._prune_tier2()
         try:
-            # indent=2 -- state.json is small (Tier 1 aggregates + a bounded
-            # Tier 2 log) and is the file operators actually open to read,
-            # unlike candle_cache.json's bulk OHLCV arrays -- so it's worth
-            # the extra bytes to keep it human-readable.
-            _atomic_write_json(self.path, self.state, indent=2)
+            _atomic_write_json(self.path, self.state, indent=2)  # human-readable; state.json is small
         except OSError as e:
             log.error("Failed to persist state.json -- next run will not see this run's updates: %s", e)
 
@@ -783,9 +676,8 @@ def set_adaptive(state: dict, param: str, key: str, new_value: float) -> None:
 # =============================================================================
 # SECTION 7 -- FEATURE PRIMITIVES (shared technical substrate, Section 6)
 # =============================================================================
-# Every indicator below is computed once per asset/timeframe/run and reused
-# by every consumer (regime vector, zone-selection, adaptive filters, risk
-# construction) -- never redundantly recomputed inside individual engines.
+# Each indicator is computed once per asset/timeframe/run and reused by
+# every consumer, never recomputed inside individual engines.
 
 def _ema(values: list[float], period: int) -> list[float]:
     if not values:
@@ -1375,11 +1267,8 @@ def _poi_pool(direction: str, view: "View") -> list[Zone]:
     return [z for z in zones if z.direction == direction and not z.mitigated]
 
 
-# V2: kind-filtered POI pool, used by the widened ensemble (Order Block,
-# Breaker Block, Fair Value Gap engines) to derive a genuinely distinct
-# reference zone per engine rather than all sharing the same resolved POI
-# (ported from Arbiter's engine list; ownership of each engine's specific
-# zone type is real signal differentiation, not just a label difference).
+# Kind-filtered POI pool: lets Order Block / Breaker Block / Fair Value Gap
+# engines each derive a distinct reference zone instead of sharing one POI.
 _TYPED_ZONE_ATTR = {"order_block": "order_blocks", "breaker_block": "breaker_blocks", "fvg": "fvgs"}
 
 
@@ -1521,12 +1410,10 @@ def _overlaps(a: Zone, b: Zone) -> bool:
 
 
 def stage5_5m_refine(bias: str, entry_zone: Zone, m5_view: Optional[View], fallback_entry: float) -> tuple[float, bool]:
-    """V2 optional Stage 5 (ported from Crucible's stage5_5m_refine / Kairos's
-    stage5_refine): entry-timing refinement using only already-closed 5M
-    candles, strictly bounded inside the Stage-4 FVG/POI. Structurally can
-    never relocate, widen, or salvage a Stage 4 result -- the refined price
-    is always clamped to the zone's own bounds, and any failure to refine
-    silently falls back to the unrefined Stage 4 entry rather than erroring.
+    """Optional Stage 5 entry-timing refinement using only already-closed 5M
+    candles, strictly bounded inside the Stage-4 FVG/POI. Can never relocate,
+    widen, or salvage a Stage 4 result -- clamped to the zone's own bounds,
+    and any failure to refine falls back to the unrefined Stage 4 entry.
     Returns (entry_price, was_refined)."""
     if not ENABLE_5M_REFINE or m5_view is None or len(m5_view.candles) < 5:
         return fallback_entry, False
@@ -1847,8 +1734,7 @@ def _week_of_month(dt: datetime) -> int:
 
 
 def _static_calendar_blackout_active(asset: str, now_utc: datetime) -> bool:
-    """V2: self-sufficient default event source (ported from Meridian X) --
-    works with zero operator setup, unlike a purely externally-fed gate."""
+    """Self-sufficient default event source; works with zero operator setup."""
     for ev in MACRO_EVENT_CALENDAR:
         if now_utc.weekday() != ev["weekday"] or _week_of_month(now_utc) != ev["week_of_month"]:
             continue
@@ -1863,9 +1749,8 @@ def _static_calendar_blackout_active(asset: str, now_utc: datetime) -> bool:
 
 
 def _operator_supplied_blackout_active(asset: str, state: dict, now_utc: datetime) -> bool:
-    """Original Meridian v1.0.0 behavior, retained as an ADDITIONAL override
-    source (live feed / one-off events the static calendar doesn't know
-    about) -- never the only source in V2."""
+    """Additional override source (live feed / one-off events) layered on
+    top of the static calendar, never the only source."""
     events = state.get("macro_events", [])
     for ev in events:
         try:
@@ -1885,8 +1770,8 @@ def _operator_supplied_blackout_active(asset: str, state: dict, now_utc: datetim
 
 
 def macro_blackout_active(asset: str, state: dict, now_utc: datetime) -> bool:
-    """V2: blackout is active if EITHER the self-sufficient static calendar
-    OR an operator/live-feed-supplied event says so (Section 19, D3)."""
+    """Active if either the static calendar or an operator/live-feed event
+    says so (Section 19)."""
     return (_static_calendar_blackout_active(asset, now_utc) or
             _operator_supplied_blackout_active(asset, state, now_utc))
 
@@ -1948,16 +1833,15 @@ def _generic_setup_engine(engine_name: str, setup_type: str, symbol: str, views:
                            bias: str, state: dict, market_price: float,
                            required_poi_kind: Optional[str] = None) -> Optional[Candidate]:
     """Shared orchestration for every non-SMC base-ensemble engine (Breakout,
-    Momentum, Mean Reversion, Range, Volatility Expansion, and -- V2 -- Order
-    Block, Breaker Block, Fair Value Gap, Reversal) -- each supplies its own
+    Momentum, Mean Reversion, Range, Volatility Expansion, Order Block,
+    Breaker Block, Fair Value Gap, Reversal) -- each supplies its own
     reference-zone selection but reuses retracement_entry, build_risk_plan,
     and composite_score end to end so no engine has a divergent code path.
 
-    `required_poi_kind` (V2): when set, the engine's reference zone is drawn
-    from the 1H view's own typed zone collection for that kind (not the
-    single POI already resolved by zone_selection_sequence), so e.g. the
-    Order Block engine only ever fires off an actual unmitigated order
-    block -- real differentiation, not a shared label over the same zone."""
+    `required_poi_kind`: when set, the engine's reference zone is drawn
+    from the 1H view's own typed zone collection for that kind, so e.g.
+    the Order Block engine only ever fires off an actual unmitigated
+    order block."""
     weekly, daily, h4, h1, m15 = (views[TF_WEEKLY], views[TF_DAILY], views[TF_4H],
                                     views[TF_1H], views[TF_15M])
     if not stage2_context(bias, h4):
@@ -2010,7 +1894,6 @@ BASE_ENGINE_SETUPS = [
     ("Mean Reversion", "mean_reversion", None),
     ("Range Trading", "range", None),
     ("Volatility Expansion", "volatility_expansion", None),
-    # -- V2 widened ensemble (ported from Arbiter's engine list) --
     ("Order Block", "order_block", "order_block"),
     ("Breaker Block", "breaker_block", "breaker_block"),
     ("Fair Value Gap", "fvg", "fvg"),
@@ -2092,8 +1975,8 @@ def run_countertrend_gate(bias: str, weekly: View, daily: View, h4: View, h1: Vi
 
     zone_result = {"poi": htf_poi["poi"], "sweep": None, "mss": choch, "session_anchored": False}
     rv = compute_regime_vector(h1, {asset: h1}, datetime.now(timezone.utc))
-    # Counter-trend's documented best-fit regime state is the opposite of the
-    # base ensemble's -- exempt from the standard regime-fit veto by design.
+    # Best-fit regime is the opposite of the base ensemble's; exempt from
+    # the standard regime-fit veto by design.
     regime_label, regime_confidence, _ = classify_regime(rv)
     confidence, scores, reasons = composite_score(direction, h1, h4, weekly, m15, zone_result, plan,
                                                     rv, regime_label, state, "Counter-Trend Reversal")
@@ -2130,13 +2013,9 @@ def check_entry_filled(signal: dict, m15_view: View) -> str:
 # =============================================================================
 # SECTION 15 -- TRADE OUTCOME MODEL & RESOLUTION
 # =============================================================================
-# Position-exit model declaration: FULL EXIT AT TP1 (the default/simplest
-# model). 100% of position size is modeled as closing at TP1; nothing remains
-# open afterward, so a later touch of the original SL after TP1 has already
-# resolved the trade is bookkeeping only and never reopens or re-scores it.
-# No automatic SL-to-breakeven repositioning on TP1 occurs anywhere in this
-# resolution path -- the original structural SL level is retained, unused,
-# for internal tracking only once a trade is already resolved by TP1.
+# Position-exit model: FULL EXIT AT TP1. 100% of size closes at TP1; a
+# later touch of the original SL is bookkeeping only and never reopens or
+# re-scores the trade. No automatic SL-to-breakeven on TP1.
 
 def resolve_signal(signal: dict, m15_view: View) -> Optional[dict]:
     """Single-TP1 resolution: a signal resolves the moment TP1 or SL is hit,
@@ -2302,11 +2181,9 @@ def check_health(state: dict) -> list[str]:
         baseline = state["tier1"].get("baseline_win_rate", 0.5)
         wr_tripped = abs(rolling_wr - baseline) > CIRCUIT_BREAKER_MAX_WIN_RATE_DEVIATION
 
-        # V2: second, independent leg -- profit factor. Catches a bad stretch
-        # arriving as high-frequency small wins against a few large losses,
-        # which a raw win-rate check alone can miss (BASELINE_PROFIT_FACTOR
-        # is the documented pre-deployment baseline; wired in from day one
-        # rather than defined-but-unused).
+        # Second, independent leg: profit factor. Catches a bad stretch of
+        # high-frequency small wins against a few large losses, which a raw
+        # win-rate check alone can miss.
         gross_win = sum(t["r_realized"] for t in trades if t.get("r_realized", 0) > 0)
         gross_loss = abs(sum(t["r_realized"] for t in trades if t.get("r_realized", 0) < 0))
         rolling_pf = (gross_win / gross_loss) if gross_loss > 1e-9 else float("inf")
@@ -2421,10 +2298,9 @@ def position_size_fraction(state: dict, win_rate: float = 0.5, avg_rr: float = 1
 
 
 def portfolio_gate_ok(symbol: str, state: dict) -> tuple[bool, str]:
-    """V2 (ported from Crucible): a single composed gate over Meridian's
-    existing individual checks, with a human-readable rejection reason for
-    clearer logs/telemetry. Layered on top of, never replacing, the
-    individual functions above -- each remains independently callable."""
+    """Single composed gate over the individual checks below, with a
+    human-readable rejection reason. Each check remains independently
+    callable."""
     if active_signal_slots_available(state) <= 0:
         return False, "MAX_CONCURRENT_ACTIVE_SIGNALS reached"
     if not correlation_cap_ok(symbol, state):
@@ -2509,15 +2385,11 @@ STATUS_LABELS = {"activated": "Activated", "win": "TP1", "loss": "SL",
 
 
 class TelegramNotifier:
-    """V2 (ported from Meridian X/Kairos): all Telegram dispatch consolidated
-    into one class rather than free functions. This is a code-organization
-    change only -- every wire-level detail (message text, truncation at
-    4096 chars, single consistent reaction emoji, six-status reply
-    lifecycle, Markdown parse mode) is byte-for-byte identical to Meridian
-    v1.0.0's function-based implementation; nothing about what gets sent to
-    Telegram or when has changed."""
+    """Consolidates all Telegram dispatch: message text, truncation at
+    4096 chars, reaction emoji, six-status reply lifecycle, Markdown
+    parse mode."""
 
-    REACTION_EMOJI = "\U0001F680"  # single, consistently-applied acknowledgment emoji (rocket)
+    REACTION_EMOJI = "\U0001F680"  # rocket, used as the acknowledgment reaction
 
     def __init__(self, bot_token: str = TG_BOT_TOKEN, chat_id: str = TG_CHAT_ID) -> None:
         self.bot_token = bot_token
@@ -2620,13 +2492,9 @@ def _load_all_views(client: HyperliquidClient, cache: CandleCacheStore, symbol: 
 
 
 def _record_dispatch(state: dict, candidate: Candidate, message_id: Optional[int]) -> None:
-    # V2: constructed through the typed DispatchedSignal dataclass so a
-    # missing/misnamed field is a construction-time TypeError, not a silent
-    # gap discovered later during resolution -- then flattened to a plain
-    # dict for on-disk storage (Section 26 note / DispatchedSignal docstring:
-    # state.json's shape is unchanged, so every downstream reader that
-    # indexes `sig["..."]` -- check_entry_filled, resolve_signal,
-    # classify_forensic_category, etc. -- needs no changes at all).
+    # Built via the typed DispatchedSignal dataclass (a missing/misnamed
+    # field is a construction-time TypeError), then flattened to a plain
+    # dict for on-disk storage so state.json's shape is unchanged.
     dispatched = DispatchedSignal(
         symbol=candidate.symbol, direction=candidate.direction, engine=candidate.engine,
         style=candidate.style, entry=candidate.entry, entry_kind=candidate.entry_kind,
@@ -2646,8 +2514,7 @@ def _monitor_active_signals(state: dict, client: HyperliquidClient, cache: Candl
     still_active = []
     for sig in state["tier2"]["active_signals"]:
         if sig.get("resolution_logic_version") != RESOLUTION_LOGIC_VERSION:
-            # pre-fix trades under prior resolution logic are excluded from
-            # further processing under the current logic (Section 19).
+            # trades under a prior resolution logic version are left as-is
             still_active.append(sig)
             continue
         candles = cache.get_or_fetch(client, sig["symbol"], TF_15M)
@@ -2724,9 +2591,8 @@ def _scan_asset(symbol: str, client: HyperliquidClient, cache: CandleCacheStore,
         candidates.append(smc)
 
     for engine_name, setup_type, required_poi_kind in BASE_ENGINE_SETUPS:
-        # V2 (ported from Kairos): each engine call individually fault-isolated
-        # -- one misbehaving engine can never zero out every other engine's
-        # candidates for this symbol/run.
+        # each engine call is fault-isolated: one misbehaving engine can
+        # never zero out every other engine's candidates this run
         try:
             cand = _generic_setup_engine(engine_name, setup_type, symbol, views, bias, state,
                                           market_price, required_poi_kind=required_poi_kind)
@@ -2768,15 +2634,9 @@ def run_scan() -> None:
             if not daily_loss_circuit_ok(state):
                 log.warning("Daily loss limit reached -- suppressing new signal generation for the remainder of today.")
             else:
-                # V2 (ported from Kairos): scan phase is thread-pooled per
-                # symbol for throughput on larger watchlists. Each symbol's
-                # scan remains individually fault-isolated -- one symbol
-                # raising never drops or blocks any other symbol's result --
-                # and _scan_asset's own internal per-engine try/except is
-                # unchanged. The confidence-ordered dispatch/gating logic
-                # below runs only after every symbol has finished, exactly
-                # as it did in the sequential version, so dispatch ordering
-                # and portfolio-gate behavior are unaffected by scan order.
+                # scan phase is thread-pooled per symbol; each symbol stays
+                # fault-isolated, and dispatch/gating still runs only after
+                # every symbol has finished, so ordering is unaffected.
                 all_candidates: list[Candidate] = []
                 skipped: list[str] = []
 
@@ -2800,12 +2660,8 @@ def run_scan() -> None:
                 log.info("Scan phase complete: %d/%d symbols processed (%d skipped), %d candidate(s).",
                          len(WATCHLIST) - len(skipped), len(WATCHLIST), len(skipped), len(all_candidates))
 
-                # dispatch in descending confidence order, subject to
-                # concurrency/correlation/exposure caps (Sections 22, 28) --
-                # V2: single composed gate (ported from Crucible) with a
-                # human-readable rejection reason for cleaner logs; the
-                # individual functions it composes are unchanged and still
-                # independently callable/testable.
+                # dispatch in descending confidence order, subject to the
+                # concurrency/correlation/exposure gate (Sections 22, 28)
                 for cand in sorted(all_candidates, key=lambda c: c.confidence, reverse=True):
                     gate_ok, gate_reason = portfolio_gate_ok(cand.symbol, state)
                     if not gate_ok:
