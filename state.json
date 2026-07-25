@@ -1,5 +1,5 @@
 {
-  "last_run_ts": "2026-07-25T17:15:24.976218+00:00",
+  "last_run_ts": "2026-07-25T17:30:31.669673+00:00",
   "macro_events": [],
   "resolution_logic_version": 1,
   "schema_version": 2,
@@ -29,48 +29,48 @@
     },
     "filter_funnel": {
       "Breaker Block": {
-        "eliminated": 168,
+        "eliminated": 192,
         "passed": 0
       },
       "Breakout": {
-        "eliminated": 168,
+        "eliminated": 192,
         "passed": 0
       },
       "Fair Value Gap": {
-        "eliminated": 168,
+        "eliminated": 192,
         "passed": 0
       },
       "Mean Reversion": {
-        "eliminated": 168,
+        "eliminated": 192,
         "passed": 0
       },
       "Momentum": {
-        "eliminated": 168,
+        "eliminated": 192,
         "passed": 0
       },
       "Order Block": {
-        "eliminated": 168,
+        "eliminated": 192,
         "passed": 0
       },
       "Range Trading": {
-        "eliminated": 168,
+        "eliminated": 192,
         "passed": 0
       },
       "Reversal": {
-        "eliminated": 168,
+        "eliminated": 192,
         "passed": 0
       },
       "SMC": {
-        "eliminated": 168,
+        "eliminated": 192,
         "passed": 0
       },
       "Volatility Expansion": {
-        "eliminated": 168,
+        "eliminated": 192,
         "passed": 0
       },
       "stage1_neutral": {
-        "eliminated": 7,
-        "passed": 168
+        "eliminated": 8,
+        "passed": 192
       }
     },
     "forensic_category_counts": {},
