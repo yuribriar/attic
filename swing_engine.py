@@ -576,12 +576,19 @@ class HyperliquidClient:
 # SECTION 5 -- CANDLE CACHE STORE (persistent, incremental, shared)
 # =============================================================================
 
-def _atomic_write_json(path: str, data: Any) -> None:
-    """Write-temp-then-rename atomic persistence (Section 4 / 30)."""
+def _atomic_write_json(path: str, data: Any, indent: Optional[int] = None) -> None:
+    """Write-temp-then-rename atomic persistence (Section 4 / 30).
+
+    `indent=None` (default) preserves the original compact single-line
+    output -- used for candle_cache.json, which holds large raw OHLCV
+    arrays and would otherwise bloat file size / git diffs on every
+    15-minute run for no practical benefit (it's not meant to be
+    hand-read). Callers that want a human-readable file (state.json)
+    pass an explicit indent."""
     tmp_path = f"{path}.tmp.{os.getpid()}"
     try:
         with open(tmp_path, "w", encoding="utf-8") as f:
-            json.dump(data, f)
+            json.dump(data, f, indent=indent, sort_keys=(indent is not None))
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp_path, path)
@@ -741,7 +748,11 @@ class StateStore:
         self.state["last_run_ts"] = datetime.now(timezone.utc).isoformat()
         self._prune_tier2()
         try:
-            _atomic_write_json(self.path, self.state)
+            # indent=2 -- state.json is small (Tier 1 aggregates + a bounded
+            # Tier 2 log) and is the file operators actually open to read,
+            # unlike candle_cache.json's bulk OHLCV arrays -- so it's worth
+            # the extra bytes to keep it human-readable.
+            _atomic_write_json(self.path, self.state, indent=2)
         except OSError as e:
             log.error("Failed to persist state.json -- next run will not see this run's updates: %s", e)
 
