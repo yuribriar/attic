@@ -1,49 +1,7 @@
 #!/usr/bin/env python3
-"""
-MERIDIAN Signal Engine -- v2.0.0
+"""MERIDIAN Signal Engine -- v2.0.0
 
-Adaptive hybrid crypto perpetual-futures signal engine for Hyperliquid,
-delivered as a single self-contained Python file. Runs stateless-between-
-invocations on a 15-minute external cron cadence. Learning/adaptation
-state persists in `state.json`; a shared candle cache persists in
-`candle_cache.json` (both written atomically, next to this script).
-
-Sections:
-  1.  Configuration & constants
-  2.  Logging
-  3.  Data models
-  4.  Hyperliquid client
-  5.  Candle cache store
-  6.  State store (Tier 1 aggregates / Tier 2 bounded raw log)
-  7.  Feature primitives (Trend / Structure / SMC / Volume / Momentum / Vol)
-  8.  Composite Regime Vector + discrete regime label
-  9.  Regime-dependent adaptive filter weighting
-  10. Top-down 4-stage mandatory sequence (Weekly/Daily -> 4H -> 1H -> 15M)
-      + optional Stage 5 (5M entry refine)
-  11. Zone-selection sequence (POI -> SFP -> MSS -> Breaker -> OTE)
-  12. Confluence / composite scoring (Decision Engine)
-  13. Specialized engine ensemble (+ Counter-Trend Reversal, opt-in)
-  14. Risk management & trade construction (SL/TP1/TP2 plan)
-  15. Trade outcome model & resolution (single-TP1, no auto-breakeven)
-  16. Entry-fill verification & pending-signal lifecycle
-  17. Anti-repainting (closed-candle-only) helpers
-  18. Regime-fit veto, liquidity sanity check, macro blackout
-  19. Failure/success forensic taxonomy & adaptive feedback routing
-  20. Explainability & self-health monitoring (dual win-rate + profit-
-      factor circuit breaker)
-  21. Signal JSON schema
-  22. Correlation / concurrency / frequency-health mechanisms
-  23. Filter-funnel attrition logging
-  24. Portfolio & position-sizing risk controls
-  25. Telegram integration
-  26. Orchestration (main scan loop)
-
-Identifiers:
-  - Telegram secrets:  TG_BOT_TOKEN, TG_CHAT_ID
-  - State file:        state.json        (env override: STATE_PATH)
-  - Candle cache file:  candle_cache.json (env override: CANDLE_CACHE_PATH)
-  - Exchange API:       Hyperliquid public /info endpoint
-  - Watchlist:          bare Hyperliquid coin symbols
+Adaptive hybrid crypto perpetual-futures signal engine for Hyperliquid.
 """
 
 from __future__ import annotations
@@ -62,30 +20,27 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-# =============================================================================
-# SECTION 1 -- CONFIGURATION & CONSTANTS
-# =============================================================================
 
 ENGINE_NAME = "Meridian Signal Engine"
 ENGINE_VERSION = "v2.0.0"
-RESOLUTION_LOGIC_VERSION = 1  # bumped whenever outcome-scoring/SL-TP resolution logic changes (Section 19)
+RESOLUTION_LOGIC_VERSION = 1  # bumped whenever outcome-scoring/SL-TP resolution logic changes
 STATE_SCHEMA_VERSION = 2      # bumped for the Tier-1 profit-factor baseline field
 
-# --- Identifiers copied verbatim per identifier-parity requirement ---------
+# Identifiers copied verbatim per identifier-parity requirement
 TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "")
 TG_CHAT_ID = os.environ.get("TG_CHAT_ID", "")
 STATE_PATH = os.environ.get("STATE_PATH", "state.json")
 CANDLE_CACHE_PATH = os.environ.get("CANDLE_CACHE_PATH", "candle_cache.json")
 HL_API_URL = os.environ.get("HL_API_URL", "https://api.hyperliquid.xyz/info")
 
-# --- Watchlist (single source of truth referenced everywhere; Section 27) --
+# Watchlist
 WATCHLIST: list[str] = [
     "BTC", "ETH", "HYPE", "ZEC", "NEAR", "ONDO", "SUI", "PENGU", "BNB", "SOL",
     "TRX", "BCH", "DOGE", "ADA", "DOT", "TAO", "AVAX", "LINK", "AAVE", "XRP",
     "XLM", "UNI", "LTC", "APT", "PENDLE",
 ]
 
-# Correlation groups for the correlated-asset concurrency cap (Section 22/28).
+# Correlation groups for the correlated-asset concurrency cap.
 # Coarse groupings, good enough to stop the cap being consumed by
 # near-duplicate bets without a live correlation matrix each run.
 CORRELATION_GROUPS: dict[str, str] = {
@@ -98,17 +53,17 @@ CORRELATION_GROUPS: dict[str, str] = {
     "HYPE": "exchange_native", "PENGU": "meme_narrative", "ZEC": "privacy", "XLM": "l1_alt",
 }
 
-# --- Timeframes (Section 10) -------------------------------------------------
+# Timeframes
 # 5M is used only for the optional Stage 5 entry-timing refinement, never
 # as a live-trigger timeframe on its own.
 FORBIDDEN_TIMEFRAMES = {"1m", "2m", "3m"}
 TF_WEEKLY, TF_DAILY, TF_4H, TF_1H, TF_15M, TF_5M = "1w", "1d", "4h", "1h", "15m", "5m"
 CANDLE_LOOKBACK = {TF_WEEKLY: 120, TF_DAILY: 200, TF_4H: 300, TF_1H: 400, TF_15M: 500, TF_5M: 200}
 
-# --- Optional Stage 5 5M entry refinement (Section 10) -- opt-in -------------
+# Optional Stage 5 5M entry refinement -- opt-in
 ENABLE_5M_REFINE = os.environ.get("ENABLE_5M_REFINE", "false").lower() == "true"
 
-# --- Risk / trade construction constants (Section 14, spec-mandated values) -
+# Risk / trade construction constants
 RR_MIN_GATE = 1.5
 RR_MAX_GATE = 3.5
 RR_MIN_GATE_COUNTERTREND = 2.0
@@ -121,15 +76,15 @@ MIN_MOVE_PCT_TP2 = 0.020
 SL_POOL_CLEAR_WINDOW_ATR_MULT = 1.5          # bounded window for liquidity-pool clearing search
 MAX_PENDING_ENTRY_DISTANCE_ATR_MULT = 1.2    # cap on how far a pending entry may sit from market
 
-# --- Entry-fill / pending-signal lifecycle (Section 16) ---------------------
+# Entry-fill / pending-signal lifecycle
 PENDING_ENTRY_EXPIRY_BARS = 16          # on the entry's own trigger timeframe (15M -> ~4h)
 COUNTERTREND_RETEST_EXPIRY_BARS = 12
 
-# --- Portfolio / concurrency controls (Sections 22, 28) ---------------------
+# Portfolio / concurrency controls
 MAX_CONCURRENT_ACTIVE_SIGNALS = 6
 MAX_CONCURRENT_PER_CORRELATION_GROUP = 2
 
-# --- Scan-phase throughput ----------------------------------------------------
+# Scan-phase throughput
 # Per-symbol scanning is I/O-bound, so a small thread pool speeds up larger
 # watchlists; each symbol's scan stays fault-isolated.
 SCAN_MAX_WORKERS = int(os.environ.get("SCAN_MAX_WORKERS", "6"))
@@ -140,8 +95,8 @@ PORTFOLIO_EXPOSURE_CAP_PCT = 0.35       # sum of open-position risk as % of equi
 ENABLE_KELLY_SIZING = os.environ.get("ENABLE_KELLY_SIZING", "false").lower() == "true"
 KELLY_FRACTION_CAP = 0.5                # half-Kelly cap when Kelly sizing is enabled
 
-# --- Adaptive-learning bounds (Section 7) -- every adaptive parameter has a -
-# --- documented [min, max] and a capped max per-update step.               -
+# Adaptive-learning bounds -- every adaptive parameter has a
+# documented [min, max] and a capped max per-update step.
 ADAPTIVE_BOUNDS: dict[str, tuple[float, float, float]] = {
     # name: (min, max, max_step_per_update)
     "sl_buffer_percentile": (40.0, 90.0, 5.0),
@@ -155,16 +110,16 @@ ADAPTIVE_BOUNDS: dict[str, tuple[float, float, float]] = {
 }
 MIN_SAMPLE_SIZE_FOR_ADAPTATION = 20     # per segment/category before an adjustment is trusted
 
-# --- Live-performance circuit breaker (Section 7.3) ---------------------------
+# Live-performance circuit breaker
 # Dual-metric: win-rate deviation OR a profit-factor collapse trips the
 # breaker, so a stretch of many small wins offset by a few large losses is
 # still caught even when the raw win rate looks fine.
 CIRCUIT_BREAKER_LOOKBACK_TRADES = 40
 CIRCUIT_BREAKER_MAX_WIN_RATE_DEVIATION = 0.20   # vs documented baseline win rate
-BASELINE_PROFIT_FACTOR = 1.6                    # documented, pre-deployment baseline (Section 7.3/19)
+BASELINE_PROFIT_FACTOR = 1.6                    # documented, pre-deployment baseline
 CIRCUIT_BREAKER_MIN_PROFIT_FACTOR = 1.0         # trip if rolling profit factor falls to/below breakeven
 
-# --- Macro/news blackout window (Section 19) --------------------------------
+# Macro/news blackout window
 MACRO_BLACKOUT_MINUTES_BEFORE = 30
 MACRO_BLACKOUT_MINUTES_AFTER = 30
 # Static recurring UTC schedule of the highest-impact scheduled US macro
@@ -179,15 +134,15 @@ MACRO_EVENT_CALENDAR: list[dict[str, Any]] = [
 # timestamps + affected assets (e.g. earnings, geopolitical events, a live
 # feed); those are checked on top of, never instead of, the static calendar.
 
-# --- Counter-Trend Reversal engine (Section 5A) -- opt-in, default OFF ------
+# Counter-Trend Reversal engine -- opt-in, default OFF
 ENABLE_COUNTERTREND_ENGINE = os.environ.get("ENABLE_COUNTERTREND_ENGINE", "false").lower() == "true"
 
-# --- Composite score category weights (Section 5.2 / 12), regime-adjustable-
+# Composite score category weights, regime-adjustable
 BASE_SCORE_WEIGHTS: dict[str, float] = {
     "trend": 0.25, "structure": 0.20, "momentum": 0.15, "liquidity": 0.15,
     "volume": 0.10, "volatility": 0.10, "risk": 0.05,
 }
-# Section 9 regime weighting table -- data, never hardcoded conditionals.
+# Regime weighting table -- data, never hardcoded conditionals.
 REGIME_WEIGHT_MULTIPLIERS: dict[str, dict[str, float]] = {
     "Strong Bull Trend":  {"trend": 1.3, "momentum": 1.2, "liquidity": 0.85},
     "Strong Bear Trend":  {"trend": 1.3, "momentum": 1.2, "liquidity": 0.85},
@@ -202,16 +157,13 @@ REGIME_WEIGHT_MULTIPLIERS: dict[str, dict[str, float]] = {
     "Pullback":           {"trend": 1.15, "structure": 1.1},
     "Mean Reversion":     {"liquidity": 1.2, "trend": 0.7},
 }
-# Per-term saturation cap on the logistic blend (Section 30 acceptance check:
-# no single term may saturate the composite score on its own).
+# Per-term saturation cap on the logistic blend: no single term may
+# saturate the composite score on its own.
 MAX_SINGLE_TERM_CONTRIBUTION = 0.35
 
-# --- Confidence grade buckets (Section 5.3 / 22) ----------------------------
+# Confidence grade buckets
 GRADE_THRESHOLDS = [("A+", 92), ("A", 84), ("B+", 74), ("B", 62)]  # else below bar, no signal
 
-# =============================================================================
-# SECTION 2 -- LOGGING
-# =============================================================================
 
 logging.basicConfig(
     level=logging.INFO,
@@ -220,10 +172,6 @@ logging.basicConfig(
 )
 log = logging.getLogger("meridian")
 
-
-# =============================================================================
-# SECTION 3 -- DATA MODELS
-# =============================================================================
 
 @dataclass
 class Candle:
@@ -253,7 +201,7 @@ class Zone:
     origin_index: int
     origin_ts: int
     mitigated: bool = False
-    from_sweep: bool = False   # whether this zone arose from a specific liquidity sweep (Section 11 step 3)
+    from_sweep: bool = False   # whether this zone arose from a specific liquidity sweep
 
 
 @dataclass
@@ -270,14 +218,14 @@ class SweepEvent:
     pool: LiquidityPool
     index: int
     ts: int
-    is_pure: bool          # SFP purity check (Section 11 step 3)
+    is_pure: bool          # SFP purity check
     session_tag: Optional[str] = None
 
 
 @dataclass
 class View:
     """All computed feature primitives for one asset/timeframe, computed once
-    and shared by every downstream consumer (Section 6, Section 24)."""
+    and shared by every downstream consumer."""
     symbol: str
     timeframe: str
     candles: list[Candle]
@@ -327,7 +275,7 @@ class Candidate:
     engine: str
     style: str               # "intraday" | "swing"
     entry: float
-    entry_kind: str          # "pending" | "market" (market forbidden by Section 14.3, kept for completeness)
+    entry_kind: str          # "pending" | "market"
     sl: float
     tp1: float
     tp2: float
@@ -387,10 +335,6 @@ def _dispatched_signal_from_dict(d: dict) -> DispatchedSignal:
     return DispatchedSignal(**{k: v for k, v in d.items() if k in known})
 
 
-# =============================================================================
-# SECTION 4 -- HYPERLIQUID CLIENT (with request-weight pacing)
-# =============================================================================
-
 _HL_INTERVAL_MAP = {
     TF_15M: "15m", TF_1H: "1h", TF_4H: "4h", TF_DAILY: "1d", TF_WEEKLY: "1w", TF_5M: "5m",
 }
@@ -398,7 +342,7 @@ _HL_INTERVAL_MAP = {
 
 class RequestWeightPacer:
     """Sliding-window pacer keeping the engine safely inside Hyperliquid's
-    documented per-IP request-weight budget (Section 24)."""
+    documented per-IP request-weight budget."""
 
     def __init__(self, max_weight_per_minute: int = 1100):
         self.max_weight = max_weight_per_minute
@@ -473,12 +417,8 @@ class HyperliquidClient:
             return None
 
 
-# =============================================================================
-# SECTION 5 -- CANDLE CACHE STORE (persistent, incremental, shared)
-# =============================================================================
-
 def _atomic_write_json(path: str, data: Any, indent: Optional[int] = None) -> None:
-    """Write-temp-then-rename atomic persistence (Section 4 / 30).
+    """Write-temp-then-rename atomic persistence.
 
     `indent=None` (default) preserves the original compact single-line
     output -- used for candle_cache.json, which holds large raw OHLCV
@@ -502,7 +442,7 @@ def _atomic_write_json(path: str, data: Any, indent: Optional[int] = None) -> No
 
 
 class CandleCacheStore:
-    """Persistent cache keyed by asset+timeframe (Section 24). Every stage of
+    """Persistent cache keyed by asset+timeframe. Every stage of
     the top-down sequence and every specialized engine reads the same shared
     candle series -- fetched/computed once per run, never redundantly."""
 
@@ -559,10 +499,6 @@ def _timeframe_ms(timeframe: str) -> int:
     }[timeframe]
 
 
-# =============================================================================
-# SECTION 6 -- STATE STORE (Tier 1 permanent aggregates / Tier 2 raw log)
-# =============================================================================
-
 def _default_state() -> dict:
     return {
         "schema_version": STATE_SCHEMA_VERSION,
@@ -595,7 +531,7 @@ def _default_state() -> dict:
         },
         # --- Tier 2: bounded, prunable raw trade log -------------------------
         "tier2": {
-            "trade_log": [],             # list of resolved-trade records, bounded (Section 19.2)
+            "trade_log": [],             # list of resolved-trade records, bounded
             "active_signals": [],        # currently open/pending dispatched signals
         },
         "macro_events": [],              # operator-supplied [{ "ts": iso, "assets": [...]}]
@@ -666,7 +602,7 @@ def get_adaptive(state: dict, param: str, key: str, default: float) -> float:
 
 def set_adaptive(state: dict, param: str, key: str, new_value: float) -> None:
     """Apply an adaptive-parameter update with its documented bound and capped
-    step size (Section 7). Never a raw, unbounded assignment."""
+    step size. Never a raw, unbounded assignment."""
     lo, hi, max_step = ADAPTIVE_BOUNDS[param]
     bucket = state["tier1"]["adaptive_params"].setdefault(param, {})
     current = float(bucket.get(key, (lo + hi) / 2))
@@ -674,9 +610,6 @@ def set_adaptive(state: dict, param: str, key: str, new_value: float) -> None:
     bucket[key] = max(lo, min(hi, current + delta))
 
 
-# =============================================================================
-# SECTION 7 -- FEATURE PRIMITIVES (shared technical substrate, Section 6)
-# =============================================================================
 # Each indicator is computed once per asset/timeframe/run and reused by
 # every consumer, never recomputed inside individual engines.
 
@@ -851,7 +784,7 @@ def _adx(candles: list[Candle], period: int = 14) -> list[float]:
 def _swing_pivots(candles: list[Candle], left: int = 3, right: int = 3) -> list[Pivot]:
     """Precise, parameterized swing-detection rule: a bar is a swing high/low
     only if it is the strict extreme over `left` bars before and `right` bars
-    after it. Applied only to fully closed candles (Section 17)."""
+    after it. Applied only to fully closed candles."""
     pivots: list[Pivot] = []
     n = len(candles)
     for i in range(left, n - right):
@@ -875,7 +808,7 @@ def _atr_percentile(atr_series: list[float], lookback: int = 100) -> float:
     return 100.0 * rank / len(window)
 
 
-# --- Smart Money Concepts primitives ----------------------------------------
+# Smart Money Concepts primitives
 
 def _detect_fvgs(candles: list[Candle]) -> list[Zone]:
     """Three-candle fair value gap: candle[i-1].high < candle[i+1].low (bullish
@@ -917,7 +850,7 @@ def _detect_order_blocks(candles: list[Candle], pivots: list[Pivot]) -> list[Zon
 
 
 def _identify_liquidity_pools(pivots: list[Pivot], tolerance_pct: float = 0.0015) -> list[LiquidityPool]:
-    """EQH/EQL clustering -> BSL/SSL pools (Section 11 step 3)."""
+    """EQH/EQL clustering -> BSL/SSL pools."""
     highs = sorted([p for p in pivots if p.kind == "high"], key=lambda p: p.price)
     lows = sorted([p for p in pivots if p.kind == "low"], key=lambda p: p.price)
     pools: list[LiquidityPool] = []
@@ -958,8 +891,8 @@ def _premium_discount_zone(candles: list[Candle], pivots: list[Pivot]) -> dict[s
 
 
 def structure_shift(direction: str, view: "View", kind: str = "BOS") -> Optional[dict]:
-    """Single shared structure-shift detector (Section 17): the one function
-    both Section 11 step 4 (MSS/BOS) and the Counter-Trend engine's CHoCH
+    """Single shared structure-shift detector: the one function
+    both the MSS/BOS detector and the Counter-Trend engine's CHoCH
     check call into. `kind` in {"BOS", "CHoCH"}.
       BOS   -- a close beyond the most recent swing point IN the prevailing
                trend direction (continuation).
@@ -1079,10 +1012,6 @@ def build_view(symbol: str, timeframe: str, candles: list[Candle]) -> View:
     return v
 
 
-# =============================================================================
-# SECTION 8 -- COMPOSITE REGIME VECTOR & DISCRETE LABEL
-# =============================================================================
-
 @dataclass
 class RegimeVector:
     trend_strength: float
@@ -1119,7 +1048,7 @@ def compute_regime_vector(view_1h: View, views_by_symbol: dict[str, View], now_u
 
 
 def _session_open_proximity_score(now_utc: datetime) -> float:
-    """Continuous score (never a hard gate, Section 8/30) for proximity to a
+    """Continuous score for proximity to a
     major session open: Asia 00:00 UTC, London 07:00 UTC, New York 12:30 UTC."""
     opens = [0 * 60, 7 * 60, 12 * 60 + 30]
     minutes_now = now_utc.hour * 60 + now_utc.minute
@@ -1167,10 +1096,6 @@ def classify_regime(rv: RegimeVector) -> tuple[str, float, str]:
     return label, round(confidence, 3), expected_behavior
 
 
-# =============================================================================
-# SECTION 9 -- REGIME-DEPENDENT ADAPTIVE FILTER WEIGHTING
-# =============================================================================
-
 def regime_adjusted_weights(regime_label: str) -> dict[str, float]:
     weights = dict(BASE_SCORE_WEIGHTS)
     mult = REGIME_WEIGHT_MULTIPLIERS.get(regime_label, {})
@@ -1182,7 +1107,7 @@ def regime_adjusted_weights(regime_label: str) -> dict[str, float]:
 
 @dataclass
 class AdaptiveFilterState:
-    """Section 13 filter categories, tightened/relaxed by regime cleanliness."""
+    """Filter categories, tightened/relaxed by regime cleanliness."""
     location: float = 0.5
     context: float = 0.5
     trend: float = 0.5
@@ -1202,7 +1127,7 @@ class AdaptiveFilterState:
 def compute_adaptive_filters(rv: RegimeVector, regime_label: str) -> AdaptiveFilterState:
     """Tighten thresholds (raise the bar, i.e. higher required score) in
     chaotic/low-quality markets; relax (lower the bar) in clean markets --
-    always resolved toward selectivity per Section 2 when ambiguous."""
+    always resolved toward selectivity when ambiguous."""
     cleanliness = max(0.0, min(1.0, rv.trend_strength * (1.0 - rv.noise_index)))
     chaos = 1.0 - cleanliness
     base = 0.55 + 0.30 * chaos  # tighter (higher) bar as chaos increases
@@ -1218,13 +1143,9 @@ def compute_adaptive_filters(rv: RegimeVector, regime_label: str) -> AdaptiveFil
     return f
 
 
-# =============================================================================
-# SECTION 11 -- ZONE-SELECTION SEQUENCE
-# =============================================================================
-
 def _detect_sweep(direction: str, view: "View", state: dict, asset: str) -> Optional[SweepEvent]:
     """Detect a genuine liquidity sweep of an EQH/EQL (or isolated swing) pool
-    that fails to hold, with SFP purity classification (Section 11 step 3)."""
+    that fails to hold, with SFP purity classification."""
     if len(view.candles) < 5:
         return None
     last = view.candles[-1]
@@ -1283,7 +1204,7 @@ def _typed_poi_pool(direction: str, view: "View", kind: str) -> list[Zone]:
 
 
 def zone_selection_sequence(direction: str, h1_view: View, h4_view: View, state: dict, asset: str) -> Optional[dict]:
-    """Steps 1-5 of Section 11, executed within Stage 3 (1H Trade Setup).
+    """Zone-selection sequence, executed within Stage 3 (1H Trade Setup).
     Returns a dict describing the validated POI, or None (NOT READY/INVALID)."""
     # Step 1: HTF bias is the caller's responsibility (Stage 1); this function
     # only ever runs once that bias is established and passed in as `direction`.
@@ -1307,7 +1228,7 @@ def zone_selection_sequence(direction: str, h1_view: View, h4_view: View, state:
             poi.from_sweep = True
     if poi is None:
         # not disqualified without a sweep -- an isolated structural POI is
-        # still eligible, just without the EQH/EQL confluence bonus (Section 11)
+        # still eligible, just without the EQH/EQL confluence bonus
         poi = poi_pool[0]
 
     # Step 4: MSS confirmation via the single shared structure_shift() function.
@@ -1340,10 +1261,6 @@ def ote_refine_entry(direction: str, poi: Zone, m15_view: View) -> float:
     else:
         return round((max(ote_low, zone_mid_low) + ote_high) / 2.0, 8)
 
-
-# =============================================================================
-# SECTION 10 -- MANDATORY TOP-DOWN SEQUENCE (4 STAGES)
-# =============================================================================
 
 def stage1_bias(weekly: View, daily: View) -> str:
     """Weekly + Daily -> exactly one of Bullish / Bearish / Neutral."""
@@ -1431,10 +1348,6 @@ def stage5_5m_refine(bias: str, entry_zone: Zone, m5_view: Optional[View], fallb
     return refined, True
 
 
-# =============================================================================
-# SECTION 14 -- RISK MANAGEMENT & TRADE CONSTRUCTION
-# =============================================================================
-
 def adaptive_sl_buffer(view: View, state: dict, asset: str) -> float:
     tf_key = f"{asset}:{view.timeframe}"
     percentile = get_adaptive(state, "sl_buffer_percentile", tf_key, 65.0)
@@ -1463,7 +1376,7 @@ def select_sl_anchor(direction: str, entry: float, m15_view: View, h1_view: View
 
 
 def _clear_sl_of_liquidity_pool(direction: str, sl: float, view: View) -> float:
-    """Buffer THEN clear, in this order (Section 14.2). Bounded search window."""
+    """Buffer THEN clear, in this order. Bounded search window."""
     atr_now = view.atr[-1] if view.atr else 0.0
     window = atr_now * SL_POOL_CLEAR_WINDOW_ATR_MULT
     pool_kind = "SSL" if direction == "bullish" else "BSL"
@@ -1574,7 +1487,7 @@ def build_risk_plan(direction: str, entry: float, m15_view: View, h1_view: View,
 
     plan = {"sl": sl, "tp1": tp1, "tp2": tp2, "rr1": rr1, "rr2": rr2, "risk": risk,
             "buffer": buffer, "sl_anchor": anchor_name}
-    # No-cosmetic-clamping final integrity assertion (Section 14.2 / 30):
+    # No-cosmetic-clamping final integrity assertion:
     assert abs(_rr(entry, sl, tp1, direction) - rr1) < 1e-6, \
         "displayed RR does not match RR implied by entry/sl/tp1 -- never clamp the number alone"
     return plan
@@ -1594,7 +1507,7 @@ def tp1_runway_ok(direction: str, entry: float, m15_view: View, state: dict, ass
 
 
 def retracement_entry(setup_type: str, direction: str, view: View, reference_zone: Optional[Zone] = None) -> Optional[float]:
-    """Shared retracement-entry helper (Section 14.3) -- every specialized
+    """Shared retracement-entry helper -- every specialized
     engine derives entry through a return-to-level mechanism; never a bare
     `close` assignment with entry_kind="market"."""
     last = view.candles[-1]
@@ -1620,10 +1533,6 @@ def entry_distance_ok(direction: str, entry: float, market_price: float, view: V
     return abs(entry - market_price) <= atr_now * MAX_PENDING_ENTRY_DISTANCE_ATR_MULT
 
 
-# =============================================================================
-# SECTION 12/5.2 -- CONFLUENCE / COMPOSITE SCORING (DECISION ENGINE)
-# =============================================================================
-
 def _clip01(x: float) -> float:
     """Keep an individual scoring term within its natural [0, 1] range."""
     return max(0.0, min(1.0, x))
@@ -1631,7 +1540,7 @@ def _clip01(x: float) -> float:
 
 def _cap_contribution(term_value: float, weight: float) -> float:
     """Cap a single term's WEIGHTED contribution to the composite sum so no
-    one term can saturate the blend alone (Section 30 acceptance check).
+    one term can saturate the blend alone.
 
     This must be applied to (term * weight), not to the raw term. Capping
     the raw term before weighting -- the prior implementation -- collapses
@@ -1645,7 +1554,7 @@ def _cap_contribution(term_value: float, weight: float) -> float:
     return max(0.0, min(MAX_SINGLE_TERM_CONTRIBUTION, term_value * weight))
 
 
-def composite_score(direction: str, h1: View, h4: View, weekly: View, m15: View,
+def composite_score(direction: str, h1: View, h4: View, weekly: View, daily: View, m15: View,
                      zone_result: dict, plan: dict, rv: RegimeVector, regime_label: str,
                      state: dict, engine_name: str) -> tuple[float, dict[str, float], list[str]]:
     """Continuous weighted/logistic blend over a small, documented, auditable
@@ -1686,7 +1595,8 @@ def composite_score(direction: str, h1: View, h4: View, weekly: View, m15: View,
     risk_term = _clip01(min(1.0, (plan["rr1"] - RR_MIN_GATE) / (RR_MAX_GATE - RR_MIN_GATE)))
     reasons.append(f"RR1 {plan['rr1']:.2f} (floor {RR_MIN_GATE})")
 
-    htf_alignment = weekly.trend_direction == direction or h4.trend_direction == direction
+    htf_alignment = (weekly.trend_direction == direction or daily.trend_direction == direction
+                      or h4.trend_direction == direction)
     mtf_w = get_adaptive(state, "mtf_alignment_weight", engine_name, 0.15)
     mtf_bonus = mtf_w if htf_alignment else 0.0
     if htf_alignment:
@@ -1715,10 +1625,6 @@ def grade_for_confidence(confidence: float) -> Optional[str]:
             return grade
     return None  # below every bucket bar -- not eligible for dispatch
 
-
-# =============================================================================
-# SECTION 18 -- REGIME-FIT VETO, LIQUIDITY SANITY CHECK, MACRO BLACKOUT
-# =============================================================================
 
 def regime_fit_veto(direction: str, engine_name: str, regime_label: str, counter_trend: bool) -> bool:
     """Returns True if this candidate should be vetoed/heavily discounted for
@@ -1787,18 +1693,14 @@ def _operator_supplied_blackout_active(asset: str, state: dict, now_utc: datetim
 
 def macro_blackout_active(asset: str, state: dict, now_utc: datetime) -> bool:
     """Active if either the static calendar or an operator/live-feed event
-    says so (Section 19)."""
+    says so."""
     return (_static_calendar_blackout_active(asset, now_utc) or
             _operator_supplied_blackout_active(asset, state, now_utc))
 
 
-# =============================================================================
-# SECTION 13 -- SPECIALIZED ENGINE ENSEMBLE (base engines)
-# =============================================================================
-
 def run_smc_engine(symbol: str, views: dict[str, View], bias: str, state: dict, market_price: float) -> Optional[Candidate]:
-    """Primary engine: the full Section 10/11 top-down + zone-selection
-    sequence, MSS -> FVG entry, OTE refinement."""
+    """Primary engine: the full top-down + zone-selection sequence,
+    MSS -> FVG entry, OTE refinement."""
     weekly, daily, h4, h1, m15 = (views[TF_WEEKLY], views[TF_DAILY], views[TF_4H],
                                     views[TF_1H], views[TF_15M])
     if not stage2_context(bias, h4):
@@ -1823,7 +1725,7 @@ def run_smc_engine(symbol: str, views: dict[str, View], bias: str, state: dict, 
     regime_label, regime_confidence, _ = classify_regime(rv)
     if regime_fit_veto(bias, "SMC", regime_label, counter_trend=False):
         return None
-    confidence, scores, reasons = composite_score(bias, h1, h4, weekly, m15, zone_result, plan,
+    confidence, scores, reasons = composite_score(bias, h1, h4, weekly, daily, m15, zone_result, plan,
                                                     rv, regime_label, state, "SMC")
     grade = grade_for_confidence(confidence)
     if grade is None:
@@ -1836,7 +1738,8 @@ def run_smc_engine(symbol: str, views: dict[str, View], bias: str, state: dict, 
                       confidence=confidence, grade=grade, scores=scores, reasons=reasons,
                       market_regime=regime_label, regime_confidence=regime_confidence,
                       trend_label=bias.capitalize(),
-                      higher_timeframe_alignment=(weekly.trend_direction == bias or h4.trend_direction == bias),
+                      higher_timeframe_alignment=(weekly.trend_direction == bias or daily.trend_direction == bias
+                                                    or h4.trend_direction == bias),
                       session_anchored=zone_result.get("session_anchored", False))
 
 
@@ -1888,7 +1791,7 @@ def _generic_setup_engine(engine_name: str, setup_type: str, symbol: str, views:
     regime_label, regime_confidence, _ = classify_regime(rv)
     if regime_fit_veto(bias, engine_name, regime_label, counter_trend=False):
         return None
-    confidence, scores, reasons = composite_score(bias, h1, h4, weekly, m15, zone_result, plan,
+    confidence, scores, reasons = composite_score(bias, h1, h4, weekly, daily, m15, zone_result, plan,
                                                     rv, regime_label, state, engine_name)
     grade = grade_for_confidence(confidence)
     if grade is None:
@@ -1899,7 +1802,8 @@ def _generic_setup_engine(engine_name: str, setup_type: str, symbol: str, views:
                       confidence=confidence, grade=grade, scores=scores, reasons=reasons,
                       market_regime=regime_label, regime_confidence=regime_confidence,
                       trend_label=bias.capitalize(),
-                      higher_timeframe_alignment=(weekly.trend_direction == bias or h4.trend_direction == bias),
+                      higher_timeframe_alignment=(weekly.trend_direction == bias or daily.trend_direction == bias
+                                                    or h4.trend_direction == bias),
                       session_anchored=zone_result.get("session_anchored", False))
 
 
@@ -1916,10 +1820,6 @@ BASE_ENGINE_SETUPS = [
     ("Reversal", "reversal", None),
 ]
 
-
-# =============================================================================
-# SECTION 5A -- COUNTER-TREND REVERSAL ENGINE (opt-in, default OFF)
-# =============================================================================
 
 def _htf_poi_pool(direction: str, weekly: View, daily: View) -> Optional[dict]:
     for view in (weekly, daily):
@@ -1994,7 +1894,7 @@ def run_countertrend_gate(bias: str, weekly: View, daily: View, h4: View, h1: Vi
     # Best-fit regime is the opposite of the base ensemble's; exempt from
     # the standard regime-fit veto by design.
     regime_label, regime_confidence, _ = classify_regime(rv)
-    confidence, scores, reasons = composite_score(direction, h1, h4, weekly, m15, zone_result, plan,
+    confidence, scores, reasons = composite_score(direction, h1, h4, weekly, daily, m15, zone_result, plan,
                                                     rv, regime_label, state, "Counter-Trend Reversal")
     confidence = confidence * (0.6 + 0.4 * exhaustion)  # exhaustion strength modulates confidence
     grade = grade_for_confidence(confidence)
@@ -2009,10 +1909,6 @@ def run_countertrend_gate(bias: str, weekly: View, daily: View, h4: View, h1: Vi
                       trend_label=direction.capitalize(), higher_timeframe_alignment=False)
 
 
-# =============================================================================
-# SECTION 16 -- ENTRY-FILL VERIFICATION & PENDING-SIGNAL LIFECYCLE
-# =============================================================================
-
 def check_entry_filled(signal: dict, m15_view: View) -> str:
     """Returns 'filled', 'expired', or 'pending' for a still-unfilled signal."""
     entry, direction = signal["entry"], signal["direction"]
@@ -2026,9 +1922,6 @@ def check_entry_filled(signal: dict, m15_view: View) -> str:
     return "pending"
 
 
-# =============================================================================
-# SECTION 15 -- TRADE OUTCOME MODEL & RESOLUTION
-# =============================================================================
 # Position-exit model: FULL EXIT AT TP1. 100% of size closes at TP1; a
 # later touch of the original SL is bookkeeping only and never reopens or
 # re-scores the trade. No automatic SL-to-breakeven on TP1.
@@ -2073,10 +1966,6 @@ def resolve_signal(signal: dict, m15_view: View) -> Optional[dict]:
     return None  # still open
 
 
-# =============================================================================
-# SECTION 19 -- FORENSIC TAXONOMY & ADAPTIVE FEEDBACK
-# =============================================================================
-
 FORENSIC_CATEGORIES = [
     "regime_mismatch", "structural_invalidation_too_tight", "chased_swept_liquidity",
     "mtf_conflict_ignored", "sfp_mss_sequence_violated", "correct_read_poor_rr",
@@ -2112,7 +2001,7 @@ def classify_forensic_category(trade: dict, outcome: dict) -> str:
 
 def apply_forensic_adaptation(state: dict, trade: dict, category: str) -> None:
     """One diagnosis, one deterministic route to a documented adaptive
-    parameter -- subject to Section 7's bounds, step cap, and minimum
+    parameter -- subject to the adaptive bounds, step cap, and minimum
     sample-size gating."""
     counts = state["tier1"]["forensic_category_counts"]
     counts[category] = counts.get(category, 0) + 1
@@ -2148,7 +2037,7 @@ def apply_forensic_adaptation(state: dict, trade: dict, category: str) -> None:
         key = f"{engine}:mid"
         cur = get_adaptive(state, "confidence_calibration_shift", key, 0.0)
         set_adaptive(state, "confidence_calibration_shift", key, cur - 0.03)
-    # "filter_over_permissiveness" routes through Section 23's attrition log
+    # "filter_over_permissiveness" routes through the attrition log
     # rather than a single adaptive scalar; "genuine_variance" -> no change.
 
     drift = state["tier1"]["forensic_category_r_drift"]
@@ -2172,10 +2061,6 @@ def reinforce_win_factors(state: dict, trade: dict) -> None:
         set_adaptive(state, "session_open_proximity_weight", "global", cur + 0.01)
 
 
-# =============================================================================
-# SECTION 20 -- EXPLAINABILITY & SELF-HEALTH MONITORING
-# =============================================================================
-
 def update_calibration(state: dict, engine: str, confidence: float, result: str) -> None:
     bucket = "A+" if confidence >= 92 else "A" if confidence >= 84 else "B+" if confidence >= 74 else "B"
     key = f"{engine}:{bucket}"
@@ -2187,7 +2072,7 @@ def update_calibration(state: dict, engine: str, confidence: float, result: str)
 
 def check_health(state: dict) -> list[str]:
     """Never silently changes trading behavior -- only logs warnings and
-    recommends review, per Section 20."""
+    recommends review."""
     warnings = []
     trades = state["tier2"]["trade_log"][-CIRCUIT_BREAKER_LOOKBACK_TRADES:]
     if len(trades) >= MIN_SAMPLE_SIZE_FOR_ADAPTATION:
@@ -2240,10 +2125,6 @@ def is_circuit_breaker_active(state: dict) -> bool:
     return bool(state["tier1"]["circuit_breaker"].get("tripped"))
 
 
-# =============================================================================
-# SECTION 21 -- SIGNAL JSON SCHEMA
-# =============================================================================
-
 def build_signal_json(candidate: Candidate) -> dict:
     return {
         "symbol": candidate.symbol,
@@ -2269,10 +2150,6 @@ def build_signal_json(candidate: Candidate) -> dict:
         "reasons": candidate.reasons,
     }
 
-
-# =============================================================================
-# SECTION 22/28 -- CORRELATION / CONCURRENCY / PORTFOLIO RISK CONTROLS
-# =============================================================================
 
 def active_signal_slots_available(state: dict) -> int:
     active = [s for s in state["tier2"]["active_signals"] if s.get("status") in ("pending", "activated")]
@@ -2301,9 +2178,9 @@ def daily_loss_circuit_ok(state: dict) -> bool:
 
 
 def position_size_fraction(state: dict, win_rate: float = 0.5, avg_rr: float = 1.8) -> float:
-    """Position-sizing reference (Section 28): fixed-fractional by default,
+    """Position-sizing reference: fixed-fractional by default,
     optional half-Kelly when ENABLE_KELLY_SIZING is set. This engine's product
-    is the signal itself (Section 2) -- sizing is informational, not part of
+    is the signal itself -- sizing is informational, not part of
     signal quality/filtering."""
     if not ENABLE_KELLY_SIZING:
         return FIXED_RISK_PCT_OF_EQUITY
@@ -2328,18 +2205,10 @@ def portfolio_gate_ok(symbol: str, state: dict) -> tuple[bool, str]:
     return True, ""
 
 
-# =============================================================================
-# SECTION 23 -- FILTER-FUNNEL ATTRITION LOGGING
-# =============================================================================
-
 def log_filter_attrition(state: dict, filter_name: str, passed: bool) -> None:
     funnel = state["tier1"]["filter_funnel"].setdefault(filter_name, {"eliminated": 0, "passed": 0})
     funnel["passed" if passed else "eliminated"] += 1
 
-
-# =============================================================================
-# SECTION 25 -- TELEGRAM INTEGRATION
-# =============================================================================
 
 TELEGRAM_ENABLED = bool(TG_BOT_TOKEN and TG_CHAT_ID)
 if not TELEGRAM_ENABLED:
@@ -2493,10 +2362,6 @@ class TelegramNotifier:
 telegram = TelegramNotifier()  # module-level singleton, mirrors prior module-level function access pattern
 
 
-# =============================================================================
-# SECTION 26 -- ORCHESTRATION (MAIN SCAN LOOP)
-# =============================================================================
-
 def _load_all_views(client: HyperliquidClient, cache: CandleCacheStore, symbol: str) -> Optional[dict[str, View]]:
     views = {}
     for tf in (TF_WEEKLY, TF_DAILY, TF_4H, TF_1H, TF_15M):
@@ -2599,7 +2464,7 @@ def _scan_asset(symbol: str, client: HyperliquidClient, cache: CandleCacheStore,
     bias = stage1_bias(views[TF_WEEKLY], views[TF_DAILY])
     log_filter_attrition(state, "stage1_neutral", passed=(bias != "neutral"))
     if bias == "neutral":
-        return []  # Section 10 Trade Filter: Neutral is sufficient grounds for NO TRADE
+        return []  # Neutral bias is sufficient grounds for NO TRADE
 
     candidates: list[Candidate] = []
 
@@ -2683,7 +2548,7 @@ def run_scan() -> None:
                          len(WATCHLIST) - len(skipped), len(WATCHLIST), len(skipped), len(all_candidates))
 
                 # dispatch in descending confidence order, subject to the
-                # concurrency/correlation/exposure gate (Sections 22, 28)
+                # concurrency/correlation/exposure gate
                 for cand in sorted(all_candidates, key=lambda c: c.confidence, reverse=True):
                     gate_ok, gate_reason = portfolio_gate_ok(cand.symbol, state)
                     if not gate_ok:
