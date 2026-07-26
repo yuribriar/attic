@@ -632,6 +632,7 @@ class StateStore:
                         )
             merged["macro_events"] = loaded.get("macro_events", [])
             merged["last_run_ts"] = loaded.get("last_run_ts")
+            merged["last_daily_summary_date"] = loaded.get("last_daily_summary_date")
             merged["resolution_logic_version"] = loaded.get("resolution_logic_version", RESOLUTION_LOGIC_VERSION)
             merged["tier1"]["baseline_profit_factor"] = loaded.get("tier1", {}).get(
                 "baseline_profit_factor", BASELINE_PROFIT_FACTOR)
@@ -2374,7 +2375,8 @@ def format_signal_message(sig: dict) -> str:
     lines = [f"*{ENGINE_NAME} {ENGINE_VERSION}*", ""]
     if sig["counter_trend"]:
         lines.append("\u26A0\uFE0F *COUNTER-TREND* -- against Weekly/Daily bias")
-    lines.append(f"*{sig['signal']}  {sig['symbol']}*  ({_clean_identifier(sig['engine'])})")
+    signal_emoji = "\U0001F7E2" if sig["signal"] == "LONG" else "\U0001F534"
+    lines.append(f"{signal_emoji} *{sig['signal']}  {sig['symbol']}*  ({_clean_identifier(sig['engine'])})")
     lines.append(f"Grade: *{sig['grade']}*  |  Confidence: *{sig['confidence']}%*")
     lines.append(f"Style: {_clean_identifier(sig['style'])}  |  Holding time: {sig['holding_time']}")
     lines.append("")
@@ -2444,7 +2446,8 @@ class TelegramNotifier:
 
     def send_daily_summary(self, state: dict) -> None:
         t1, t2 = state["tier1"], state["tier2"]
-        trades = t2["trade_log"]
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        trades = [t for t in t2["trade_log"] if str(t.get("resolved_ts_iso", "")).startswith(today)]
         wins = sum(1 for t in trades if t.get("result") == "win")
         losses = sum(1 for t in trades if t.get("result") == "loss")
         total = wins + losses
@@ -2458,7 +2461,7 @@ class TelegramNotifier:
         for t in trades:
             by_engine.setdefault(t.get("engine", "unknown"), []).append(t)
 
-        lines = [f"*{ENGINE_NAME} {ENGINE_VERSION} -- Daily Summary*", "",
+        lines = [f"*{ENGINE_NAME} {ENGINE_VERSION} -- Daily Summary ({today} UTC)*", "",
                  f"Total signals: {total}", f"Wins/Losses: {wins}/{losses}  (Win rate {win_rate:.1%})",
                  f"Profit factor: {profit_factor:.2f}" if profit_factor != float("inf") else "Profit factor: n/a",
                  f"Avg RR1: {avg_rr:.2f}", ""]
@@ -2467,15 +2470,23 @@ class TelegramNotifier:
             w = sum(1 for t in engine_trades if t.get("result") == "win")
             n = len(engine_trades)
             lines.append(f"\u2022 {_clean_identifier(engine_name)}: {w}/{n} ({(w/n if n else 0):.0%})")
-        lines.append("")
-        lines.append("*Forensic Categories:*")
-        for cat, count in t1["forensic_category_counts"].items():
-            lines.append(f"\u2022 {_clean_identifier(cat)}: {count}")
+        todays_forensic_counts: dict[str, int] = {}
+        for t in trades:
+            cat = t.get("forensic_category")
+            if cat:
+                todays_forensic_counts[cat] = todays_forensic_counts.get(cat, 0) + 1
+        if todays_forensic_counts:
+            lines.append("")
+            lines.append("*Forensic Categories (today):*")
+            for cat, count in todays_forensic_counts.items():
+                lines.append(f"\u2022 {_clean_identifier(cat)}: {count}")
+        # Note: fill_rate_stats has no per-event timestamps, so it can't be scoped
+        # to a single day -- shown as an all-time reference figure instead.
         filled, expired = t1["fill_rate_stats"]["filled"], t1["fill_rate_stats"]["expired"]
         fill_total = filled + expired
         if fill_total:
             lines.append("")
-            lines.append(f"Fill rate: {filled}/{fill_total} ({filled/fill_total:.0%})")
+            lines.append(f"Fill rate (all-time): {filled}/{fill_total} ({filled/fill_total:.0%})")
         self._post("sendMessage", {"chat_id": self.chat_id, "text": "\n".join(lines)[:4096], "parse_mode": "Markdown"})
 
 
@@ -2544,13 +2555,9 @@ def _monitor_active_signals(state: dict, client: HyperliquidClient, cache: Candl
                 sig["status"] = "activated"
                 sig["filled_bar_index"] = len(view.candles) - 1
                 state["tier1"]["fill_rate_stats"]["filled"] += 1
-                if sig.get("message_id"):
-                    telegram.send_reply(sig["message_id"], "activated")
             elif fill_state == "expired":
                 sig["status"] = "expired"
                 state["tier1"]["fill_rate_stats"]["expired"] += 1
-                if sig.get("message_id"):
-                    telegram.send_reply(sig["message_id"], "expired")
                 continue  # drop from active list
             else:
                 still_active.append(sig)
