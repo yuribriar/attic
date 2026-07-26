@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MERIDIAN Signal Engine -- v2.0.0
+"""MERIDIAN Signal Engine -- v2.0.2
 
 Adaptive hybrid crypto perpetual-futures signal engine for Hyperliquid.
 """
@@ -22,7 +22,7 @@ from typing import Any, Optional
 
 
 ENGINE_NAME = "Meridian Signal Engine"
-ENGINE_VERSION = "v2.0.0"
+ENGINE_VERSION = "v2.0.2"
 RESOLUTION_LOGIC_VERSION = 1  # bumped whenever outcome-scoring/SL-TP resolution logic changes
 STATE_SCHEMA_VERSION = 2      # bumped for the Tier-1 profit-factor baseline field
 
@@ -59,6 +59,7 @@ CORRELATION_GROUPS: dict[str, str] = {
 FORBIDDEN_TIMEFRAMES = {"1m", "2m", "3m"}
 TF_WEEKLY, TF_DAILY, TF_4H, TF_1H, TF_15M, TF_5M = "1w", "1d", "4h", "1h", "15m", "5m"
 CANDLE_LOOKBACK = {TF_WEEKLY: 120, TF_DAILY: 200, TF_4H: 300, TF_1H: 400, TF_15M: 500, TF_5M: 200}
+CANDLE_DELTA_OVERLAP_BARS = 3  # extra closed bars re-fetched past the cached watermark
 
 # Optional Stage 5 5M entry refinement -- opt-in
 ENABLE_5M_REFINE = os.environ.get("ENABLE_5M_REFINE", "false").lower() == "true"
@@ -473,13 +474,20 @@ class CandleCacheStore:
         now_ms = int(time.time() * 1000)
         lookback_bars = CANDLE_LOOKBACK.get(timeframe, 300)
         tf_ms = _timeframe_ms(timeframe)
+        cutoff = _current_bar_open_ms(now_ms, timeframe)
+
         if sym_cache:
             last_ts = sym_cache[-1]["t"]
-            start = last_ts + tf_ms
+            if last_ts + tf_ms >= cutoff:
+                closed = [d for d in sym_cache if d["t"] < cutoff]
+                return [Candle(ts=d["t"], o=d["o"], h=d["h"], l=d["l"], c=d["c"], v=d["v"]) for d in closed]
+            start = last_ts - tf_ms * CANDLE_DELTA_OVERLAP_BARS
         else:
             start = now_ms - lookback_bars * tf_ms
+
         if start < now_ms:
             fresh = client.fetch_candles(symbol, timeframe, start, now_ms)
+            fresh = _filter_closed_candles(fresh, timeframe, now_ms)
             fresh_dicts = [{"t": c.ts, "o": c.o, "h": c.h, "l": c.l, "c": c.c, "v": c.v} for c in fresh]
             if fresh_dicts:
                 merged = {d["t"]: d for d in sym_cache}
@@ -489,7 +497,9 @@ class CandleCacheStore:
                 # bound cache growth: keep a small margin beyond the lookback window
                 sym_cache = sym_cache[-(lookback_bars + 30):]
                 self.cache[symbol][timeframe] = sym_cache
-        return [Candle(ts=d["t"], o=d["o"], h=d["h"], l=d["l"], c=d["c"], v=d["v"]) for d in sym_cache]
+
+        closed = [d for d in sym_cache if d["t"] < cutoff]
+        return [Candle(ts=d["t"], o=d["o"], h=d["h"], l=d["l"], c=d["c"], v=d["v"]) for d in closed]
 
 
 def _timeframe_ms(timeframe: str) -> int:
@@ -497,6 +507,17 @@ def _timeframe_ms(timeframe: str) -> int:
         TF_5M: 5 * 60_000, TF_15M: 15 * 60_000, TF_1H: 60 * 60_000, TF_4H: 4 * 60 * 60_000,
         TF_DAILY: 24 * 60 * 60_000, TF_WEEKLY: 7 * 24 * 60 * 60_000,
     }[timeframe]
+
+
+def _current_bar_open_ms(reference_ms: int, timeframe: str) -> int:
+    step = _timeframe_ms(timeframe)
+    return (reference_ms // step) * step
+
+
+def _filter_closed_candles(candles: list[Candle], timeframe: str, reference_ms: int) -> list[Candle]:
+    """Keep only candles whose interval has fully elapsed."""
+    cutoff = _current_bar_open_ms(reference_ms, timeframe)
+    return [c for c in candles if c.ts < cutoff]
 
 
 def _default_state() -> dict:
@@ -1421,10 +1442,10 @@ def _merge_confluent_levels(candidates: list[dict], tol: float) -> list[dict]:
     return merged
 
 
-def _tp_selection_band(candidates: list[dict], state: dict, asset: str) -> list[dict]:
+def _tp_selection_band(candidates: list[dict], entry: float, state: dict, asset: str) -> list[dict]:
+    """Keep the nearest `n` opposing-structural-level candidates by distance from entry."""
     n = int(get_adaptive(state, "tp1_target_rank_preference", asset, 3.0))
-    return sorted(candidates, key=lambda c: c["price"])[:max(n, 2)] if False else \
-        sorted(candidates, key=lambda c: abs(c["price"]))[:max(n, 2)]
+    return sorted(candidates, key=lambda c: abs(c["price"] - entry))[:max(n, 2)]
 
 
 def _rr(entry: float, sl: float, tp: float, direction: str) -> float:
@@ -1461,7 +1482,7 @@ def build_risk_plan(direction: str, entry: float, m15_view: View, h1_view: View,
     if len(candidates) < 2:
         return None
 
-    band = _tp_selection_band(candidates, state, asset)
+    band = _tp_selection_band(candidates, entry, state, asset)
     tp1_pick = max(band, key=lambda c: c["score"])
     remaining = [c for c in candidates if c is not tp1_pick and
                  (c["price"] > tp1_pick["price"] if direction == "bullish" else c["price"] < tp1_pick["price"])]
@@ -1498,7 +1519,7 @@ def tp1_runway_ok(direction: str, entry: float, m15_view: View, state: dict, ass
     candidates = _opposing_structural_levels(direction, entry, m15_view)
     if not candidates:
         return False
-    band = _tp_selection_band(candidates, state, asset)
+    band = _tp_selection_band(candidates, entry, state, asset)
     best_in_band = max(band, key=lambda c: c["score"])
     plausible_reward = abs(best_in_band["price"] - entry)
     typical_risk = get_adaptive(state, "sl_buffer_percentile_dist", f"{asset}:15M",
@@ -1911,7 +1932,7 @@ def run_countertrend_gate(bias: str, weekly: View, daily: View, h4: View, h1: Vi
 
 def check_entry_filled(signal: dict, m15_view: View) -> str:
     """Returns 'filled', 'expired', or 'pending' for a still-unfilled signal."""
-    entry, direction = signal["entry"], signal["direction"]
+    entry = signal["entry"]
     dispatched_index = signal.get("dispatched_bar_index", len(m15_view.candles) - 1)
     bars_elapsed = (len(m15_view.candles) - 1) - dispatched_index
     for c in m15_view.candles[max(0, dispatched_index):]:
