@@ -1232,6 +1232,7 @@ def zone_selection_sequence(direction: str, h1_view: View, h4_view: View, state:
 
     # Step 2: candidate POI pool on the 1H view.
     poi_pool = _poi_pool(direction, h1_view)
+    log_filter_attrition(state, "DIAG_1h_poi_pool_exists", passed=bool(poi_pool))  # diagnostic instrumentation
     if not poi_pool:
         return None
 
@@ -1254,6 +1255,7 @@ def zone_selection_sequence(direction: str, h1_view: View, h4_view: View, state:
 
     # Step 4: MSS confirmation via the single shared structure_shift() function.
     mss = structure_shift(direction, h1_view, kind="BOS")
+    log_filter_attrition(state, "DIAG_1h_mss_bos_confirmed", passed=(mss is not None))  # diagnostic instrumentation
     if mss is None:
         return None  # NOT READY -- structure hasn't confirmed the shift yet
 
@@ -1724,9 +1726,12 @@ def run_smc_engine(symbol: str, views: dict[str, View], bias: str, state: dict, 
     MSS -> FVG entry, OTE refinement."""
     weekly, daily, h4, h1, m15 = (views[TF_WEEKLY], views[TF_DAILY], views[TF_4H],
                                     views[TF_1H], views[TF_15M])
-    if not stage2_context(bias, h4):
+    stage2_ok = stage2_context(bias, h4)  # diagnostic instrumentation below
+    log_filter_attrition(state, "DIAG_stage2_h4_context", passed=stage2_ok)
+    if not stage2_ok:
         return None
     stage3_result, zone_result = stage3_setup(bias, h1, h4, state, symbol)
+    log_filter_attrition(state, f"DIAG_stage3_outcome_{stage3_result}", passed=True)  # diagnostic instrumentation
     if stage3_result != "VALID":
         return None
     entry_result = stage4_entry(bias, zone_result, m15)
@@ -1784,9 +1789,12 @@ def _generic_setup_engine(engine_name: str, setup_type: str, symbol: str, views:
     order block."""
     weekly, daily, h4, h1, m15 = (views[TF_WEEKLY], views[TF_DAILY], views[TF_4H],
                                     views[TF_1H], views[TF_15M])
-    if not stage2_context(bias, h4):
+    stage2_ok = stage2_context(bias, h4)  # diagnostic instrumentation below
+    log_filter_attrition(state, "DIAG_stage2_h4_context", passed=stage2_ok)
+    if not stage2_ok:
         return None
     stage3_result, zone_result = stage3_setup(bias, h1, h4, state, symbol)
+    log_filter_attrition(state, f"DIAG_stage3_outcome_{stage3_result}", passed=True)  # diagnostic instrumentation
     if stage3_result != "VALID":
         return None
     if required_poi_kind is not None:
