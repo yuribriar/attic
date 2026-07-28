@@ -1738,9 +1738,13 @@ def run_smc_engine(symbol: str, views: dict[str, View], bias: str, state: dict, 
     if entry_result is None:
         return None
     entry, refined = stage5_5m_refine(bias, entry_result["entry_zone"], views.get(TF_5M), entry_result["entry"])
-    if not entry_distance_ok(bias, entry, market_price, m15):
+    entry_distance_pass = entry_distance_ok(bias, entry, market_price, m15)  # diagnostic instrumentation below
+    log_filter_attrition(state, "DIAG_entry_distance_ok", passed=entry_distance_pass)
+    if not entry_distance_pass:
         return None
-    if not tp1_runway_ok(bias, entry, m15, state, symbol):
+    tp1_runway_pass = tp1_runway_ok(bias, entry, m15, state, symbol)  # diagnostic instrumentation below
+    log_filter_attrition(state, "DIAG_tp1_runway_ok", passed=tp1_runway_pass)
+    if not tp1_runway_pass:
         return None
     if not liquidity_sanity_check(bias, entry, m15, state, "SMC"):
         return None
@@ -1807,9 +1811,13 @@ def _generic_setup_engine(engine_name: str, setup_type: str, symbol: str, views:
     entry = retracement_entry(setup_type, bias, m15, reference_zone)
     if entry is None:
         return None
-    if not entry_distance_ok(bias, entry, market_price, m15):
+    entry_distance_pass = entry_distance_ok(bias, entry, market_price, m15)  # diagnostic instrumentation below
+    log_filter_attrition(state, "DIAG_entry_distance_ok", passed=entry_distance_pass)
+    if not entry_distance_pass:
         return None
-    if not tp1_runway_ok(bias, entry, m15, state, symbol):
+    tp1_runway_pass = tp1_runway_ok(bias, entry, m15, state, symbol)  # diagnostic instrumentation below
+    log_filter_attrition(state, "DIAG_tp1_runway_ok", passed=tp1_runway_pass)
+    if not tp1_runway_pass:
         return None
     if not liquidity_sanity_check(bias, entry, m15, state, engine_name):
         return None
