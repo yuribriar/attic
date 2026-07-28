@@ -2542,7 +2542,41 @@ def _scan_asset(symbol: str, client: HyperliquidClient, cache: CandleCacheStore,
     return candidates
 
 
-def run_scan() -> None:
+def _format_filter_funnel(funnel: dict) -> str:
+    """Human-readable snapshot of the Tier-1 filter_funnel diagnostic
+    counters, ordered the way a candidate actually flows through the
+    gates (top-down bias -> 4H -> 1H zone -> stage3 outcome -> entry/TP1
+    checks -> per-engine setup logic) rather than dict insertion order."""
+    if not funnel:
+        return "  (empty -- no scans recorded yet)"
+    order_hint = [
+        "stage1_neutral",
+        "DIAG_stage2_h4_context",
+        "DIAG_1h_poi_pool_exists",
+        "DIAG_1h_mss_bos_confirmed",
+        "DIAG_stage3_outcome_VALID",
+        "DIAG_stage3_outcome_NOT_READY",
+        "DIAG_stage3_outcome_INVALID",
+        "DIAG_entry_distance_ok",
+        "DIAG_tp1_runway_ok",
+        "SMC",
+    ]
+
+    def sort_key(name: str):
+        return (order_hint.index(name), name) if name in order_hint else (len(order_hint), name)
+
+    lines = []
+    for name in sorted(funnel.keys(), key=sort_key):
+        counts = funnel.get(name, {})
+        eliminated = counts.get("eliminated", 0)
+        passed = counts.get("passed", 0)
+        total = eliminated + passed
+        rate = (passed / total * 100.0) if total else 0.0
+        lines.append(f"  {name:<32} eliminated={eliminated:<6} passed={passed:<6} ({rate:.1f}% pass)")
+    return "\n".join(lines)
+
+
+def run_scan(dump_funnel: bool = False) -> None:
     log.info("%s %s -- scan starting", ENGINE_NAME, ENGINE_VERSION)
     store = StateStore(STATE_PATH)
     state = store.state
@@ -2629,7 +2663,18 @@ def run_scan() -> None:
         cache.save()
         store.save()
         log.info("%s %s -- scan complete", ENGINE_NAME, ENGINE_VERSION)
+        if dump_funnel:
+            summary = _format_filter_funnel(state["tier1"]["filter_funnel"])
+            log.info("Filter funnel snapshot (cumulative to date):\n%s", summary)
+            print("\n=== FILTER FUNNEL SNAPSHOT (cumulative to date) ===")
+            print(summary)
+            print("=== END FILTER FUNNEL SNAPSHOT ===\n")
 
 
 if __name__ == "__main__":
-    run_scan()
+    # Default invocation (cron/GitHub Actions, no args) is byte-for-byte the
+    # same scan as before. Pass --dump-funnel to run the normal scan and
+    # additionally print the cumulative filter_funnel to stdout/log right
+    # after, so you can check "is it dead right now" from one manual run
+    # without opening state.json.
+    run_scan(dump_funnel="--dump-funnel" in sys.argv)
