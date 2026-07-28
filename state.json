@@ -1,6 +1,6 @@
 {
   "last_daily_summary_date": "2026-07-28",
-  "last_run_ts": "2026-07-28T12:15:32.720907+00:00",
+  "last_run_ts": "2026-07-28T12:30:32.641384+00:00",
   "macro_events": [],
   "resolution_logic_version": 1,
   "schema_version": 2,
@@ -36,28 +36,28 @@
     },
     "filter_funnel": {
       "Breaker Block": {
-        "eliminated": 6394,
+        "eliminated": 6415,
         "passed": 0
       },
       "Breakout": {
-        "eliminated": 6394,
+        "eliminated": 6415,
         "passed": 0
       },
       "DIAG_1h_mss_bos_confirmed": {
-        "eliminated": 960,
-        "passed": 80
+        "eliminated": 1050,
+        "passed": 110
       },
       "DIAG_1h_poi_pool_exists": {
         "eliminated": 0,
-        "passed": 1040
+        "passed": 1160
       },
       "DIAG_entry_distance_ok": {
-        "eliminated": 47,
-        "passed": 10
+        "eliminated": 64,
+        "passed": 17
       },
       "DIAG_stage2_h4_context": {
-        "eliminated": 1480,
-        "passed": 1040
+        "eliminated": 1570,
+        "passed": 1160
       },
       "DIAG_stage3_outcome_INVALID": {
         "eliminated": 0,
@@ -65,51 +65,51 @@
       },
       "DIAG_stage3_outcome_NOT_READY": {
         "eliminated": 0,
-        "passed": 920
+        "passed": 1010
       },
       "DIAG_stage3_outcome_VALID": {
         "eliminated": 0,
-        "passed": 80
+        "passed": 110
       },
       "DIAG_tp1_runway_ok": {
-        "eliminated": 10,
+        "eliminated": 17,
         "passed": 0
       },
       "Fair Value Gap": {
-        "eliminated": 6394,
+        "eliminated": 6415,
         "passed": 0
       },
       "Mean Reversion": {
-        "eliminated": 6394,
+        "eliminated": 6415,
         "passed": 0
       },
       "Momentum": {
-        "eliminated": 6394,
+        "eliminated": 6415,
         "passed": 0
       },
       "Order Block": {
-        "eliminated": 6394,
+        "eliminated": 6415,
         "passed": 0
       },
       "Range Trading": {
-        "eliminated": 6394,
+        "eliminated": 6415,
         "passed": 0
       },
       "Reversal": {
-        "eliminated": 6394,
+        "eliminated": 6415,
         "passed": 0
       },
       "SMC": {
-        "eliminated": 6394,
+        "eliminated": 6415,
         "passed": 0
       },
       "Volatility Expansion": {
-        "eliminated": 6394,
+        "eliminated": 6415,
         "passed": 0
       },
       "stage1_neutral": {
-        "eliminated": 481,
-        "passed": 6394
+        "eliminated": 485,
+        "passed": 6415
       }
     },
     "forensic_category_counts": {},
