@@ -1,6 +1,6 @@
 {
   "last_daily_summary_date": "2026-07-28",
-  "last_run_ts": "2026-07-28T09:15:31.169478+00:00",
+  "last_run_ts": "2026-07-28T09:30:33.388279+00:00",
   "macro_events": [],
   "resolution_logic_version": 1,
   "schema_version": 2,
@@ -36,48 +36,68 @@
     },
     "filter_funnel": {
       "Breaker Block": {
-        "eliminated": 6142,
+        "eliminated": 6163,
         "passed": 0
       },
       "Breakout": {
-        "eliminated": 6142,
+        "eliminated": 6163,
         "passed": 0
       },
+      "DIAG_1h_mss_bos_confirmed": {
+        "eliminated": 70,
+        "passed": 10
+      },
+      "DIAG_1h_poi_pool_exists": {
+        "eliminated": 0,
+        "passed": 80
+      },
+      "DIAG_stage2_h4_context": {
+        "eliminated": 130,
+        "passed": 80
+      },
+      "DIAG_stage3_outcome_NOT_READY": {
+        "eliminated": 0,
+        "passed": 70
+      },
+      "DIAG_stage3_outcome_VALID": {
+        "eliminated": 0,
+        "passed": 10
+      },
       "Fair Value Gap": {
-        "eliminated": 6142,
+        "eliminated": 6163,
         "passed": 0
       },
       "Mean Reversion": {
-        "eliminated": 6142,
+        "eliminated": 6163,
         "passed": 0
       },
       "Momentum": {
-        "eliminated": 6142,
+        "eliminated": 6163,
         "passed": 0
       },
       "Order Block": {
-        "eliminated": 6142,
+        "eliminated": 6163,
         "passed": 0
       },
       "Range Trading": {
-        "eliminated": 6142,
+        "eliminated": 6163,
         "passed": 0
       },
       "Reversal": {
-        "eliminated": 6142,
+        "eliminated": 6163,
         "passed": 0
       },
       "SMC": {
-        "eliminated": 6142,
+        "eliminated": 6163,
         "passed": 0
       },
       "Volatility Expansion": {
-        "eliminated": 6142,
+        "eliminated": 6163,
         "passed": 0
       },
       "stage1_neutral": {
-        "eliminated": 433,
-        "passed": 6142
+        "eliminated": 437,
+        "passed": 6163
       }
     },
     "forensic_category_counts": {},
