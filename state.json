@@ -57,8 +57,8 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 3,
-        "rejected": 3
+        "seen": 4,
+        "rejected": 4
       }
     },
     "circuit_breaker": {
@@ -80,5 +80,5 @@
   "pending_signals": [],
   "active_signals": [],
   "symbol_cooldowns": {},
-  "last_run_ts": 1785321064874
+  "last_run_ts": 1785321945000
 }
