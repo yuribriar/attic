@@ -124,7 +124,7 @@
       "tp1_r": 3.4511878170871597,
       "mae_r": -0.8635093574565227,
       "mfe_r": 3.732494979063814,
-      "last_checked_ts": 1785364200000,
+      "last_checked_ts": 1785365100000,
       "bars_pending": 2,
       "telegram_message_id": 4951,
       "fill_ts": 1785359700000
@@ -162,11 +162,11 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1785364200000,
-      "bars_pending": 4,
+      "last_checked_ts": 1785365100000,
+      "bars_pending": 5,
       "telegram_message_id": 4953
     }
   ],
   "symbol_cooldowns": {},
-  "last_run_ts": 1785365140575
+  "last_run_ts": 1785366049948
 }
