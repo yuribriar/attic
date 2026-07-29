@@ -57,19 +57,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 31,
+        "seen": 33,
         "rejected": 8
       },
       "liquidity_sanity": {
-        "seen": 23,
-        "rejected": 7
+        "seen": 25,
+        "rejected": 8
       },
       "min_confidence": {
-        "seen": 16,
+        "seen": 17,
         "rejected": 5
       },
       "min_score": {
-        "seen": 11,
+        "seen": 12,
         "rejected": 11
       }
     },
@@ -85,12 +85,50 @@
       "avg_rr": 1.7
     },
     "last_daily_summary_date": "2026-07-29",
-    "signals_generated_total": 0,
+    "signals_generated_total": 1,
     "first_run_ts": 1785309326624
   },
   "tier2_trade_log": [],
   "pending_signals": [],
-  "active_signals": [],
+  "active_signals": [
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "ETH",
+      "direction": "long",
+      "entry": 1886.4485961136404,
+      "sl": 1880.1387674284142,
+      "tp1": 1908.2250000000001,
+      "tp2": 1917.125,
+      "confidence": 0.55,
+      "rr_tp1": 3.4511878170871597,
+      "rr_tp2": 4.861685699674414,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept"
+      ],
+      "regime_at_signal": "high_vol_chop",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1785357923930,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "caef9e0497ad",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "B",
+      "score": 0.628102043068879,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1785357923930,
+      "bars_pending": 0,
+      "telegram_message_id": 4951
+    }
+  ],
   "symbol_cooldowns": {},
-  "last_run_ts": 1785357044579
+  "last_run_ts": 1785357939302
 }
