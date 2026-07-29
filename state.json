@@ -55,7 +55,12 @@
       "by_direction": {},
       "by_setup_direction": {}
     },
-    "filter_funnel": {},
+    "filter_funnel": {
+      "shape_validation": {
+        "seen": 1,
+        "rejected": 1
+      }
+    },
     "circuit_breaker": {
       "tripped": false,
       "tripped_at": null,
@@ -75,5 +80,5 @@
   "pending_signals": [],
   "active_signals": [],
   "symbol_cooldowns": {},
-  "last_run_ts": 1785318346002
+  "last_run_ts": 1785319253417
 }
