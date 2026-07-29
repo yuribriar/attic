@@ -57,8 +57,8 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 6,
-        "rejected": 5
+        "seen": 7,
+        "rejected": 6
       },
       "liquidity_sanity": {
         "seen": 1,
@@ -92,5 +92,5 @@
   "pending_signals": [],
   "active_signals": [],
   "symbol_cooldowns": {},
-  "last_run_ts": 1785322854138
+  "last_run_ts": 1785323749776
 }
