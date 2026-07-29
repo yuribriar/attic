@@ -3,15 +3,6 @@ ODYSSEY ADAPTIVE SIGNAL ENGINE -- v2.0.0
 ========================================
 Self-learning, multi-strategy crypto signal engine for Hyperliquid
 perpetuals. Single-file, GitHub-Actions-ready.
-
-13 setup engines (SMC, order blocks, breakers, FVGs, sweeps, momentum,
-reversal, mean reversion, range, etc.) scored by a shared Decision Engine
-with regime-fit and correlation-cap logic. Pending-entry fills are
-verified before a trade is considered live. State is split into
-permanent aggregates and a bounded raw log driving incremental learning
-(per-tag/asset/setup quality, adaptive weights, filter overrides, a
-live-performance circuit breaker). Parallel per-symbol scan; run on a
-schedule (cron/GitHub Actions) against state.json next to the script.
 """
 
 from __future__ import annotations
