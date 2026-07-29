@@ -67,7 +67,7 @@
       "profit_factor": 1.35,
       "avg_rr": 1.7
     },
-    "last_daily_summary_date": null,
+    "last_daily_summary_date": "2026-07-29",
     "signals_generated_total": 0,
     "first_run_ts": 1785309326624
   },
@@ -75,5 +75,5 @@
   "pending_signals": [],
   "active_signals": [],
   "symbol_cooldowns": {},
-  "last_run_ts": 1785311141976
+  "last_run_ts": 1785312062528
 }
