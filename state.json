@@ -349,7 +349,7 @@
       "entry_kind": "pending",
       "timeframe": "15m",
       "created_ts": 1785449730269,
-      "entry_filled": false,
+      "entry_filled": true,
       "pending_bars": 0,
       "pending_expiry_bars": 12,
       "signal_id": "1360491cb627",
@@ -361,13 +361,14 @@
       "tier": "B",
       "score": 0.6740892250612096,
       "status": "pending",
-      "tp1_hit": false,
-      "tp1_r": null,
+      "tp1_hit": true,
+      "tp1_r": 2.882427323055378,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1785453300000,
-      "bars_pending": 4,
-      "telegram_message_id": 5004
+      "last_checked_ts": 1785454200000,
+      "bars_pending": 5,
+      "telegram_message_id": 5004,
+      "fill_ts": 1785454200000
     },
     {
       "setup_type": "liquidity_sweep",
@@ -400,11 +401,11 @@
       "tier": "B",
       "score": 0.636331116050778,
       "status": "pending",
-      "tp1_hit": false,
-      "tp1_r": null,
+      "tp1_hit": true,
+      "tp1_r": 3.7311148086702617,
       "mae_r": -0.7986214781670897,
       "mfe_r": 2.5134437638215053,
-      "last_checked_ts": 1785453300000,
+      "last_checked_ts": 1785454200000,
       "bars_pending": 2,
       "telegram_message_id": 5005,
       "fill_ts": 1785451500000
@@ -414,5 +415,5 @@
     "ETH": 1785378600000,
     "AAVE": 1785406500000
   },
-  "last_run_ts": 1785454242473
+  "last_run_ts": 1785455142761
 }
