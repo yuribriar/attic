@@ -365,8 +365,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1785452400000,
-      "bars_pending": 3,
+      "last_checked_ts": 1785453300000,
+      "bars_pending": 4,
       "telegram_message_id": 5004
     },
     {
@@ -403,8 +403,8 @@
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": -0.7986214781670897,
-      "mfe_r": 2.4744782903863807,
-      "last_checked_ts": 1785452400000,
+      "mfe_r": 2.5134437638215053,
+      "last_checked_ts": 1785453300000,
       "bars_pending": 2,
       "telegram_message_id": 5005,
       "fill_ts": 1785451500000
@@ -414,5 +414,5 @@
     "ETH": 1785378600000,
     "AAVE": 1785406500000
   },
-  "last_run_ts": 1785453343861
+  "last_run_ts": 1785454242473
 }
