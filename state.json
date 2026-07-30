@@ -160,19 +160,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 102,
+        "seen": 105,
         "rejected": 10
       },
       "liquidity_sanity": {
-        "seen": 92,
+        "seen": 95,
         "rejected": 15
       },
       "min_confidence": {
-        "seen": 77,
-        "rejected": 48
+        "seen": 80,
+        "rejected": 49
       },
       "min_score": {
-        "seen": 29,
+        "seen": 31,
         "rejected": 26
       }
     },
@@ -197,7 +197,7 @@
       "avg_rr": 1.7
     },
     "last_daily_summary_date": "2026-07-30",
-    "signals_generated_total": 3,
+    "signals_generated_total": 5,
     "first_run_ts": 1785309326624
   },
   "tier2_trade_log": [
@@ -327,10 +327,91 @@
     }
   ],
   "pending_signals": [],
-  "active_signals": [],
+  "active_signals": [
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "ZEC",
+      "direction": "long",
+      "entry": 472.1392362559276,
+      "sl": 471.13807875197585,
+      "tp1": 475.025,
+      "tp2": 475.99,
+      "confidence": 0.5637984496124001,
+      "rr_tp1": 2.882427323055378,
+      "rr_tp2": 3.8463116231690164,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept",
+        "pure_sweep",
+        "counter_htf_bias_sweep"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1785449730269,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "1360491cb627",
+      "confidence_components": {
+        "base": 0.55,
+        "sweep_purity_bonus": 0.09379844961240005,
+        "counter_trend_penalty": -0.08
+      },
+      "tier": "B",
+      "score": 0.6740892250612096,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1785449730269,
+      "bars_pending": 0,
+      "telegram_message_id": 5004
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "TAO",
+      "direction": "long",
+      "entry": 192.97495618499184,
+      "sl": 192.71831872833062,
+      "tp1": 193.9325,
+      "tp2": 194.13,
+      "confidence": 0.65,
+      "rr_tp1": 3.7311148086702617,
+      "rr_tp2": 4.500682909014641,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept",
+        "pure_sweep"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1785449738758,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "87f6661a8822",
+      "confidence_components": {
+        "base": 0.55,
+        "sweep_purity_bonus": 0.1
+      },
+      "tier": "B",
+      "score": 0.636331116050778,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1785449738758,
+      "bars_pending": 0,
+      "telegram_message_id": 5005
+    }
+  ],
   "symbol_cooldowns": {
     "ETH": 1785378600000,
     "AAVE": 1785406500000
   },
-  "last_run_ts": 1785449153253
+  "last_run_ts": 1785449746341
 }
