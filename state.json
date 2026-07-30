@@ -160,16 +160,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 106,
+        "seen": 107,
         "rejected": 10
       },
       "liquidity_sanity": {
-        "seen": 96,
+        "seen": 97,
         "rejected": 15
       },
       "min_confidence": {
-        "seen": 81,
-        "rejected": 49
+        "seen": 82,
+        "rejected": 50
       },
       "min_score": {
         "seen": 32,
@@ -365,8 +365,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1785449730269,
-      "bars_pending": 0,
+      "last_checked_ts": 1785450600000,
+      "bars_pending": 1,
       "telegram_message_id": 5004
     },
     {
@@ -404,8 +404,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1785449738758,
-      "bars_pending": 0,
+      "last_checked_ts": 1785450600000,
+      "bars_pending": 1,
       "telegram_message_id": 5005
     }
   ],
@@ -413,5 +413,5 @@
     "ETH": 1785378600000,
     "AAVE": 1785406500000
   },
-  "last_run_ts": 1785450649695
+  "last_run_ts": 1785451545677
 }
