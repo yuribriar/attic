@@ -128,19 +128,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 46,
-        "rejected": 8
+        "seen": 49,
+        "rejected": 9
       },
       "liquidity_sanity": {
-        "seen": 38,
+        "seen": 40,
         "rejected": 10
       },
       "min_confidence": {
-        "seen": 28,
-        "rejected": 11
+        "seen": 30,
+        "rejected": 12
       },
       "min_score": {
-        "seen": 17,
+        "seen": 18,
         "rejected": 15
       }
     },
@@ -160,8 +160,8 @@
       "profit_factor": 1.35,
       "avg_rr": 1.7
     },
-    "last_daily_summary_date": "2026-07-29",
-    "signals_generated_total": 2,
+    "last_daily_summary_date": "2026-07-30",
+    "signals_generated_total": 3,
     "first_run_ts": 1785309326624
   },
   "tier2_trade_log": [
@@ -249,9 +249,47 @@
     }
   ],
   "pending_signals": [],
-  "active_signals": [],
+  "active_signals": [
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "AAVE",
+      "direction": "short",
+      "entry": 96.69318289044088,
+      "sl": 96.9624264612319,
+      "tp1": 96.191875,
+      "tp2": 95.710375,
+      "confidence": 0.55,
+      "rr_tp1": 1.8619122045071528,
+      "rr_tp2": 3.6502557426105247,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "buy_side_pool_swept"
+      ],
+      "regime_at_signal": "high_vol_chop",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1785398455809,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "fa7411a04846",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "B",
+      "score": 0.6288436972119914,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1785398455809,
+      "bars_pending": 0,
+      "telegram_message_id": 4966
+    }
+  ],
   "symbol_cooldowns": {
     "ETH": 1785378600000
   },
-  "last_run_ts": 1785397549119
+  "last_run_ts": 1785398458552
 }
