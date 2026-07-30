@@ -128,16 +128,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 49,
-        "rejected": 9
+        "seen": 51,
+        "rejected": 10
       },
       "liquidity_sanity": {
-        "seen": 40,
+        "seen": 41,
         "rejected": 10
       },
       "min_confidence": {
-        "seen": 30,
-        "rejected": 12
+        "seen": 31,
+        "rejected": 13
       },
       "min_score": {
         "seen": 18,
@@ -291,5 +291,5 @@
   "symbol_cooldowns": {
     "ETH": 1785378600000
   },
-  "last_run_ts": 1785398458552
+  "last_run_ts": 1785399342960
 }
