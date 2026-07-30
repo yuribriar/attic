@@ -160,20 +160,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 70,
+        "seen": 72,
         "rejected": 10
       },
       "liquidity_sanity": {
-        "seen": 60,
+        "seen": 62,
         "rejected": 15
       },
       "min_confidence": {
-        "seen": 45,
-        "rejected": 22
+        "seen": 47,
+        "rejected": 23
       },
       "min_score": {
-        "seen": 23,
-        "rejected": 20
+        "seen": 24,
+        "rejected": 21
       }
     },
     "circuit_breaker": {
@@ -332,5 +332,5 @@
     "ETH": 1785378600000,
     "AAVE": 1785406500000
   },
-  "last_run_ts": 1785429944486
+  "last_run_ts": 1785430858136
 }
