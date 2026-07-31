@@ -701,8 +701,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1785501000000,
-      "bars_pending": 1,
+      "last_checked_ts": 1785501900000,
+      "bars_pending": 2,
       "telegram_message_id": 5044
     }
   ],
@@ -714,5 +714,5 @@
     "DOGE": 1785493800000,
     "XLM": 1785496500000
   },
-  "last_run_ts": 1785501937844
+  "last_run_ts": 1785502850506
 }
