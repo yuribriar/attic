@@ -200,19 +200,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 148,
+        "seen": 149,
         "rejected": 14
       },
       "liquidity_sanity": {
-        "seen": 134,
+        "seen": 135,
         "rejected": 19
       },
       "min_confidence": {
-        "seen": 115,
+        "seen": 116,
         "rejected": 79
       },
       "min_score": {
-        "seen": 36,
+        "seen": 37,
         "rejected": 29
       }
     },
@@ -244,8 +244,8 @@
       "profit_factor": 1.35,
       "avg_rr": 1.7
     },
-    "last_daily_summary_date": "2026-07-30",
-    "signals_generated_total": 7,
+    "last_daily_summary_date": "2026-07-31",
+    "signals_generated_total": 8,
     "first_run_ts": 1785309326624
   },
   "tier2_trade_log": [
@@ -545,9 +545,48 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1785483000000,
-      "bars_pending": 1,
+      "last_checked_ts": 1785483900000,
+      "bars_pending": 2,
       "telegram_message_id": 5019
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "DOGE",
+      "direction": "long",
+      "entry": 0.07001420545079388,
+      "sl": 0.06990073515026463,
+      "tp1": 0.07044125,
+      "tp2": 0.0706085,
+      "confidence": 0.65,
+      "rr_tp1": 3.7634918319088952,
+      "rr_tp2": 5.237445802418401,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept",
+        "pure_sweep"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1785484842714,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "d4920453f09d",
+      "confidence_components": {
+        "base": 0.55,
+        "sweep_purity_bonus": 0.1
+      },
+      "tier": "B",
+      "score": 0.6081852079643368,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1785484842714,
+      "bars_pending": 0,
+      "telegram_message_id": 5020
     }
   ],
   "symbol_cooldowns": {
@@ -556,5 +595,5 @@
     "ZEC": 1785458700000,
     "TAO": 1785458700000
   },
-  "last_run_ts": 1785483941643
+  "last_run_ts": 1785484851609
 }
