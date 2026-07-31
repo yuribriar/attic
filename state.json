@@ -200,20 +200,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 117,
+        "seen": 120,
         "rejected": 12
       },
       "liquidity_sanity": {
-        "seen": 105,
+        "seen": 108,
         "rejected": 17
       },
       "min_confidence": {
-        "seen": 88,
-        "rejected": 56
+        "seen": 91,
+        "rejected": 57
       },
       "min_score": {
-        "seen": 32,
-        "rejected": 27
+        "seen": 34,
+        "rejected": 28
       }
     },
     "circuit_breaker": {
@@ -245,7 +245,7 @@
       "avg_rr": 1.7
     },
     "last_daily_summary_date": "2026-07-30",
-    "signals_generated_total": 5,
+    "signals_generated_total": 6,
     "first_run_ts": 1785309326624
   },
   "tier2_trade_log": [
@@ -465,12 +465,54 @@
     }
   ],
   "pending_signals": [],
-  "active_signals": [],
+  "active_signals": [
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "ZEC",
+      "direction": "long",
+      "entry": 469.9051505663086,
+      "sl": 466.9200501887695,
+      "tp1": 475.025,
+      "tp2": 475.995,
+      "confidence": 0.5637984496124001,
+      "rr_tp1": 1.7151347647184323,
+      "rr_tp2": 2.0400819615693786,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept",
+        "pure_sweep",
+        "counter_htf_bias_sweep"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1785462322929,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "1eb154baa0bf",
+      "confidence_components": {
+        "base": 0.55,
+        "sweep_purity_bonus": 0.09379844961240005,
+        "counter_trend_penalty": -0.08
+      },
+      "tier": "B",
+      "score": 0.5916687393480919,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1785462322929,
+      "bars_pending": 0,
+      "telegram_message_id": 5009
+    }
+  ],
   "symbol_cooldowns": {
     "ETH": 1785378600000,
     "AAVE": 1785406500000,
     "ZEC": 1785458700000,
     "TAO": 1785458700000
   },
-  "last_run_ts": 1785461446263
+  "last_run_ts": 1785462338040
 }
