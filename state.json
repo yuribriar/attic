@@ -503,8 +503,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1785470400000,
-      "bars_pending": 9,
+      "last_checked_ts": 1785471300000,
+      "bars_pending": 10,
       "telegram_message_id": 5009
     }
   ],
@@ -514,5 +514,5 @@
     "ZEC": 1785458700000,
     "TAO": 1785458700000
   },
-  "last_run_ts": 1785471339386
+  "last_run_ts": 1785472251354
 }
