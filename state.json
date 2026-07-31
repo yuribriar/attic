@@ -63,6 +63,22 @@
           "sum_r": -1.0,
           "sum_conf": 0.55,
           "sum_conf_correct": 0.0
+        },
+        "ZEC": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 2.882427323055378,
+          "sum_conf": 0.5637984496124001,
+          "sum_conf_correct": 1.0
+        },
+        "TAO": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 3.7311148086702617,
+          "sum_conf": 0.65,
+          "sum_conf_correct": 1.0
         }
       },
       "by_regime": {
@@ -73,44 +89,52 @@
           "sum_r": 3.861685699674414,
           "sum_conf": 1.1,
           "sum_conf_correct": 1.0
+        },
+        "ranging": {
+          "n": 2,
+          "wins": 2,
+          "losses": 0,
+          "sum_r": 6.613542131725639,
+          "sum_conf": 1.2137984496124001,
+          "sum_conf_correct": 2.0
         }
       },
       "by_timeframe": {
         "15m": {
-          "n": 2,
-          "wins": 1,
+          "n": 4,
+          "wins": 3,
           "losses": 1,
-          "sum_r": 3.861685699674414,
-          "sum_conf": 1.1,
-          "sum_conf_correct": 1.0
+          "sum_r": 10.475227831400053,
+          "sum_conf": 2.3137984496124,
+          "sum_conf_correct": 3.0
         }
       },
       "by_engine": {
         "liquidity_sweep": {
-          "n": 2,
-          "wins": 1,
+          "n": 4,
+          "wins": 3,
           "losses": 1,
-          "sum_r": 3.861685699674414,
-          "sum_conf": 1.1,
-          "sum_conf_correct": 1.0
+          "sum_r": 10.475227831400053,
+          "sum_conf": 2.3137984496124,
+          "sum_conf_correct": 3.0
         }
       },
       "by_confluence": {
         "liquidity_sweep_reclaim": {
-          "n": 2,
-          "wins": 1,
+          "n": 4,
+          "wins": 3,
           "losses": 1,
-          "sum_r": 3.861685699674414,
-          "sum_conf": 1.1,
-          "sum_conf_correct": 1.0
+          "sum_r": 10.475227831400053,
+          "sum_conf": 2.3137984496124,
+          "sum_conf_correct": 3.0
         },
         "sell_side_pool_swept": {
-          "n": 1,
-          "wins": 1,
+          "n": 3,
+          "wins": 3,
           "losses": 0,
-          "sum_r": 4.861685699674414,
-          "sum_conf": 0.55,
-          "sum_conf_correct": 1.0
+          "sum_r": 11.475227831400053,
+          "sum_conf": 1.7637984496124002,
+          "sum_conf_correct": 3.0
         },
         "buy_side_pool_swept": {
           "n": 1,
@@ -119,16 +143,32 @@
           "sum_r": -1.0,
           "sum_conf": 0.55,
           "sum_conf_correct": 0.0
+        },
+        "counter_htf_bias_sweep": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 2.882427323055378,
+          "sum_conf": 0.5637984496124001,
+          "sum_conf_correct": 1.0
+        },
+        "pure_sweep": {
+          "n": 2,
+          "wins": 2,
+          "losses": 0,
+          "sum_r": 6.613542131725639,
+          "sum_conf": 1.2137984496124001,
+          "sum_conf_correct": 2.0
         }
       },
       "by_direction": {
         "long": {
-          "n": 1,
-          "wins": 1,
+          "n": 3,
+          "wins": 3,
           "losses": 0,
-          "sum_r": 4.861685699674414,
-          "sum_conf": 0.55,
-          "sum_conf_correct": 1.0
+          "sum_r": 11.475227831400053,
+          "sum_conf": 1.7637984496124002,
+          "sum_conf_correct": 3.0
         },
         "short": {
           "n": 1,
@@ -141,12 +181,12 @@
       },
       "by_setup_direction": {
         "liquidity_sweep|long": {
-          "n": 1,
-          "wins": 1,
+          "n": 3,
+          "wins": 3,
           "losses": 0,
-          "sum_r": 4.861685699674414,
-          "sum_conf": 0.55,
-          "sum_conf_correct": 1.0
+          "sum_r": 11.475227831400053,
+          "sum_conf": 1.7637984496124002,
+          "sum_conf_correct": 3.0
         },
         "liquidity_sweep|short": {
           "n": 1,
@@ -189,6 +229,14 @@
       {
         "r": -1.0,
         "win": false
+      },
+      {
+        "r": 2.882427323055378,
+        "win": true
+      },
+      {
+        "r": 3.7311148086702617,
+        "win": true
       }
     ],
     "active_baseline": {
@@ -324,10 +372,7 @@
       "outcome": "loss",
       "r_realized": -1.0,
       "forensic_tag": "chased_a_swept_liquidity_pool"
-    }
-  ],
-  "pending_signals": [],
-  "active_signals": [
+    },
     {
       "setup_type": "liquidity_sweep",
       "symbol": "ZEC",
@@ -360,15 +405,19 @@
       },
       "tier": "B",
       "score": 0.6740892250612096,
-      "status": "pending",
+      "status": "closed_win",
       "tp1_hit": true,
       "tp1_r": 2.882427323055378,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1785454200000,
+      "last_checked_ts": 1785455100000,
       "bars_pending": 5,
       "telegram_message_id": 5004,
-      "fill_ts": 1785454200000
+      "fill_ts": 1785454200000,
+      "resolved_ts": 1785455100000,
+      "outcome": "win",
+      "r_realized": 2.882427323055378,
+      "forensic_tag": "correct_read_tp1_secured"
     },
     {
       "setup_type": "liquidity_sweep",
@@ -400,20 +449,28 @@
       },
       "tier": "B",
       "score": 0.636331116050778,
-      "status": "pending",
+      "status": "closed_win",
       "tp1_hit": true,
       "tp1_r": 3.7311148086702617,
       "mae_r": -0.7986214781670897,
       "mfe_r": 2.5134437638215053,
-      "last_checked_ts": 1785454200000,
+      "last_checked_ts": 1785455100000,
       "bars_pending": 2,
       "telegram_message_id": 5005,
-      "fill_ts": 1785451500000
+      "fill_ts": 1785451500000,
+      "resolved_ts": 1785455100000,
+      "outcome": "win",
+      "r_realized": 3.7311148086702617,
+      "forensic_tag": "correct_read_tp1_secured"
     }
   ],
+  "pending_signals": [],
+  "active_signals": [],
   "symbol_cooldowns": {
     "ETH": 1785378600000,
-    "AAVE": 1785406500000
+    "AAVE": 1785406500000,
+    "ZEC": 1785458700000,
+    "TAO": 1785458700000
   },
-  "last_run_ts": 1785455142761
+  "last_run_ts": 1785456051318
 }
