@@ -216,20 +216,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 162,
+        "seen": 163,
         "rejected": 15
       },
       "liquidity_sanity": {
-        "seen": 147,
+        "seen": 148,
         "rejected": 19
       },
       "min_confidence": {
-        "seen": 128,
+        "seen": 129,
         "rejected": 88
       },
       "min_score": {
-        "seen": 40,
-        "rejected": 31
+        "seen": 41,
+        "rejected": 32
       }
     },
     "circuit_breaker": {
@@ -620,10 +620,7 @@
       "outcome": "loss",
       "r_realized": -1.0,
       "forensic_tag": "chased_a_swept_liquidity_pool"
-    }
-  ],
-  "pending_signals": [],
-  "active_signals": [
+    },
     {
       "setup_type": "breakout",
       "symbol": "BTC",
@@ -654,16 +651,21 @@
       },
       "tier": "B",
       "score": 0.5948770527101604,
-      "status": "pending",
+      "status": "expired_no_fill",
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1785495600000,
-      "bars_pending": 15,
-      "telegram_message_id": 5019
+      "last_checked_ts": 1785496500000,
+      "bars_pending": 16,
+      "telegram_message_id": 5019,
+      "resolved_ts": 1785496500000,
+      "outcome": "expired_no_fill",
+      "forensic_tag": "no_fill_expired"
     }
   ],
+  "pending_signals": [],
+  "active_signals": [],
   "symbol_cooldowns": {
     "ETH": 1785378600000,
     "AAVE": 1785406500000,
@@ -672,5 +674,5 @@
     "DOGE": 1785493800000,
     "XLM": 1785496500000
   },
-  "last_run_ts": 1785496557011
+  "last_run_ts": 1785497447567
 }
