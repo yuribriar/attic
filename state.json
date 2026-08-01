@@ -81,11 +81,11 @@
           "sum_conf_correct": 1.0
         },
         "DOGE": {
-          "n": 1,
+          "n": 2,
           "wins": 0,
-          "losses": 1,
-          "sum_r": -1.0,
-          "sum_conf": 0.65,
+          "losses": 2,
+          "sum_r": -2.0,
+          "sum_conf": 1.2039020232240998,
           "sum_conf_correct": 0.0
         },
         "XLM": {
@@ -129,15 +129,23 @@
           "sum_r": 21.70670113599676,
           "sum_conf": 4.746430866976,
           "sum_conf_correct": 4.0
+        },
+        "consolidation": {
+          "n": 1,
+          "wins": 0,
+          "losses": 1,
+          "sum_r": -1.0,
+          "sum_conf": 0.5539020232240996,
+          "sum_conf_correct": 0.0
         }
       },
       "by_timeframe": {
         "15m": {
-          "n": 10,
+          "n": 11,
           "wins": 5,
-          "losses": 5,
-          "sum_r": 25.568386835671173,
-          "sum_conf": 5.846430866975999,
+          "losses": 6,
+          "sum_r": 24.568386835671173,
+          "sum_conf": 6.400332890200099,
           "sum_conf_correct": 5.0
         }
       },
@@ -157,6 +165,14 @@
           "sum_r": 5.202938469563158,
           "sum_conf": 0.5626324173635994,
           "sum_conf_correct": 1.0
+        },
+        "mean_reversion": {
+          "n": 1,
+          "wins": 0,
+          "losses": 1,
+          "sum_r": -1.0,
+          "sum_conf": 0.5539020232240996,
+          "sum_conf_correct": 0.0
         }
       },
       "by_confluence": {
@@ -223,15 +239,39 @@
           "sum_r": 5.202938469563158,
           "sum_conf": 0.5626324173635994,
           "sum_conf_correct": 1.0
+        },
+        "ranging_regime": {
+          "n": 1,
+          "wins": 0,
+          "losses": 1,
+          "sum_r": -1.0,
+          "sum_conf": 0.5539020232240996,
+          "sum_conf_correct": 0.0
+        },
+        "bollinger_band_extreme": {
+          "n": 1,
+          "wins": 0,
+          "losses": 1,
+          "sum_r": -1.0,
+          "sum_conf": 0.5539020232240996,
+          "sum_conf_correct": 0.0
+        },
+        "deep_band_penetration": {
+          "n": 1,
+          "wins": 0,
+          "losses": 1,
+          "sum_r": -1.0,
+          "sum_conf": 0.5539020232240996,
+          "sum_conf_correct": 0.0
         }
       },
       "by_direction": {
         "long": {
-          "n": 9,
+          "n": 10,
           "wins": 5,
-          "losses": 4,
-          "sum_r": 26.568386835671173,
-          "sum_conf": 5.296430866975999,
+          "losses": 5,
+          "sum_r": 25.568386835671173,
+          "sum_conf": 5.850332890200099,
           "sum_conf_correct": 5.0
         },
         "short": {
@@ -267,6 +307,14 @@
           "sum_r": 5.202938469563158,
           "sum_conf": 0.5626324173635994,
           "sum_conf_correct": 1.0
+        },
+        "mean_reversion|long": {
+          "n": 1,
+          "wins": 0,
+          "losses": 1,
+          "sum_r": -1.0,
+          "sum_conf": 0.5539020232240996,
+          "sum_conf_correct": 0.0
         }
       }
     },
@@ -333,6 +381,10 @@
       {
         "r": 13.890220534707963,
         "win": true
+      },
+      {
+        "r": -1.0,
+        "win": false
       }
     ],
     "active_baseline": {
@@ -988,10 +1040,7 @@
       "outcome": "win",
       "r_realized": 13.890220534707963,
       "forensic_tag": "correct_read_tp1_secured"
-    }
-  ],
-  "pending_signals": [],
-  "active_signals": [
+    },
     {
       "setup_type": "mean_reversion",
       "symbol": "DOGE",
@@ -1012,7 +1061,7 @@
       "entry_kind": "pending",
       "timeframe": "15m",
       "created_ts": 1785610846123,
-      "entry_filled": false,
+      "entry_filled": true,
       "pending_bars": 0,
       "pending_expiry_bars": 12,
       "signal_id": "a9710bef2439",
@@ -1022,25 +1071,32 @@
       },
       "tier": "B",
       "score": 0.5566743552819363,
-      "status": "pending",
+      "status": "closed_loss",
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1785610846123,
-      "bars_pending": 0,
-      "telegram_message_id": 5129
+      "last_checked_ts": 1785611700000,
+      "bars_pending": 1,
+      "telegram_message_id": 5129,
+      "fill_ts": 1785611700000,
+      "resolved_ts": 1785611700000,
+      "outcome": "loss",
+      "r_realized": -1.0,
+      "forensic_tag": "correct_read_poor_rr"
     }
   ],
+  "pending_signals": [],
+  "active_signals": [],
   "symbol_cooldowns": {
     "ETH": 1785378600000,
     "AAVE": 1785406500000,
     "ZEC": 1785458700000,
     "TAO": 1785458700000,
-    "DOGE": 1785493800000,
+    "DOGE": 1785618900000,
     "XLM": 1785510900000,
     "SUI": 1785600900000,
     "TRX": 1785548700000
   },
-  "last_run_ts": 1785611742002
+  "last_run_ts": 1785612648179
 }
