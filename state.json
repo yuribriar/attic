@@ -272,19 +272,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 298,
+        "seen": 300,
         "rejected": 22
       },
       "liquidity_sanity": {
-        "seen": 276,
+        "seen": 278,
         "rejected": 28
       },
       "min_confidence": {
-        "seen": 248,
-        "rejected": 171
+        "seen": 250,
+        "rejected": 172
       },
       "min_score": {
-        "seen": 77,
+        "seen": 78,
         "rejected": 62
       }
     },
@@ -341,7 +341,7 @@
       "avg_rr": 1.7
     },
     "last_daily_summary_date": "2026-08-01",
-    "signals_generated_total": 15,
+    "signals_generated_total": 16,
     "first_run_ts": 1785309326624
   },
   "tier2_trade_log": [
@@ -991,7 +991,47 @@
     }
   ],
   "pending_signals": [],
-  "active_signals": [],
+  "active_signals": [
+    {
+      "setup_type": "mean_reversion",
+      "symbol": "DOGE",
+      "direction": "long",
+      "entry": 0.0684954686997039,
+      "sl": 0.06844361442806877,
+      "tp1": 0.068981,
+      "tp2": 0.06931899999999999,
+      "confidence": 0.5539020232240996,
+      "rr_tp1": 9.363380971052967,
+      "rr_tp2": 15.881648210025467,
+      "confluences": [
+        "bollinger_band_extreme",
+        "ranging_regime",
+        "deep_band_penetration"
+      ],
+      "regime_at_signal": "consolidation",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1785610846123,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "a9710bef2439",
+      "confidence_components": {
+        "base": 0.45,
+        "band_penetration_bonus": 0.1039020232240997
+      },
+      "tier": "B",
+      "score": 0.5566743552819363,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1785610846123,
+      "bars_pending": 0,
+      "telegram_message_id": 5129
+    }
+  ],
   "symbol_cooldowns": {
     "ETH": 1785378600000,
     "AAVE": 1785406500000,
@@ -1002,5 +1042,5 @@
     "SUI": 1785600900000,
     "TRX": 1785548700000
   },
-  "last_run_ts": 1785609939676
+  "last_run_ts": 1785610853029
 }
