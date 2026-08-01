@@ -272,20 +272,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 277,
-        "rejected": 20
+        "seen": 282,
+        "rejected": 21
       },
       "liquidity_sanity": {
-        "seen": 257,
+        "seen": 261,
         "rejected": 25
       },
       "min_confidence": {
-        "seen": 232,
-        "rejected": 162
+        "seen": 236,
+        "rejected": 164
       },
       "min_score": {
-        "seen": 70,
-        "rejected": 55
+        "seen": 72,
+        "rejected": 57
       }
     },
     "circuit_breaker": {
@@ -1002,5 +1002,5 @@
     "SUI": 1785600900000,
     "TRX": 1785548700000
   },
-  "last_run_ts": 1785602740366
+  "last_run_ts": 1785603648954
 }
