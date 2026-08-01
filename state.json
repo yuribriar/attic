@@ -897,8 +897,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1785541500000,
-      "bars_pending": 7,
+      "last_checked_ts": 1785542400000,
+      "bars_pending": 8,
       "telegram_message_id": 5073
     }
   ],
@@ -912,5 +912,5 @@
     "SUI": 1785529800000,
     "TRX": 1785548700000
   },
-  "last_run_ts": 1785542455846
+  "last_run_ts": 1785543339028
 }
