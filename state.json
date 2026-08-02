@@ -320,16 +320,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 344,
+        "seen": 347,
         "rejected": 42
       },
       "liquidity_sanity": {
-        "seen": 302,
-        "rejected": 28
+        "seen": 305,
+        "rejected": 29
       },
       "min_confidence": {
-        "seen": 274,
-        "rejected": 194
+        "seen": 276,
+        "rejected": 196
       },
       "min_score": {
         "seen": 80,
@@ -1123,7 +1123,7 @@
       "tp1_r": null,
       "mae_r": -0.9560483654012183,
       "mfe_r": 0.9604313776841048,
-      "last_checked_ts": 1785636900000,
+      "last_checked_ts": 1785637800000,
       "bars_pending": 1,
       "telegram_message_id": 5140,
       "fill_ts": 1785634200000
@@ -1163,8 +1163,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1785636923927,
-      "bars_pending": 0,
+      "last_checked_ts": 1785637800000,
+      "bars_pending": 1,
       "telegram_message_id": 5143
     }
   ],
@@ -1178,5 +1178,5 @@
     "SUI": 1785600900000,
     "TRX": 1785548700000
   },
-  "last_run_ts": 1785637848184
+  "last_run_ts": 1785638742884
 }
