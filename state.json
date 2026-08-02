@@ -47,26 +47,105 @@
       }
     },
     "segment_stats": {
-      "by_asset": {},
-      "by_regime": {},
-      "by_timeframe": {},
-      "by_engine": {},
-      "by_confluence": {},
-      "by_direction": {},
-      "by_setup_direction": {}
+      "by_asset": {
+        "ZEC": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.491354817603923,
+          "sum_conf": 0.6250000000000088,
+          "sum_conf_correct": 1.0
+        }
+      },
+      "by_regime": {
+        "ranging": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.491354817603923,
+          "sum_conf": 0.6250000000000088,
+          "sum_conf_correct": 1.0
+        }
+      },
+      "by_timeframe": {
+        "15m": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.491354817603923,
+          "sum_conf": 0.6250000000000088,
+          "sum_conf_correct": 1.0
+        }
+      },
+      "by_engine": {
+        "liquidity_sweep": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.491354817603923,
+          "sum_conf": 0.6250000000000088,
+          "sum_conf_correct": 1.0
+        }
+      },
+      "by_confluence": {
+        "sell_side_pool_swept": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.491354817603923,
+          "sum_conf": 0.6250000000000088,
+          "sum_conf_correct": 1.0
+        },
+        "pure_sweep": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.491354817603923,
+          "sum_conf": 0.6250000000000088,
+          "sum_conf_correct": 1.0
+        },
+        "liquidity_sweep_reclaim": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.491354817603923,
+          "sum_conf": 0.6250000000000088,
+          "sum_conf_correct": 1.0
+        }
+      },
+      "by_direction": {
+        "long": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.491354817603923,
+          "sum_conf": 0.6250000000000088,
+          "sum_conf_correct": 1.0
+        }
+      },
+      "by_setup_direction": {
+        "liquidity_sweep|long": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.491354817603923,
+          "sum_conf": 0.6250000000000088,
+          "sum_conf_correct": 1.0
+        }
+      }
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 32,
+        "seen": 34,
         "rejected": 3
       },
       "liquidity_sanity": {
-        "seen": 29,
+        "seen": 31,
         "rejected": 0
       },
       "min_confidence": {
-        "seen": 29,
-        "rejected": 23
+        "seen": 31,
+        "rejected": 25
       },
       "min_score": {
         "seen": 6,
@@ -78,7 +157,12 @@
       "tripped_at": null,
       "reason": null
     },
-    "rolling_live_trades": [],
+    "rolling_live_trades": [
+      {
+        "r": 5.491354817603923,
+        "win": true
+      }
+    ],
     "active_baseline": {
       "win_rate": 0.46,
       "profit_factor": 1.35,
@@ -88,9 +172,7 @@
     "signals_generated_total": 1,
     "first_run_ts": 1785661231826
   },
-  "tier2_trade_log": [],
-  "pending_signals": [],
-  "active_signals": [
+  "tier2_trade_log": [
     {
       "setup_type": "liquidity_sweep",
       "symbol": "ZEC",
@@ -121,17 +203,25 @@
       },
       "tier": "B",
       "score": 0.5756929834373057,
-      "status": "pending",
-      "tp1_hit": false,
-      "tp1_r": null,
+      "status": "closed_win",
+      "tp1_hit": true,
+      "tp1_r": 2.922580239528538,
       "mae_r": -0.11750086264513722,
       "mfe_r": 1.962408712983263,
-      "last_checked_ts": 1785694500000,
+      "last_checked_ts": 1785695400000,
       "bars_pending": 1,
       "telegram_message_id": 5188,
-      "fill_ts": 1785690900000
+      "fill_ts": 1785690900000,
+      "resolved_ts": 1785695400000,
+      "outcome": "win",
+      "r_realized": 5.491354817603923,
+      "forensic_tag": "clean_read_full_extension"
     }
   ],
-  "symbol_cooldowns": {},
-  "last_run_ts": 1785695448750
+  "pending_signals": [],
+  "active_signals": [],
+  "symbol_cooldowns": {
+    "ZEC": 1785699000000
+  },
+  "last_run_ts": 1785696339888
 }
