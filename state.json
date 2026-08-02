@@ -1185,9 +1185,9 @@
       "status": "pending",
       "tp1_hit": false,
       "tp1_r": null,
-      "mae_r": -0.765442682560276,
+      "mae_r": -0.9447556089405682,
       "mfe_r": 0.40606843645752205,
-      "last_checked_ts": 1785644100000,
+      "last_checked_ts": 1785645000000,
       "bars_pending": 2,
       "telegram_message_id": 5143,
       "fill_ts": 1785638700000
@@ -1204,5 +1204,5 @@
     "TRX": 1785548700000,
     "NEAR": 1785650400000
   },
-  "last_run_ts": 1785645046933
+  "last_run_ts": 1785645938246
 }
