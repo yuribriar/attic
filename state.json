@@ -320,19 +320,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 335,
-        "rejected": 41
+        "seen": 342,
+        "rejected": 42
       },
       "liquidity_sanity": {
-        "seen": 294,
+        "seen": 300,
         "rejected": 28
       },
       "min_confidence": {
-        "seen": 266,
-        "rejected": 187
+        "seen": 272,
+        "rejected": 192
       },
       "min_score": {
-        "seen": 79,
+        "seen": 80,
         "rejected": 62
       }
     },
@@ -393,7 +393,7 @@
       "avg_rr": 1.7
     },
     "last_daily_summary_date": "2026-08-01",
-    "signals_generated_total": 17,
+    "signals_generated_total": 18,
     "first_run_ts": 1785309326624
   },
   "tier2_trade_log": [
@@ -1121,12 +1121,51 @@
       "status": "pending",
       "tp1_hit": false,
       "tp1_r": null,
-      "mae_r": -0.3469346486066657,
+      "mae_r": -0.9560483654012183,
       "mfe_r": 0.9604313776841048,
-      "last_checked_ts": 1785635100000,
+      "last_checked_ts": 1785636000000,
       "bars_pending": 1,
       "telegram_message_id": 5140,
       "fill_ts": 1785634200000
+    },
+    {
+      "setup_type": "mean_reversion",
+      "symbol": "SUI",
+      "direction": "short",
+      "entry": 0.6886587478983964,
+      "sl": 0.6920048535702628,
+      "tp1": 0.6827475000000001,
+      "tp2": 0.679345,
+      "confidence": 0.5743510448670377,
+      "rr_tp1": 1.7666052653678745,
+      "rr_tp2": 2.783458985382731,
+      "confluences": [
+        "bollinger_band_extreme",
+        "ranging_regime",
+        "deep_band_penetration"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1785636923927,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "b05036d090cb",
+      "confidence_components": {
+        "base": 0.45,
+        "band_penetration_bonus": 0.12435104486703766
+      },
+      "tier": "B",
+      "score": 0.5831694534173756,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1785636923927,
+      "bars_pending": 0,
+      "telegram_message_id": 5143
     }
   ],
   "symbol_cooldowns": {
@@ -1139,5 +1178,5 @@
     "SUI": 1785600900000,
     "TRX": 1785548700000
   },
-  "last_run_ts": 1785636048934
+  "last_run_ts": 1785636938398
 }
