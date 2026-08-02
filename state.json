@@ -57,19 +57,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 14,
+        "seen": 17,
         "rejected": 0
       },
       "liquidity_sanity": {
-        "seen": 14,
+        "seen": 17,
         "rejected": 0
       },
       "min_confidence": {
-        "seen": 14,
-        "rejected": 11
+        "seen": 17,
+        "rejected": 13
       },
       "min_score": {
-        "seen": 3,
+        "seen": 4,
         "rejected": 3
       }
     },
@@ -85,12 +85,52 @@
       "avg_rr": 1.7
     },
     "last_daily_summary_date": null,
-    "signals_generated_total": 0,
+    "signals_generated_total": 1,
     "first_run_ts": 1785661231826
   },
   "tier2_trade_log": [],
   "pending_signals": [],
-  "active_signals": [],
+  "active_signals": [
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "ZEC",
+      "direction": "long",
+      "entry": 470.5592007686711,
+      "sl": 469.54473358955704,
+      "tp1": 473.5240625,
+      "tp2": 476.13,
+      "confidence": 0.6250000000000088,
+      "rr_tp1": 2.922580239528538,
+      "rr_tp2": 5.491354817603923,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept",
+        "pure_sweep"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1785690037773,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "100796b88c4d",
+      "confidence_components": {
+        "base": 0.55,
+        "sweep_purity_bonus": 0.07500000000000868
+      },
+      "tier": "B",
+      "score": 0.5756929834373057,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1785690037773,
+      "bars_pending": 0,
+      "telegram_message_id": 5188
+    }
+  ],
   "symbol_cooldowns": {},
-  "last_run_ts": 1785689144702
+  "last_run_ts": 1785690052671
 }
