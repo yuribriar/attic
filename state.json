@@ -1,1 +1,79 @@
-{}
+{
+  "schema_version": 3,
+  "engine_name": "Odyssey Adaptive Signal Engine",
+  "engine_version": "v2.0.1",
+  "tier1": {
+    "engine_weights": {
+      "smc": 1.0,
+      "trend_continuation": 1.0,
+      "breakout": 1.0,
+      "pullback": 1.0,
+      "liquidity_sweep": 1.0,
+      "order_block": 1.0,
+      "breaker_block": 1.0,
+      "fair_value_gap": 1.0,
+      "momentum": 1.0,
+      "reversal": 1.0,
+      "mean_reversion": 1.0,
+      "range_trading": 1.0,
+      "volatility_expansion": 1.0
+    },
+    "confidence_calibration": {
+      "smc": 0.0,
+      "trend_continuation": 0.0,
+      "breakout": 0.0,
+      "pullback": 0.0,
+      "liquidity_sweep": 0.0,
+      "order_block": 0.0,
+      "breaker_block": 0.0,
+      "fair_value_gap": 0.0,
+      "momentum": 0.0,
+      "reversal": 0.0,
+      "mean_reversion": 0.0,
+      "range_trading": 0.0,
+      "volatility_expansion": 0.0
+    },
+    "confluence_quality": {},
+    "asset_quality": {},
+    "setup_direction_quality": {},
+    "filter_thresholds": {
+      "min_confidence": 0.55,
+      "min_score": 0.55,
+      "setup_overrides": {
+        "momentum": {
+          "min_confidence": 0.68,
+          "min_score": 0.65
+        }
+      }
+    },
+    "segment_stats": {
+      "by_asset": {},
+      "by_regime": {},
+      "by_timeframe": {},
+      "by_engine": {},
+      "by_confluence": {},
+      "by_direction": {},
+      "by_setup_direction": {}
+    },
+    "filter_funnel": {},
+    "circuit_breaker": {
+      "tripped": false,
+      "tripped_at": null,
+      "reason": null
+    },
+    "rolling_live_trades": [],
+    "active_baseline": {
+      "win_rate": 0.46,
+      "profit_factor": 1.35,
+      "avg_rr": 1.7
+    },
+    "last_daily_summary_date": null,
+    "signals_generated_total": 0,
+    "first_run_ts": 1785661231826
+  },
+  "tier2_trade_log": [],
+  "pending_signals": [],
+  "active_signals": [],
+  "symbol_cooldowns": {},
+  "last_run_ts": 1785661251375
+}
