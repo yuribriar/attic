@@ -57,20 +57,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 17,
+        "seen": 20,
         "rejected": 0
       },
       "liquidity_sanity": {
-        "seen": 17,
+        "seen": 20,
         "rejected": 0
       },
       "min_confidence": {
-        "seen": 17,
-        "rejected": 13
+        "seen": 20,
+        "rejected": 15
       },
       "min_score": {
-        "seen": 4,
-        "rejected": 3
+        "seen": 5,
+        "rejected": 4
       }
     },
     "circuit_breaker": {
@@ -132,5 +132,5 @@
     }
   ],
   "symbol_cooldowns": {},
-  "last_run_ts": 1785690052671
+  "last_run_ts": 1785690940539
 }
