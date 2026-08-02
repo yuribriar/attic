@@ -29,7 +29,7 @@ import numpy as np
 
 
 ENGINE_NAME = "Odyssey Adaptive Signal Engine"
-ENGINE_VERSION = "v2.0.0"
+ENGINE_VERSION = "v2.0.1"
 
 
 WATCHLIST: List[str] = [
@@ -990,6 +990,15 @@ SL_POOL_CLEAR_WINDOW_ATR_MULT = 1.5
 TP_CANDIDATE_BAND_SIZE = 3
 MIN_MOVE_TP1_ATR_FRAC = MIN_ENTRY_TP1_ATR_FRAC
 MIN_MOVE_TP2_ATR_FRAC = 0.5
+# FIX (v2.0.1): TP1/TP2 both have a minimum-distance floor in ATR terms (above),
+# but risk (entry-to-SL distance) never did -- only `risk <= 1e-12` was checked.
+# In sweep-and-reclaim setups the "structural low" _select_sl_anchor finds is
+# often the *same swing* that _clear_sl_of_liquidity_pool then snaps the SL to,
+# which can collapse a normal ~0.5 ATR stop down to ~0.1 ATR or less. That
+# produces a technically-huge RR (small denominator) on a stop so tight that
+# routine noise clears it -- not a real trade. Floor it the same way TP1/TP2
+# already are.
+MIN_STOP_ATR_FRAC = 0.5
 
 
 def select_sl_anchor(direction: str, entry: float, ctx: "MarketContext") -> Optional[Tuple[str, float, float]]:
@@ -1073,6 +1082,8 @@ def build_risk_plan(direction: str, entry: float, ctx: "MarketContext") -> Optio
     risk = abs(entry - sl)
     if risk <= 1e-12:
         return None
+    if risk < MIN_STOP_ATR_FRAC * atr_here:
+        return None  # FIX (v2.0.1): stop too close to entry to be a real trade -- see MIN_STOP_ATR_FRAC above
 
     candidates = _opposing_structural_levels(direction, entry, ctx)
     if len(candidates) < 2:
@@ -1108,6 +1119,12 @@ def build_risk_plan(direction: str, entry: float, ctx: "MarketContext") -> Optio
 def _mk_signal(setup: SetupType, ctx: MarketContext, direction: str, entry: float,
                structural_stop: float, confidence: float, confluences: List[str],
                confidence_components: Optional[Dict[str, float]] = None) -> Optional[Signal]:
+    # NOTE (found during v2.0.1 fix): `structural_stop` is NOT used below -- the
+    # actual SL always comes from build_risk_plan()'s own anchor+buffer+pool-clear
+    # pipeline. Each engine (e.g. LiquiditySweepEngine) computes its own candidate
+    # stop and passes it in here, but it's silently discarded. Harmless on its own,
+    # but worth knowing: engine-specific SL logic you see in generate() methods is
+    # not actually what ends up on the signal.
     plan = build_risk_plan(direction, entry, ctx)
     if plan is None:
         return None
