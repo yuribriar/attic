@@ -336,16 +336,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 355,
+        "seen": 356,
         "rejected": 42
       },
       "liquidity_sanity": {
-        "seen": 313,
+        "seen": 314,
         "rejected": 29
       },
       "min_confidence": {
-        "seen": 284,
-        "rejected": 203
+        "seen": 285,
+        "rejected": 204
       },
       "min_score": {
         "seen": 81,
@@ -416,7 +416,7 @@
       "profit_factor": 1.35,
       "avg_rr": 1.7
     },
-    "last_daily_summary_date": "2026-08-01",
+    "last_daily_summary_date": "2026-08-02",
     "signals_generated_total": 18,
     "first_run_ts": 1785309326624
   },
@@ -1211,5 +1211,5 @@
     "TRX": 1785548700000,
     "NEAR": 1785650400000
   },
-  "last_run_ts": 1785656739649
+  "last_run_ts": 1785657664555
 }
