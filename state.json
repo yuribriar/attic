@@ -255,13 +255,13 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1785714300000,
-      "bars_pending": 7,
+      "last_checked_ts": 1785715200000,
+      "bars_pending": 8,
       "telegram_message_id": 5197
     }
   ],
   "symbol_cooldowns": {
     "ZEC": 1785699000000
   },
-  "last_run_ts": 1785715250966
+  "last_run_ts": 1785716147768
 }
