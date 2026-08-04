@@ -299,7 +299,7 @@
       "tp1_r": null,
       "mae_r": -0.26572578176345263,
       "mfe_r": 1.6082174664631899,
-      "last_checked_ts": 1785817800000,
+      "last_checked_ts": 1785818700000,
       "bars_pending": 5,
       "telegram_message_id": 5292,
       "fill_ts": 1785807000000
@@ -308,5 +308,5 @@
   "symbol_cooldowns": {
     "ZEC": 1785699000000
   },
-  "last_run_ts": 1785818739749
+  "last_run_ts": 1785819655673
 }
