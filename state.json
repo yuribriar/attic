@@ -200,16 +200,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 217,
+        "seen": 218,
         "rejected": 17
       },
       "liquidity_sanity": {
-        "seen": 200,
+        "seen": 201,
         "rejected": 6
       },
       "min_confidence": {
-        "seen": 194,
-        "rejected": 147
+        "seen": 195,
+        "rejected": 148
       },
       "min_score": {
         "seen": 47,
@@ -236,7 +236,7 @@
       "profit_factor": 1.35,
       "avg_rr": 1.7
     },
-    "last_daily_summary_date": "2026-08-04",
+    "last_daily_summary_date": "2026-08-05",
     "signals_generated_total": 3,
     "first_run_ts": 1785661231826
   },
@@ -380,5 +380,5 @@
     "ZEC": 1785699000000,
     "TRX": 1785823200000
   },
-  "last_run_ts": 1785915941431
+  "last_run_ts": 1785916858241
 }
