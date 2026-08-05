@@ -200,16 +200,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 222,
+        "seen": 223,
         "rejected": 17
       },
       "liquidity_sanity": {
-        "seen": 205,
+        "seen": 206,
         "rejected": 6
       },
       "min_confidence": {
-        "seen": 199,
-        "rejected": 148
+        "seen": 200,
+        "rejected": 149
       },
       "min_score": {
         "seen": 51,
@@ -380,5 +380,5 @@
     "ZEC": 1785699000000,
     "TRX": 1785823200000
   },
-  "last_run_ts": 1785924949307
+  "last_run_ts": 1785925856785
 }
