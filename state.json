@@ -224,16 +224,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 270,
+        "seen": 271,
         "rejected": 18
       },
       "liquidity_sanity": {
-        "seen": 252,
+        "seen": 253,
         "rejected": 7
       },
       "min_confidence": {
-        "seen": 245,
-        "rejected": 182
+        "seen": 246,
+        "rejected": 183
       },
       "min_score": {
         "seen": 63,
@@ -451,5 +451,5 @@
     "TRX": 1785823200000,
     "DOGE": 1785969000000
   },
-  "last_run_ts": 1785970853176
+  "last_run_ts": 1785971740459
 }
