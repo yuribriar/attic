@@ -224,8 +224,8 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 285,
-        "rejected": 19
+        "seen": 286,
+        "rejected": 20
       },
       "liquidity_sanity": {
         "seen": 266,
@@ -451,5 +451,5 @@
     "TRX": 1785823200000,
     "DOGE": 1785969000000
   },
-  "last_run_ts": 1785983450177
+  "last_run_ts": 1785984344121
 }
