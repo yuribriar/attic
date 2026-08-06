@@ -240,20 +240,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 316,
+        "seen": 318,
         "rejected": 23
       },
       "liquidity_sanity": {
-        "seen": 293,
+        "seen": 295,
         "rejected": 7
       },
       "min_confidence": {
-        "seen": 286,
-        "rejected": 214
+        "seen": 288,
+        "rejected": 215
       },
       "min_score": {
-        "seen": 72,
-        "rejected": 65
+        "seen": 73,
+        "rejected": 66
       }
     },
     "circuit_breaker": {
@@ -591,5 +591,5 @@
     "DOGE": 1785969000000,
     "LINK": 1786013100000
   },
-  "last_run_ts": 1786013140700
+  "last_run_ts": 1786014050862
 }
