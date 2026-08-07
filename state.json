@@ -264,8 +264,8 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 389,
-        "rejected": 28
+        "seen": 390,
+        "rejected": 29
       },
       "liquidity_sanity": {
         "seen": 361,
@@ -634,5 +634,5 @@
     "ONDO": 1786024800000,
     "PENDLE": 1786030200000
   },
-  "last_run_ts": 1786096850298
+  "last_run_ts": 1786097741014
 }
