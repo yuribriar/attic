@@ -264,16 +264,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 461,
+        "seen": 462,
         "rejected": 35
       },
       "liquidity_sanity": {
-        "seen": 426,
+        "seen": 427,
         "rejected": 8
       },
       "min_confidence": {
-        "seen": 418,
-        "rejected": 317
+        "seen": 419,
+        "rejected": 318
       },
       "min_score": {
         "seen": 101,
@@ -634,5 +634,5 @@
     "ONDO": 1786024800000,
     "PENDLE": 1786030200000
   },
-  "last_run_ts": 1786208456206
+  "last_run_ts": 1786209338970
 }
