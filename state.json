@@ -264,19 +264,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 479,
+        "seen": 480,
         "rejected": 35
       },
       "liquidity_sanity": {
-        "seen": 444,
+        "seen": 445,
         "rejected": 10
       },
       "min_confidence": {
-        "seen": 434,
+        "seen": 435,
         "rejected": 324
       },
       "min_score": {
-        "seen": 110,
+        "seen": 111,
         "rejected": 103
       }
     },
@@ -317,7 +317,7 @@
       "avg_rr": 1.7
     },
     "last_daily_summary_date": "2026-08-08",
-    "signals_generated_total": 7,
+    "signals_generated_total": 8,
     "first_run_ts": 1785661231826
   },
   "tier2_trade_log": [
@@ -625,7 +625,45 @@
     }
   ],
   "pending_signals": [],
-  "active_signals": [],
+  "active_signals": [
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "ZEC",
+      "direction": "short",
+      "entry": 513.6819740155344,
+      "sl": 515.1123246718448,
+      "tp1": 508.005,
+      "tp2": 506.36,
+      "confidence": 0.55,
+      "rr_tp1": 3.9689386588446496,
+      "rr_tp2": 5.119006296275049,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "buy_side_pool_swept"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1786249830668,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "cec8f311b0ba",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "B",
+      "score": 0.5515332369237693,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1786249830668,
+      "bars_pending": 0,
+      "telegram_message_id": 5573
+    }
+  ],
   "symbol_cooldowns": {
     "ZEC": 1785699000000,
     "TRX": 1785823200000,
@@ -634,5 +672,5 @@
     "ONDO": 1786024800000,
     "PENDLE": 1786030200000
   },
-  "last_run_ts": 1786248938726
+  "last_run_ts": 1786249847279
 }
