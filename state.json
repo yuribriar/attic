@@ -659,8 +659,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1786254300000,
-      "bars_pending": 5,
+      "last_checked_ts": 1786255200000,
+      "bars_pending": 6,
       "telegram_message_id": 5573
     },
     {
@@ -709,5 +709,5 @@
     "ONDO": 1786024800000,
     "PENDLE": 1786030200000
   },
-  "last_run_ts": 1786255250434
+  "last_run_ts": 1786256140563
 }
