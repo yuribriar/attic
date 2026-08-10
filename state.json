@@ -272,19 +272,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 544,
+        "seen": 545,
         "rejected": 35
       },
       "liquidity_sanity": {
-        "seen": 509,
+        "seen": 510,
         "rejected": 14
       },
       "min_confidence": {
-        "seen": 495,
+        "seen": 496,
         "rejected": 356
       },
       "min_score": {
-        "seen": 139,
+        "seen": 140,
         "rejected": 127
       }
     },
@@ -333,7 +333,7 @@
       "avg_rr": 1.7
     },
     "last_daily_summary_date": "2026-08-10",
-    "signals_generated_total": 12,
+    "signals_generated_total": 13,
     "first_run_ts": 1785661231826
   },
   "tier2_trade_log": [
@@ -843,9 +843,48 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1786367700000,
-      "bars_pending": 1,
+      "last_checked_ts": 1786368600000,
+      "bars_pending": 2,
       "telegram_message_id": 5659
+    },
+    {
+      "setup_type": "breakout",
+      "symbol": "BTC",
+      "direction": "short",
+      "entry": 64763.172,
+      "sl": 65272.28166333873,
+      "tp1": 63552.0,
+      "tp2": 62552.5,
+      "confidence": 0.65,
+      "rr_tp1": 2.379000217864977,
+      "rr_tp2": 4.3422314664044475,
+      "confluences": [
+        "range_breakout_retest",
+        "volume_expansion",
+        "regime_supportive"
+      ],
+      "regime_at_signal": "consolidation",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1786369526979,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 16,
+      "signal_id": "cafea9be2920",
+      "confidence_components": {
+        "base": 0.5,
+        "regime_supportive": 0.15
+      },
+      "tier": "B",
+      "score": 0.6072083877591531,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1786369526979,
+      "bars_pending": 0,
+      "telegram_message_id": 5662
     }
   ],
   "symbol_cooldowns": {
@@ -857,5 +896,5 @@
     "PENDLE": 1786030200000,
     "ADA": 1786270500000
   },
-  "last_run_ts": 1786368647653
+  "last_run_ts": 1786369542732
 }
