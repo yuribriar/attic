@@ -272,20 +272,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 537,
+        "seen": 538,
         "rejected": 35
       },
       "liquidity_sanity": {
-        "seen": 502,
+        "seen": 503,
         "rejected": 14
       },
       "min_confidence": {
-        "seen": 488,
+        "seen": 489,
         "rejected": 353
       },
       "min_score": {
-        "seen": 135,
-        "rejected": 124
+        "seen": 136,
+        "rejected": 125
       }
     },
     "circuit_breaker": {
@@ -817,5 +817,5 @@
     "PENDLE": 1786030200000,
     "ADA": 1786270500000
   },
-  "last_run_ts": 1786330851618
+  "last_run_ts": 1786331743572
 }
