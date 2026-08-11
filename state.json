@@ -304,19 +304,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 592,
+        "seen": 593,
         "rejected": 51
       },
       "liquidity_sanity": {
-        "seen": 541,
+        "seen": 542,
         "rejected": 16
       },
       "min_confidence": {
-        "seen": 525,
+        "seen": 526,
         "rejected": 377
       },
       "min_score": {
-        "seen": 148,
+        "seen": 149,
         "rejected": 130
       }
     },
@@ -385,7 +385,7 @@
       "avg_rr": 1.7
     },
     "last_daily_summary_date": "2026-08-11",
-    "signals_generated_total": 18,
+    "signals_generated_total": 19,
     "first_run_ts": 1785661231826
   },
   "tier2_trade_log": [
@@ -1153,10 +1153,49 @@
       "tp1_r": null,
       "mae_r": -0.19608349082461315,
       "mfe_r": 1.925266932809832,
-      "last_checked_ts": 1786441500000,
+      "last_checked_ts": 1786442400000,
       "bars_pending": 2,
       "telegram_message_id": 5662,
       "fill_ts": 1786371300000
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "SUI",
+      "direction": "short",
+      "entry": 0.688908737091529,
+      "sl": 0.689982912363843,
+      "tp1": 0.6868762500000001,
+      "tp2": 0.6844725,
+      "confidence": 0.65,
+      "rr_tp1": 1.8921372925951725,
+      "rr_tp2": 4.129900590591988,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "buy_side_pool_swept",
+        "pure_sweep"
+      ],
+      "regime_at_signal": "expansion",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1786443332215,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "ee868780dba6",
+      "confidence_components": {
+        "base": 0.55,
+        "sweep_purity_bonus": 0.1
+      },
+      "tier": "B",
+      "score": 0.6734195706946877,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1786443332215,
+      "bars_pending": 0,
+      "telegram_message_id": 5719
     }
   ],
   "symbol_cooldowns": {
@@ -1172,5 +1211,5 @@
     "SUI": 1786413600000,
     "ETH": 1786448700000
   },
-  "last_run_ts": 1786442453875
+  "last_run_ts": 1786443345095
 }
