@@ -1099,7 +1099,7 @@
       "tp1_r": null,
       "mae_r": -0.19608349082461315,
       "mfe_r": 1.925266932809832,
-      "last_checked_ts": 1786439700000,
+      "last_checked_ts": 1786440600000,
       "bars_pending": 2,
       "telegram_message_id": 5662,
       "fill_ts": 1786371300000
@@ -1137,7 +1137,7 @@
       "tp1_r": null,
       "mae_r": -0.9689898787043338,
       "mfe_r": 2.1680545301808025,
-      "last_checked_ts": 1786439700000,
+      "last_checked_ts": 1786440600000,
       "bars_pending": 11,
       "telegram_message_id": 5700,
       "fill_ts": 1786433400000
@@ -1155,5 +1155,5 @@
     "HYPE": 1786384800000,
     "SUI": 1786413600000
   },
-  "last_run_ts": 1786440647711
+  "last_run_ts": 1786441537976
 }
