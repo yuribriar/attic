@@ -127,15 +127,23 @@
           "sum_r": -1.0,
           "sum_conf": 0.65,
           "sum_conf_correct": 0.0
+        },
+        "ETH": {
+          "n": 1,
+          "wins": 0,
+          "losses": 1,
+          "sum_r": -1.0,
+          "sum_conf": 0.55,
+          "sum_conf_correct": 0.0
         }
       },
       "by_regime": {
         "ranging": {
-          "n": 10,
+          "n": 11,
           "wins": 4,
-          "losses": 6,
-          "sum_r": 6.615784244392842,
-          "sum_conf": 5.8048160373119595,
+          "losses": 7,
+          "sum_r": 5.615784244392842,
+          "sum_conf": 6.354816037311959,
           "sum_conf_correct": 4.0
         },
         "expansion": {
@@ -149,21 +157,21 @@
       },
       "by_timeframe": {
         "15m": {
-          "n": 12,
+          "n": 13,
           "wins": 4,
-          "losses": 8,
-          "sum_r": 4.615784244392842,
-          "sum_conf": 7.004816037311959,
+          "losses": 9,
+          "sum_r": 3.6157842443928416,
+          "sum_conf": 7.554816037311959,
           "sum_conf_correct": 4.0
         }
       },
       "by_engine": {
         "liquidity_sweep": {
-          "n": 11,
+          "n": 12,
           "wins": 3,
-          "losses": 8,
-          "sum_r": 2.4641232359439025,
-          "sum_conf": 6.428801520608242,
+          "losses": 9,
+          "sum_r": 1.4641232359439025,
+          "sum_conf": 6.978801520608242,
           "sum_conf_correct": 3.0
         },
         "mean_reversion": {
@@ -193,11 +201,11 @@
           "sum_conf_correct": 2.0
         },
         "liquidity_sweep_reclaim": {
-          "n": 11,
+          "n": 12,
           "wins": 3,
-          "losses": 8,
-          "sum_r": 2.4641232359439025,
-          "sum_conf": 6.428801520608242,
+          "losses": 9,
+          "sum_r": 1.4641232359439025,
+          "sum_conf": 6.978801520608242,
           "sum_conf_correct": 3.0
         },
         "bollinger_band_extreme": {
@@ -233,11 +241,11 @@
           "sum_conf_correct": 1.0
         },
         "buy_side_pool_swept": {
-          "n": 4,
+          "n": 5,
           "wins": 1,
-          "losses": 3,
-          "sum_r": -0.8618459590146843,
-          "sum_conf": 2.289005602240891,
+          "losses": 4,
+          "sum_r": -1.8618459590146843,
+          "sum_conf": 2.839005602240891,
           "sum_conf_correct": 1.0
         },
         "htf_bias_alignment": {
@@ -259,11 +267,11 @@
           "sum_conf_correct": 2.0
         },
         "short": {
-          "n": 5,
+          "n": 6,
           "wins": 2,
-          "losses": 3,
-          "sum_r": 1.2898150494342548,
-          "sum_conf": 2.865020118944608,
+          "losses": 4,
+          "sum_r": 0.28981504943425485,
+          "sum_conf": 3.415020118944608,
           "sum_conf_correct": 2.0
         }
       },
@@ -285,11 +293,11 @@
           "sum_conf_correct": 1.0
         },
         "liquidity_sweep|short": {
-          "n": 4,
+          "n": 5,
           "wins": 1,
-          "losses": 3,
-          "sum_r": -0.8618459590146843,
-          "sum_conf": 2.289005602240891,
+          "losses": 4,
+          "sum_r": -1.8618459590146843,
+          "sum_conf": 2.839005602240891,
           "sum_conf_correct": 1.0
         }
       }
@@ -357,6 +365,10 @@
       {
         "r": 2.834614377354664,
         "win": true
+      },
+      {
+        "r": -1.0,
+        "win": false
       },
       {
         "r": -1.0,
@@ -1060,6 +1072,48 @@
       "outcome": "loss",
       "r_realized": -1.0,
       "forensic_tag": "structure_invalidated_quickly"
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "ETH",
+      "direction": "short",
+      "entry": 1877.3346920148103,
+      "sl": 1880.39489733827,
+      "tp1": 1870.0,
+      "tp2": 1869.3,
+      "confidence": 0.55,
+      "rr_tp1": 2.3967973516620273,
+      "rr_tp2": 2.625540173143252,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "buy_side_pool_swept"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1786423526976,
+      "entry_filled": true,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "43b854f3bdf8",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "B",
+      "score": 0.6326030731570507,
+      "status": "closed_loss",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": -0.9689898787043338,
+      "mfe_r": 2.1680545301808025,
+      "last_checked_ts": 1786441500000,
+      "bars_pending": 11,
+      "telegram_message_id": 5700,
+      "fill_ts": 1786433400000,
+      "resolved_ts": 1786441500000,
+      "outcome": "loss",
+      "r_realized": -1.0,
+      "forensic_tag": "structure_invalidated_quickly"
     }
   ],
   "pending_signals": [],
@@ -1099,48 +1153,10 @@
       "tp1_r": null,
       "mae_r": -0.19608349082461315,
       "mfe_r": 1.925266932809832,
-      "last_checked_ts": 1786440600000,
+      "last_checked_ts": 1786441500000,
       "bars_pending": 2,
       "telegram_message_id": 5662,
       "fill_ts": 1786371300000
-    },
-    {
-      "setup_type": "liquidity_sweep",
-      "symbol": "ETH",
-      "direction": "short",
-      "entry": 1877.3346920148103,
-      "sl": 1880.39489733827,
-      "tp1": 1870.0,
-      "tp2": 1869.3,
-      "confidence": 0.55,
-      "rr_tp1": 2.3967973516620273,
-      "rr_tp2": 2.625540173143252,
-      "confluences": [
-        "liquidity_sweep_reclaim",
-        "buy_side_pool_swept"
-      ],
-      "regime_at_signal": "ranging",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1786423526976,
-      "entry_filled": true,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "43b854f3bdf8",
-      "confidence_components": {
-        "base": 0.55
-      },
-      "tier": "B",
-      "score": 0.6326030731570507,
-      "status": "pending",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": -0.9689898787043338,
-      "mfe_r": 2.1680545301808025,
-      "last_checked_ts": 1786440600000,
-      "bars_pending": 11,
-      "telegram_message_id": 5700,
-      "fill_ts": 1786433400000
     }
   ],
   "symbol_cooldowns": {
@@ -1153,7 +1169,8 @@
     "ADA": 1786270500000,
     "DOT": 1786381200000,
     "HYPE": 1786384800000,
-    "SUI": 1786413600000
+    "SUI": 1786413600000,
+    "ETH": 1786448700000
   },
-  "last_run_ts": 1786441537976
+  "last_run_ts": 1786442453875
 }
