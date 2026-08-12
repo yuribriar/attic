@@ -304,16 +304,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 690,
+        "seen": 692,
         "rejected": 75
       },
       "liquidity_sanity": {
-        "seen": 615,
+        "seen": 617,
         "rejected": 20
       },
       "min_confidence": {
-        "seen": 595,
-        "rejected": 432
+        "seen": 597,
+        "rejected": 434
       },
       "min_score": {
         "seen": 163,
@@ -1201,7 +1201,7 @@
       "tp1_r": 2.379000217864977,
       "mae_r": -0.19608349082461315,
       "mfe_r": 3.0802243856774743,
-      "last_checked_ts": 1786544100000,
+      "last_checked_ts": 1786545000000,
       "bars_pending": 2,
       "telegram_message_id": 5662,
       "fill_ts": 1786371300000
@@ -1220,5 +1220,5 @@
     "SUI": 1786457700000,
     "ETH": 1786448700000
   },
-  "last_run_ts": 1786545048620
+  "last_run_ts": 1786545940744
 }
