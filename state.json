@@ -1201,7 +1201,7 @@
       "tp1_r": 2.379000217864977,
       "mae_r": -0.19608349082461315,
       "mfe_r": 3.0802243856774743,
-      "last_checked_ts": 1786576500000,
+      "last_checked_ts": 1786577400000,
       "bars_pending": 2,
       "telegram_message_id": 5662,
       "fill_ts": 1786371300000
@@ -1226,7 +1226,7 @@
       "entry_kind": "pending",
       "timeframe": "15m",
       "created_ts": 1786575646882,
-      "entry_filled": false,
+      "entry_filled": true,
       "pending_bars": 0,
       "pending_expiry_bars": 12,
       "signal_id": "cfcc14dfb845",
@@ -1239,11 +1239,12 @@
       "status": "pending",
       "tp1_hit": false,
       "tp1_r": null,
-      "mae_r": 0.0,
-      "mfe_r": 0.0,
-      "last_checked_ts": 1786576500000,
-      "bars_pending": 1,
-      "telegram_message_id": 5847
+      "mae_r": -0.20004042648207848,
+      "mfe_r": 0.7807889882110577,
+      "last_checked_ts": 1786577400000,
+      "bars_pending": 2,
+      "telegram_message_id": 5847,
+      "fill_ts": 1786577400000
     }
   ],
   "symbol_cooldowns": {
@@ -1259,5 +1260,5 @@
     "SUI": 1786457700000,
     "ETH": 1786448700000
   },
-  "last_run_ts": 1786577446694
+  "last_run_ts": 1786578338779
 }
