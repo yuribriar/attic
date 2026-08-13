@@ -400,7 +400,7 @@
       "profit_factor": 1.35,
       "avg_rr": 1.7
     },
-    "last_daily_summary_date": "2026-08-12",
+    "last_daily_summary_date": "2026-08-13",
     "signals_generated_total": 20,
     "first_run_ts": 1785661231826
   },
@@ -1257,7 +1257,7 @@
       "tp1_r": 2.379000217864977,
       "mae_r": -0.19608349082461315,
       "mfe_r": 3.0802243856774743,
-      "last_checked_ts": 1786606200000,
+      "last_checked_ts": 1786607100000,
       "bars_pending": 2,
       "telegram_message_id": 5662,
       "fill_ts": 1786371300000
@@ -1277,5 +1277,5 @@
     "ETH": 1786448700000,
     "SOL": 1786592700000
   },
-  "last_run_ts": 1786607137279
+  "last_run_ts": 1786608052252
 }
