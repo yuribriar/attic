@@ -312,19 +312,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 752,
+        "seen": 753,
         "rejected": 76
       },
       "liquidity_sanity": {
-        "seen": 676,
+        "seen": 677,
         "rejected": 25
       },
       "min_confidence": {
-        "seen": 651,
+        "seen": 652,
         "rejected": 481
       },
       "min_score": {
-        "seen": 170,
+        "seen": 171,
         "rejected": 150
       }
     },
@@ -401,7 +401,7 @@
       "avg_rr": 1.7
     },
     "last_daily_summary_date": "2026-08-13",
-    "signals_generated_total": 20,
+    "signals_generated_total": 21,
     "first_run_ts": 1785661231826
   },
   "tier2_trade_log": [
@@ -1257,10 +1257,49 @@
       "tp1_r": 2.379000217864977,
       "mae_r": -0.19608349082461315,
       "mfe_r": 3.824661247304747,
-      "last_checked_ts": 1786655700000,
+      "last_checked_ts": 1786656600000,
       "bars_pending": 2,
       "telegram_message_id": 5662,
       "fill_ts": 1786371300000
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "TAO",
+      "direction": "short",
+      "entry": 203.39819170787757,
+      "sl": 203.97273056929254,
+      "tp1": 202.18,
+      "tp2": 201.575,
+      "confidence": 0.65,
+      "rr_tp1": 2.1202947088338346,
+      "rr_tp2": 3.1733131217398554,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "buy_side_pool_swept",
+        "pure_sweep"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1786657540791,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "f60a0c06fc8a",
+      "confidence_components": {
+        "base": 0.55,
+        "sweep_purity_bonus": 0.1
+      },
+      "tier": "B",
+      "score": 0.5879901838310069,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1786657540791,
+      "bars_pending": 0,
+      "telegram_message_id": 5891
     }
   ],
   "symbol_cooldowns": {
@@ -1277,5 +1316,5 @@
     "ETH": 1786448700000,
     "SOL": 1786592700000
   },
-  "last_run_ts": 1786656646502
+  "last_run_ts": 1786657546970
 }
