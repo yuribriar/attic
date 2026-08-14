@@ -1465,11 +1465,11 @@
       "tier": "B",
       "score": 0.576708072191016,
       "status": "pending",
-      "tp1_hit": false,
-      "tp1_r": null,
+      "tp1_hit": true,
+      "tp1_r": 2.3642653110866334,
       "mae_r": -0.4507623989763477,
       "mfe_r": 1.903624413076229,
-      "last_checked_ts": 1786748400000,
+      "last_checked_ts": 1786749300000,
       "bars_pending": 2,
       "telegram_message_id": 5955,
       "fill_ts": 1786747500000
@@ -1492,5 +1492,5 @@
     "AAVE": 1786696200000,
     "BTC": 1786722300000
   },
-  "last_run_ts": 1786749339675
+  "last_run_ts": 1786750244031
 }
