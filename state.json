@@ -384,20 +384,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 778,
+        "seen": 779,
         "rejected": 77
       },
       "liquidity_sanity": {
-        "seen": 701,
+        "seen": 702,
         "rejected": 27
       },
       "min_confidence": {
-        "seen": 674,
+        "seen": 675,
         "rejected": 495
       },
       "min_score": {
-        "seen": 179,
-        "rejected": 157
+        "seen": 180,
+        "rejected": 158
       }
     },
     "circuit_breaker": {
@@ -1453,5 +1453,5 @@
     "AAVE": 1786696200000,
     "BTC": 1786722300000
   },
-  "last_run_ts": 1786719659768
+  "last_run_ts": 1786720541203
 }
