@@ -384,8 +384,8 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 881,
-        "rejected": 105
+        "seen": 882,
+        "rejected": 106
       },
       "liquidity_sanity": {
         "seen": 776,
@@ -1499,5 +1499,5 @@
     "AAVE": 1786696200000,
     "BTC": 1786722300000
   },
-  "last_run_ts": 1786817741938
+  "last_run_ts": 1786818648280
 }
