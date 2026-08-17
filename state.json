@@ -432,16 +432,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1098,
-        "rejected": 165
+        "seen": 1100,
+        "rejected": 166
       },
       "liquidity_sanity": {
-        "seen": 933,
+        "seen": 934,
         "rejected": 33
       },
       "min_confidence": {
-        "seen": 900,
-        "rejected": 680
+        "seen": 901,
+        "rejected": 681
       },
       "min_score": {
         "seen": 220,
@@ -545,50 +545,6 @@
     "first_run_ts": 1785661231826
   },
   "tier2_trade_log": [
-    {
-      "setup_type": "liquidity_sweep",
-      "symbol": "ZEC",
-      "direction": "long",
-      "entry": 470.5592007686711,
-      "sl": 469.54473358955704,
-      "tp1": 473.5240625,
-      "tp2": 476.13,
-      "confidence": 0.6250000000000088,
-      "rr_tp1": 2.922580239528538,
-      "rr_tp2": 5.491354817603923,
-      "confluences": [
-        "liquidity_sweep_reclaim",
-        "sell_side_pool_swept",
-        "pure_sweep"
-      ],
-      "regime_at_signal": "ranging",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1785690037773,
-      "entry_filled": true,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "100796b88c4d",
-      "confidence_components": {
-        "base": 0.55,
-        "sweep_purity_bonus": 0.07500000000000868
-      },
-      "tier": "B",
-      "score": 0.5756929834373057,
-      "status": "closed_win",
-      "tp1_hit": true,
-      "tp1_r": 2.922580239528538,
-      "mae_r": -0.11750086264513722,
-      "mfe_r": 1.962408712983263,
-      "last_checked_ts": 1785695400000,
-      "bars_pending": 1,
-      "telegram_message_id": 5188,
-      "fill_ts": 1785690900000,
-      "resolved_ts": 1785695400000,
-      "outcome": "win",
-      "r_realized": 5.491354817603923,
-      "forensic_tag": "clean_read_full_extension"
-    },
     {
       "setup_type": "liquidity_sweep",
       "symbol": "UNI",
@@ -1640,5 +1596,5 @@
     "BTC": 1786722300000,
     "XLM": 1786932000000
   },
-  "last_run_ts": 1786990539648
+  "last_run_ts": 1786992349613
 }
