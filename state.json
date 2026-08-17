@@ -1517,8 +1517,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1786926600000,
-      "bars_pending": 1,
+      "last_checked_ts": 1786927500000,
+      "bars_pending": 2,
       "telegram_message_id": 6026
     },
     {
@@ -1556,9 +1556,9 @@
       "status": "pending",
       "tp1_hit": false,
       "tp1_r": null,
-      "mae_r": -0.6579180199236375,
-      "mfe_r": 1.340736412514642,
-      "last_checked_ts": 1786926600000,
+      "mae_r": -0.7184833057549935,
+      "mfe_r": 2.1280851283237836,
+      "last_checked_ts": 1786927500000,
       "bars_pending": 1,
       "telegram_message_id": 6027,
       "fill_ts": 1786926600000
@@ -1581,5 +1581,5 @@
     "AAVE": 1786696200000,
     "BTC": 1786722300000
   },
-  "last_run_ts": 1786927540288
+  "last_run_ts": 1786928452049
 }
