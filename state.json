@@ -37,7 +37,7 @@
     "asset_quality": {},
     "setup_direction_quality": {},
     "filter_thresholds": {
-      "min_confidence": 0.5940000000000001,
+      "min_confidence": 0.6415200000000001,
       "min_score": 0.55,
       "setup_overrides": {
         "momentum": {
@@ -1615,8 +1615,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1786928400000,
-      "bars_pending": 3,
+      "last_checked_ts": 1786929300000,
+      "bars_pending": 4,
       "telegram_message_id": 6026
     }
   ],
@@ -1638,5 +1638,5 @@
     "BTC": 1786722300000,
     "XLM": 1786932000000
   },
-  "last_run_ts": 1786929419825
+  "last_run_ts": 1786930248320
 }
