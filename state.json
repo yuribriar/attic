@@ -432,16 +432,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1116,
+        "seen": 1117,
         "rejected": 167
       },
       "liquidity_sanity": {
-        "seen": 949,
+        "seen": 950,
         "rejected": 33
       },
       "min_confidence": {
-        "seen": 916,
-        "rejected": 696
+        "seen": 917,
+        "rejected": 697
       },
       "min_score": {
         "seen": 220,
@@ -545,48 +545,6 @@
     "first_run_ts": 1785661231826
   },
   "tier2_trade_log": [
-    {
-      "setup_type": "liquidity_sweep",
-      "symbol": "UNI",
-      "direction": "short",
-      "entry": 4.238685701209699,
-      "sl": 4.252345233736566,
-      "tp1": 4.2075499999999995,
-      "tp2": 4.1905125000000005,
-      "confidence": 0.65,
-      "rr_tp1": 2.279411916070834,
-      "rr_tp2": 3.5267093595585277,
-      "confluences": [
-        "liquidity_sweep_reclaim",
-        "buy_side_pool_swept",
-        "pure_sweep"
-      ],
-      "regime_at_signal": "ranging",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1785708053580,
-      "entry_filled": false,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "9538e27080a8",
-      "confidence_components": {
-        "base": 0.55,
-        "sweep_purity_bonus": 0.1
-      },
-      "tier": "B",
-      "score": 0.6205786974130632,
-      "status": "expired_no_fill",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": 0.0,
-      "mfe_r": 0.0,
-      "last_checked_ts": 1785718800000,
-      "bars_pending": 12,
-      "telegram_message_id": 5197,
-      "resolved_ts": 1785718800000,
-      "outcome": "expired_no_fill",
-      "forensic_tag": "no_fill_expired"
-    },
     {
       "setup_type": "mean_reversion",
       "symbol": "TRX",
@@ -1596,5 +1554,5 @@
     "BTC": 1786722300000,
     "XLM": 1786932000000
   },
-  "last_run_ts": 1787013942468
+  "last_run_ts": 1787014851363
 }
