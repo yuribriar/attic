@@ -540,7 +540,7 @@
       "profit_factor": 1.35,
       "avg_rr": 1.7
     },
-    "last_daily_summary_date": "2026-08-18",
+    "last_daily_summary_date": "2026-08-19",
     "signals_generated_total": 25,
     "first_run_ts": 1785661231826
   },
@@ -1508,5 +1508,5 @@
     "BTC": 1786722300000,
     "XLM": 1786932000000
   },
-  "last_run_ts": 1787125546670
+  "last_run_ts": 1787126451262
 }
