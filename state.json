@@ -432,8 +432,8 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1307,
-        "rejected": 208
+        "seen": 1308,
+        "rejected": 209
       },
       "liquidity_sanity": {
         "seen": 1099,
@@ -545,48 +545,6 @@
     "first_run_ts": 1785661231826
   },
   "tier2_trade_log": [
-    {
-      "setup_type": "liquidity_sweep",
-      "symbol": "ONDO",
-      "direction": "long",
-      "entry": 0.3696063284882642,
-      "sl": 0.36834877616275474,
-      "tp1": 0.373105,
-      "tp2": 0.374728125,
-      "confidence": 0.55,
-      "rr_tp1": 2.782127980494553,
-      "rr_tp2": 4.072829740632016,
-      "confluences": [
-        "liquidity_sweep_reclaim",
-        "sell_side_pool_swept"
-      ],
-      "regime_at_signal": "ranging",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1786013124837,
-      "entry_filled": true,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "2a4fe5f7b443",
-      "confidence_components": {
-        "base": 0.55
-      },
-      "tier": "B",
-      "score": 0.5738209839894118,
-      "status": "closed_loss",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": -0.5616692633271096,
-      "mfe_r": 2.2612749020871243,
-      "last_checked_ts": 1786017600000,
-      "bars_pending": 1,
-      "telegram_message_id": 5440,
-      "fill_ts": 1786014000000,
-      "resolved_ts": 1786017600000,
-      "outcome": "loss",
-      "r_realized": -1.0,
-      "forensic_tag": "chased_a_swept_liquidity_pool"
-    },
     {
       "setup_type": "liquidity_sweep",
       "symbol": "PENDLE",
@@ -1422,5 +1380,5 @@
     "BTC": 1786722300000,
     "XLM": 1786932000000
   },
-  "last_run_ts": 1787312739750
+  "last_run_ts": 1787313653068
 }
