@@ -547,50 +547,6 @@
   "tier2_trade_log": [
     {
       "setup_type": "liquidity_sweep",
-      "symbol": "LINK",
-      "direction": "short",
-      "entry": 8.191091191146803,
-      "sl": 8.200780397048934,
-      "tp1": 8.1608,
-      "tp2": 8.149149999999999,
-      "confidence": 0.6000000000000001,
-      "rr_tp1": 3.126282117726702,
-      "rr_tp2": 4.328651033990453,
-      "confluences": [
-        "liquidity_sweep_reclaim",
-        "buy_side_pool_swept",
-        "htf_bias_alignment"
-      ],
-      "regime_at_signal": "ranging",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1786003250067,
-      "entry_filled": true,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "e4ebcb1ff0b8",
-      "confidence_components": {
-        "base": 0.55,
-        "htf_bias_alignment": 0.05
-      },
-      "tier": "B",
-      "score": 0.636316399739019,
-      "status": "closed_loss",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": -0.3621358539221906,
-      "mfe_r": 1.2788654996050066,
-      "last_checked_ts": 1786005900000,
-      "bars_pending": 2,
-      "telegram_message_id": 5423,
-      "fill_ts": 1786005000000,
-      "resolved_ts": 1786005900000,
-      "outcome": "loss",
-      "r_realized": -1.0,
-      "forensic_tag": "chased_a_swept_liquidity_pool"
-    },
-    {
-      "setup_type": "liquidity_sweep",
       "symbol": "ONDO",
       "direction": "long",
       "entry": 0.3696063284882642,
@@ -1466,5 +1422,5 @@
     "BTC": 1786722300000,
     "XLM": 1786932000000
   },
-  "last_run_ts": 1787301047083
+  "last_run_ts": 1787301949283
 }
