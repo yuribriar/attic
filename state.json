@@ -432,12 +432,12 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1541,
+        "seen": 1542,
         "rejected": 279
       },
       "liquidity_sanity": {
-        "seen": 1262,
-        "rejected": 40
+        "seen": 1263,
+        "rejected": 41
       },
       "min_confidence": {
         "seen": 1222,
@@ -545,46 +545,6 @@
     "first_run_ts": 1785661231826
   },
   "tier2_trade_log": [
-    {
-      "setup_type": "liquidity_sweep",
-      "symbol": "ZEC",
-      "direction": "short",
-      "entry": 513.6819740155344,
-      "sl": 515.1123246718448,
-      "tp1": 508.005,
-      "tp2": 506.36,
-      "confidence": 0.55,
-      "rr_tp1": 3.9689386588446496,
-      "rr_tp2": 5.119006296275049,
-      "confluences": [
-        "liquidity_sweep_reclaim",
-        "buy_side_pool_swept"
-      ],
-      "regime_at_signal": "ranging",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1786249830668,
-      "entry_filled": false,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "cec8f311b0ba",
-      "confidence_components": {
-        "base": 0.55
-      },
-      "tier": "B",
-      "score": 0.5515332369237693,
-      "status": "expired_no_fill",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": 0.0,
-      "mfe_r": 0.0,
-      "last_checked_ts": 1786260600000,
-      "bars_pending": 12,
-      "telegram_message_id": 5573,
-      "resolved_ts": 1786260600000,
-      "outcome": "expired_no_fill",
-      "forensic_tag": "no_fill_expired"
-    },
     {
       "setup_type": "liquidity_sweep",
       "symbol": "ADA",
@@ -1338,5 +1298,5 @@
     "BTC": 1786722300000,
     "XLM": 1786932000000
   },
-  "last_run_ts": 1787555742925
+  "last_run_ts": 1787556648540
 }
