@@ -432,16 +432,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1545,
+        "seen": 1547,
         "rejected": 280
       },
       "liquidity_sanity": {
-        "seen": 1265,
+        "seen": 1267,
         "rejected": 41
       },
       "min_confidence": {
-        "seen": 1224,
-        "rejected": 1004
+        "seen": 1226,
+        "rejected": 1006
       },
       "min_score": {
         "seen": 220,
@@ -545,48 +545,6 @@
     "first_run_ts": 1785661231826
   },
   "tier2_trade_log": [
-    {
-      "setup_type": "liquidity_sweep",
-      "symbol": "ADA",
-      "direction": "long",
-      "entry": 0.19806165536047238,
-      "sl": 0.19768055178682412,
-      "tp1": 0.20003875000000002,
-      "tp2": 0.20084,
-      "confidence": 0.55,
-      "rr_tp1": 5.187814484658682,
-      "rr_tp2": 7.290261313822994,
-      "confluences": [
-        "liquidity_sweep_reclaim",
-        "sell_side_pool_swept"
-      ],
-      "regime_at_signal": "ranging",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1786255243689,
-      "entry_filled": true,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "5e2b3ede2185",
-      "confidence_components": {
-        "base": 0.55
-      },
-      "tier": "B",
-      "score": 0.6130611690658739,
-      "status": "closed_loss",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": -0.31921862948641344,
-      "mfe_r": 2.016104525529249,
-      "last_checked_ts": 1786263300000,
-      "bars_pending": 8,
-      "telegram_message_id": 5576,
-      "fill_ts": 1786262400000,
-      "resolved_ts": 1786263300000,
-      "outcome": "loss",
-      "r_realized": -1.0,
-      "forensic_tag": "chased_a_swept_liquidity_pool"
-    },
     {
       "setup_type": "liquidity_sweep",
       "symbol": "LINK",
@@ -1298,5 +1256,5 @@
     "BTC": 1786722300000,
     "XLM": 1786932000000
   },
-  "last_run_ts": 1787558455274
+  "last_run_ts": 1787559340630
 }
