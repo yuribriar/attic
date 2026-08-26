@@ -547,50 +547,6 @@
   "tier2_trade_log": [
     {
       "setup_type": "liquidity_sweep",
-      "symbol": "SUI",
-      "direction": "long",
-      "entry": 0.6840134444542054,
-      "sl": 0.6828811481514018,
-      "tp1": 0.68706,
-      "tp2": 0.689405,
-      "confidence": 0.65,
-      "rr_tp1": 2.690599217052188,
-      "rr_tp2": 4.761611896501596,
-      "confluences": [
-        "liquidity_sweep_reclaim",
-        "sell_side_pool_swept",
-        "pure_sweep"
-      ],
-      "regime_at_signal": "expansion",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1786402836361,
-      "entry_filled": true,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "1295cf534bc9",
-      "confidence_components": {
-        "base": 0.55,
-        "sweep_purity_bonus": 0.1
-      },
-      "tier": "B",
-      "score": 0.6095836265491642,
-      "status": "closed_loss",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": 0.0,
-      "mfe_r": 0.0,
-      "last_checked_ts": 1786406400000,
-      "bars_pending": 4,
-      "telegram_message_id": 5693,
-      "fill_ts": 1786406400000,
-      "resolved_ts": 1786406400000,
-      "outcome": "loss",
-      "r_realized": -1.0,
-      "forensic_tag": "chased_a_swept_liquidity_pool"
-    },
-    {
-      "setup_type": "liquidity_sweep",
       "symbol": "AVAX",
       "direction": "long",
       "entry": 6.425545716823133,
@@ -1084,5 +1040,5 @@
     "BTC": 1786722300000,
     "XLM": 1786932000000
   },
-  "last_run_ts": 1787701538633
+  "last_run_ts": 1787702456915
 }
