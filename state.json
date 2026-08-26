@@ -432,12 +432,12 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1696,
+        "seen": 1697,
         "rejected": 295
       },
       "liquidity_sanity": {
-        "seen": 1401,
-        "rejected": 44
+        "seen": 1402,
+        "rejected": 45
       },
       "min_confidence": {
         "seen": 1357,
@@ -545,46 +545,6 @@
     "first_run_ts": 1785661231826
   },
   "tier2_trade_log": [
-    {
-      "setup_type": "liquidity_sweep",
-      "symbol": "AVAX",
-      "direction": "long",
-      "entry": 6.425545716823133,
-      "sl": 6.414348572274378,
-      "tp1": 6.447675,
-      "tp2": 6.45555,
-      "confidence": 0.55,
-      "rr_tp1": 1.9763327230894123,
-      "rr_tp2": 2.6796370312288302,
-      "confluences": [
-        "liquidity_sweep_reclaim",
-        "sell_side_pool_swept"
-      ],
-      "regime_at_signal": "ranging",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1786404641262,
-      "entry_filled": false,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "99b376c50056",
-      "confidence_components": {
-        "base": 0.55
-      },
-      "tier": "B",
-      "score": 0.6204763294263314,
-      "status": "expired_no_fill",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": 0.0,
-      "mfe_r": 0.0,
-      "last_checked_ts": 1786415400000,
-      "bars_pending": 12,
-      "telegram_message_id": 5694,
-      "resolved_ts": 1786415400000,
-      "outcome": "expired_no_fill",
-      "forensic_tag": "no_fill_expired"
-    },
     {
       "setup_type": "liquidity_sweep",
       "symbol": "ZEC",
@@ -1040,5 +1000,5 @@
     "BTC": 1786722300000,
     "XLM": 1786932000000
   },
-  "last_run_ts": 1787710540721
+  "last_run_ts": 1787711445839
 }
