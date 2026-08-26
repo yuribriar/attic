@@ -432,16 +432,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1711,
+        "seen": 1716,
         "rejected": 297
       },
       "liquidity_sanity": {
-        "seen": 1414,
+        "seen": 1419,
         "rejected": 45
       },
       "min_confidence": {
-        "seen": 1369,
-        "rejected": 1149
+        "seen": 1374,
+        "rejected": 1154
       },
       "min_score": {
         "seen": 220,
@@ -545,48 +545,6 @@
     "first_run_ts": 1785661231826
   },
   "tier2_trade_log": [
-    {
-      "setup_type": "liquidity_sweep",
-      "symbol": "ETH",
-      "direction": "short",
-      "entry": 1877.3346920148103,
-      "sl": 1880.39489733827,
-      "tp1": 1870.0,
-      "tp2": 1869.3,
-      "confidence": 0.55,
-      "rr_tp1": 2.3967973516620273,
-      "rr_tp2": 2.625540173143252,
-      "confluences": [
-        "liquidity_sweep_reclaim",
-        "buy_side_pool_swept"
-      ],
-      "regime_at_signal": "ranging",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1786423526976,
-      "entry_filled": true,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "43b854f3bdf8",
-      "confidence_components": {
-        "base": 0.55
-      },
-      "tier": "B",
-      "score": 0.6326030731570507,
-      "status": "closed_loss",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": -0.9689898787043338,
-      "mfe_r": 2.1680545301808025,
-      "last_checked_ts": 1786441500000,
-      "bars_pending": 11,
-      "telegram_message_id": 5700,
-      "fill_ts": 1786433400000,
-      "resolved_ts": 1786441500000,
-      "outcome": "loss",
-      "r_realized": -1.0,
-      "forensic_tag": "structure_invalidated_quickly"
-    },
     {
       "setup_type": "liquidity_sweep",
       "symbol": "SUI",
@@ -956,5 +914,5 @@
     "BTC": 1786722300000,
     "XLM": 1786932000000
   },
-  "last_run_ts": 1787736652337
+  "last_run_ts": 1787737543631
 }
