@@ -432,16 +432,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1930,
+        "seen": 1931,
         "rejected": 314
       },
       "liquidity_sanity": {
-        "seen": 1616,
+        "seen": 1617,
         "rejected": 52
       },
       "min_confidence": {
-        "seen": 1564,
-        "rejected": 1344
+        "seen": 1565,
+        "rejected": 1345
       },
       "min_score": {
         "seen": 220,
@@ -545,50 +545,6 @@
     "first_run_ts": 1785661231826
   },
   "tier2_trade_log": [
-    {
-      "setup_type": "liquidity_sweep",
-      "symbol": "TAO",
-      "direction": "short",
-      "entry": 203.39819170787757,
-      "sl": 203.97273056929254,
-      "tp1": 202.18,
-      "tp2": 201.575,
-      "confidence": 0.65,
-      "rr_tp1": 2.1202947088338346,
-      "rr_tp2": 3.1733131217398554,
-      "confluences": [
-        "liquidity_sweep_reclaim",
-        "buy_side_pool_swept",
-        "pure_sweep"
-      ],
-      "regime_at_signal": "ranging",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1786657540791,
-      "entry_filled": true,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "f60a0c06fc8a",
-      "confidence_components": {
-        "base": 0.55,
-        "sweep_purity_bonus": 0.1
-      },
-      "tier": "B",
-      "score": 0.5879901838310069,
-      "status": "closed_loss",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": -0.9778421093027957,
-      "mfe_r": 0.7974947190676497,
-      "last_checked_ts": 1786666500000,
-      "bars_pending": 1,
-      "telegram_message_id": 5891,
-      "fill_ts": 1786658400000,
-      "resolved_ts": 1786666500000,
-      "outcome": "loss",
-      "r_realized": -1.0,
-      "forensic_tag": "structure_invalidated_quickly"
-    },
     {
       "setup_type": "liquidity_sweep",
       "symbol": "AAVE",
@@ -826,5 +782,5 @@
     "BTC": 1786722300000,
     "XLM": 1786932000000
   },
-  "last_run_ts": 1787961650275
+  "last_run_ts": 1787962541202
 }
