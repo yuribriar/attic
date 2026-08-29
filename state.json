@@ -432,16 +432,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1941,
+        "seen": 1944,
         "rejected": 315
       },
       "liquidity_sanity": {
-        "seen": 1626,
+        "seen": 1629,
         "rejected": 52
       },
       "min_confidence": {
-        "seen": 1574,
-        "rejected": 1354
+        "seen": 1577,
+        "rejected": 1357
       },
       "min_score": {
         "seen": 220,
@@ -545,48 +545,6 @@
     "first_run_ts": 1785661231826
   },
   "tier2_trade_log": [
-    {
-      "setup_type": "liquidity_sweep",
-      "symbol": "AAVE",
-      "direction": "long",
-      "entry": 87.71469776842095,
-      "sl": 87.47439925614032,
-      "tp1": 88.3295,
-      "tp2": 88.5815,
-      "confidence": 0.55,
-      "rr_tp1": 2.5584937074477385,
-      "rr_tp2": 3.6071893385955196,
-      "confluences": [
-        "liquidity_sweep_reclaim",
-        "sell_side_pool_swept"
-      ],
-      "regime_at_signal": "ranging",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1786685440606,
-      "entry_filled": true,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "9800fcbbfd99",
-      "confidence_components": {
-        "base": 0.55
-      },
-      "tier": "B",
-      "score": 0.5829483607924487,
-      "status": "closed_loss",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": -0.747810574087499,
-      "mfe_r": 0.36330741605717387,
-      "last_checked_ts": 1786689000000,
-      "bars_pending": 3,
-      "telegram_message_id": 5900,
-      "fill_ts": 1786688100000,
-      "resolved_ts": 1786689000000,
-      "outcome": "loss",
-      "r_realized": -1.0,
-      "forensic_tag": "chased_a_swept_liquidity_pool"
-    },
     {
       "setup_type": "breakout",
       "symbol": "BTC",
@@ -782,5 +740,5 @@
     "BTC": 1786722300000,
     "XLM": 1786932000000
   },
-  "last_run_ts": 1787984139145
+  "last_run_ts": 1787985046147
 }
