@@ -432,16 +432,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 2631,
-        "rejected": 425
+        "seen": 2633,
+        "rejected": 426
       },
       "liquidity_sanity": {
-        "seen": 2206,
+        "seen": 2207,
         "rejected": 58
       },
       "min_confidence": {
-        "seen": 2148,
-        "rejected": 1928
+        "seen": 2149,
+        "rejected": 1929
       },
       "min_score": {
         "seen": 220,
@@ -565,5 +565,5 @@
     "BTC": 1786722300000,
     "XLM": 1786932000000
   },
-  "last_run_ts": 1788646539564
+  "last_run_ts": 1788647444105
 }
