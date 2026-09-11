@@ -432,16 +432,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 3242,
+        "seen": 3243,
         "rejected": 579
       },
       "liquidity_sanity": {
-        "seen": 2663,
+        "seen": 2664,
         "rejected": 78
       },
       "min_confidence": {
-        "seen": 2585,
-        "rejected": 2365
+        "seen": 2586,
+        "rejected": 2366
       },
       "min_score": {
         "seen": 220,
@@ -540,7 +540,7 @@
       "profit_factor": 1.35,
       "avg_rr": 1.7
     },
-    "last_daily_summary_date": "2026-09-10",
+    "last_daily_summary_date": "2026-09-11",
     "signals_generated_total": 25,
     "first_run_ts": 1785661231826
   },
@@ -565,5 +565,5 @@
     "BTC": 1786722300000,
     "XLM": 1786932000000
   },
-  "last_run_ts": 1789112740634
+  "last_run_ts": 1789113652931
 }
