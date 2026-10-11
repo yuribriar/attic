@@ -432,8 +432,8 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 5780,
-        "rejected": 1023
+        "seen": 5781,
+        "rejected": 1024
       },
       "liquidity_sanity": {
         "seen": 4757,
@@ -540,7 +540,7 @@
       "profit_factor": 1.35,
       "avg_rr": 1.7
     },
-    "last_daily_summary_date": "2026-10-10",
+    "last_daily_summary_date": "2026-10-11",
     "signals_generated_total": 25,
     "first_run_ts": 1785661231826
   },
@@ -565,5 +565,5 @@
     "BTC": 1786722300000,
     "XLM": 1786932000000
   },
-  "last_run_ts": 1791704740737
+  "last_run_ts": 1791705651784
 }
