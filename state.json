@@ -47,26 +47,105 @@
       }
     },
     "segment_stats": {
-      "by_asset": {},
-      "by_regime": {},
-      "by_timeframe": {},
-      "by_engine": {},
-      "by_confluence": {},
-      "by_direction": {},
-      "by_setup_direction": {}
+      "by_asset": {
+        "XRP": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.856089642314588,
+          "sum_conf": 0.65,
+          "sum_conf_correct": 1.0
+        }
+      },
+      "by_regime": {
+        "ranging": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.856089642314588,
+          "sum_conf": 0.65,
+          "sum_conf_correct": 1.0
+        }
+      },
+      "by_timeframe": {
+        "15m": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.856089642314588,
+          "sum_conf": 0.65,
+          "sum_conf_correct": 1.0
+        }
+      },
+      "by_engine": {
+        "liquidity_sweep": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.856089642314588,
+          "sum_conf": 0.65,
+          "sum_conf_correct": 1.0
+        }
+      },
+      "by_confluence": {
+        "liquidity_sweep_reclaim": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.856089642314588,
+          "sum_conf": 0.65,
+          "sum_conf_correct": 1.0
+        },
+        "buy_side_pool_swept": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.856089642314588,
+          "sum_conf": 0.65,
+          "sum_conf_correct": 1.0
+        },
+        "pure_sweep": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.856089642314588,
+          "sum_conf": 0.65,
+          "sum_conf_correct": 1.0
+        }
+      },
+      "by_direction": {
+        "short": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.856089642314588,
+          "sum_conf": 0.65,
+          "sum_conf_correct": 1.0
+        }
+      },
+      "by_setup_direction": {
+        "liquidity_sweep|short": {
+          "n": 1,
+          "wins": 1,
+          "losses": 0,
+          "sum_r": 5.856089642314588,
+          "sum_conf": 0.65,
+          "sum_conf_correct": 1.0
+        }
+      }
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 8,
+        "seen": 9,
         "rejected": 0
       },
       "liquidity_sanity": {
-        "seen": 8,
+        "seen": 9,
         "rejected": 0
       },
       "min_confidence": {
-        "seen": 8,
-        "rejected": 4
+        "seen": 9,
+        "rejected": 5
       },
       "min_score": {
         "seen": 4,
@@ -78,7 +157,12 @@
       "tripped_at": null,
       "reason": null
     },
-    "rolling_live_trades": [],
+    "rolling_live_trades": [
+      {
+        "r": 5.856089642314588,
+        "win": true
+      }
+    ],
     "active_baseline": {
       "win_rate": 0.46,
       "profit_factor": 1.35,
@@ -90,15 +174,13 @@
     "daily_signal_log": {
       "2026-10-21": {
         "signals": 1,
-        "seen": 8
+        "seen": 9
       }
     },
     "last_signal_ts": 1792616461933,
     "threshold_adapt": {}
   },
-  "tier2_trade_log": [],
-  "pending_signals": [],
-  "active_signals": [
+  "tier2_trade_log": [
     {
       "setup_type": "liquidity_sweep",
       "symbol": "XRP",
@@ -129,17 +211,25 @@
       },
       "tier": "B",
       "score": 0.6282594810279322,
-      "status": "pending",
+      "status": "closed_win",
       "tp1_hit": true,
       "tp1_r": 3.252411862161429,
       "mae_r": -0.4151342582694498,
       "mfe_r": 5.716106965962281,
-      "last_checked_ts": 1792623600000,
+      "last_checked_ts": 1792624500000,
       "bars_pending": 1,
       "telegram_message_id": 8670,
-      "fill_ts": 1792617300000
+      "fill_ts": 1792617300000,
+      "resolved_ts": 1792624500000,
+      "outcome": "win",
+      "r_realized": 5.856089642314588,
+      "forensic_tag": "clean_read_full_extension"
     }
   ],
-  "symbol_cooldowns": {},
-  "last_run_ts": 1792624539459
+  "pending_signals": [],
+  "active_signals": [],
+  "symbol_cooldowns": {
+    "XRP": 1792628100000
+  },
+  "last_run_ts": 1792625446334
 }
