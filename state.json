@@ -57,19 +57,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1,
+        "seen": 3,
         "rejected": 0
       },
       "liquidity_sanity": {
-        "seen": 1,
+        "seen": 3,
         "rejected": 0
       },
       "min_confidence": {
-        "seen": 1,
-        "rejected": 0
+        "seen": 3,
+        "rejected": 1
       },
       "min_score": {
-        "seen": 1,
+        "seen": 2,
         "rejected": 1
       }
     },
@@ -85,20 +85,60 @@
       "avg_rr": 1.7
     },
     "last_daily_summary_date": null,
-    "signals_generated_total": 0,
+    "signals_generated_total": 1,
     "first_run_ts": 1792608322422,
     "daily_signal_log": {
       "2026-10-21": {
-        "signals": 0,
-        "seen": 1
+        "signals": 1,
+        "seen": 3
       }
     },
-    "last_signal_ts": null,
+    "last_signal_ts": 1792616461933,
     "threshold_adapt": {}
   },
   "tier2_trade_log": [],
   "pending_signals": [],
-  "active_signals": [],
+  "active_signals": [
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "XRP",
+      "direction": "short",
+      "entry": 1.3855171941661388,
+      "sl": 1.3890890647220464,
+      "tp1": 1.3739,
+      "tp2": 1.3646,
+      "confidence": 0.65,
+      "rr_tp1": 3.252411862161429,
+      "rr_tp2": 5.856089642314588,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "buy_side_pool_swept",
+        "pure_sweep"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1792616457720,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "56f3dc29d7eb",
+      "confidence_components": {
+        "base": 0.55,
+        "sweep_purity_bonus": 0.1
+      },
+      "tier": "B",
+      "score": 0.6282594810279322,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1792616457720,
+      "bars_pending": 0,
+      "telegram_message_id": 8670
+    }
+  ],
   "symbol_cooldowns": {},
-  "last_run_ts": 1792615543215
+  "last_run_ts": 1792616461934
 }
