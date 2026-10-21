@@ -133,13 +133,13 @@
       "tp1_hit": true,
       "tp1_r": 3.252411862161429,
       "mae_r": -0.4151342582694498,
-      "mfe_r": 2.16054698661331,
-      "last_checked_ts": 1792620900000,
+      "mfe_r": 3.616366820677427,
+      "last_checked_ts": 1792621800000,
       "bars_pending": 1,
       "telegram_message_id": 8670,
       "fill_ts": 1792617300000
     }
   ],
   "symbol_cooldowns": {},
-  "last_run_ts": 1792621849354
+  "last_run_ts": 1792622741555
 }
