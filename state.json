@@ -132,14 +132,14 @@
       "status": "pending",
       "tp1_hit": false,
       "tp1_r": null,
-      "mae_r": -0.33114465245806557,
-      "mfe_r": 0.6207375467377464,
-      "last_checked_ts": 1792617300000,
+      "mae_r": -0.4151342582694498,
+      "mfe_r": 0.6767306172786692,
+      "last_checked_ts": 1792618200000,
       "bars_pending": 1,
       "telegram_message_id": 8670,
       "fill_ts": 1792617300000
     }
   ],
   "symbol_cooldowns": {},
-  "last_run_ts": 1792618247455
+  "last_run_ts": 1792619139157
 }
