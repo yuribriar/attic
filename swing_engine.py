@@ -99,7 +99,24 @@ MIN_SAMPLE_SIZE = 20
 ADAPT_MAX_STEP = 0.08
 ENGINE_WEIGHT_MIN, ENGINE_WEIGHT_MAX = 0.35, 1.75
 CONF_CALIBRATION_MIN, CONF_CALIBRATION_MAX = -0.20, 0.20
-FILTER_THRESHOLD_MIN, FILTER_THRESHOLD_MAX = 0.30, 0.95
+# Task 1: ceiling lowered 0.95 -> 0.75; at 0.95 the engine rejected ~96% of candidates and starved itself.
+FILTER_THRESHOLD_MIN, FILTER_THRESHOLD_MAX = 0.30, 0.75
+THRESHOLD_TIGHTEN_STEP = 0.05                 # absolute tighten step, applied at most once per new batch of resolved trades
+
+# Task 2/4: starvation relief
+STARVATION_SIGNALS_PER_DAY_FLOOR = float(os.environ.get("ODYSSEY_STARVATION_FLOOR_PER_DAY", "0.5"))  # rolling-window signals/day floor
+STARVATION_MIN_CANDIDATES_SEEN = 50           # candidates must exceed this in the window, else "no data" not "starved"
+STARVATION_CONSECUTIVE_DAYS = 3               # consecutive completed UTC days below floor before relief starts
+STARVATION_WINDOW_DAYS = 7                    # rolling window for signals/day
+DAILY_LOG_RETENTION_DAYS = 14                 # prune daily_signal_log beyond this
+
+# Task 6: direction-aware gating for setup/direction combos with negative expectancy
+DIRECTION_GATE_MIN_N = 6                      # min resolved trades in a setup|direction bucket before gating
+DIRECTION_GATE_CONF_BUMP = 0.10               # added to min_confidence for a negative-expectancy setup|direction
+
+# Task 7: observability
+ZERO_SIGNAL_WARN_HOURS = 48                   # WARNING if no signal passed in this many hours
+ZERO_SIGNAL_WARN_INTERVAL_HOURS = 6           # throttle repeat warnings (scan runs every ~15m)
 
 
 CONFLUENCE_QUALITY_MIN, CONFLUENCE_QUALITY_MAX = 0.70, 1.30
@@ -1651,13 +1668,16 @@ ALL_ENGINES: List[BaseEngine] = [
 ]
 
 
+SCHEMA_VERSION = 4  # v4: threshold ratchet fix + starvation tracking (see _migrate_schema)
+
+
 def _default_segment_stat() -> dict:
     return {"n": 0, "wins": 0, "losses": 0, "sum_r": 0.0, "sum_conf": 0.0, "sum_conf_correct": 0.0}
 
 
 def _default_state() -> dict:
     return {
-        "schema_version": 3,
+        "schema_version": SCHEMA_VERSION,
         "engine_name": ENGINE_NAME,
         "engine_version": ENGINE_VERSION,
 
@@ -1690,6 +1710,11 @@ def _default_state() -> dict:
             "last_daily_summary_date": None,
             "signals_generated_total": 0,
             "first_run_ts": None,
+            # schema v4: per-UTC-day {"signals": n, "seen": n} for starvation detection
+            "daily_signal_log": {},
+            "last_signal_ts": None,
+            # schema v4: bookkeeping so adaptive threshold moves are once-per-day / once-per-new-trades
+            "threshold_adapt": {},
         },
 
 
@@ -1795,6 +1820,33 @@ class StateStore:
             entry["seen"] += 1
             if rejected:
                 entry["rejected"] += 1
+            # Task 2: "candidates seen" for starvation = candidates reaching the min_confidence gate
+            # (post shape/liquidity sanity), so malformed shapes don't masquerade as demand.
+            if stage == "min_confidence":
+                self._daily_entry()["seen"] += 1
+
+    def _daily_entry(self, now_utc: Optional[datetime] = None) -> dict:
+        day = (now_utc or datetime.now(timezone.utc)).strftime("%Y-%m-%d")
+        log_ = self.data["tier1"].setdefault("daily_signal_log", {})
+        return log_.setdefault(day, {"signals": 0, "seen": 0})
+
+    def record_signals_generated(self, n: int, now_utc: Optional[datetime] = None):
+        now_utc = now_utc or datetime.now(timezone.utc)
+        self._daily_entry(now_utc)["signals"] += n
+        self.data["tier1"]["last_signal_ts"] = int(now_utc.timestamp() * 1000)
+        log_ = self.data["tier1"]["daily_signal_log"]
+        cutoff = (now_utc - timedelta(days=DAILY_LOG_RETENTION_DAYS)).strftime("%Y-%m-%d")
+        for d in [d for d in log_ if d < cutoff]:
+            del log_[d]
+
+    def direction_conf_bump(self, setup_type: str, direction: str) -> float:
+        """Task 6: extra min_confidence for a setup|direction bucket with n>=DIRECTION_GATE_MIN_N and negative expectancy.
+        Soft gate (raises the bar) rather than a hard block, so the bucket can recover."""
+        seg = self.data["tier1"]["segment_stats"].get("by_setup_direction", {}).get(
+            _setup_direction_key(setup_type, direction))
+        if seg and seg["n"] >= DIRECTION_GATE_MIN_N and (seg["sum_r"] / seg["n"]) < 0:
+            return DIRECTION_GATE_CONF_BUMP
+        return 0.0
 
 
     def _segment(self, bucket: str, key: str) -> dict:
@@ -1869,6 +1921,7 @@ def _deep_merge_defaults(data: dict, defaults: dict):
 
 
 SCHEMA_V3_THRESHOLD_FLOOR = {"min_confidence": 0.55, "min_score": 0.55}
+SCHEMA_V4_MIN_CONFIDENCE_RESET = 0.55  # Task 3: value min_confidence is reset to on v3 -> v4 migration
 
 
 def _migrate_schema(data: dict):
@@ -1887,6 +1940,25 @@ def _migrate_schema(data: dict):
         log.info("Migrated state schema 2 -> 3: tightened filter_thresholds floor to %s, "
                   "seeded momentum setup_override.", SCHEMA_V3_THRESHOLD_FLOOR)
         data["schema_version"] = 3
+        version = 3
+
+    if version < 4:
+        # Task 3: break the 0.95 lockout. Hard-reset min_confidence (not max(): the stale value IS the bug),
+        # keep min_score, keep/seed the momentum override, and zero the stale funnel so the old
+        # 95.6% attrition figure can't re-trigger tightening.
+        tier1 = data.setdefault("tier1", {})
+        thresholds = tier1.setdefault("filter_thresholds", {})
+        thresholds["min_confidence"] = SCHEMA_V4_MIN_CONFIDENCE_RESET
+        thresholds.setdefault("min_score", SCHEMA_V3_THRESHOLD_FLOOR["min_score"])
+        overrides = thresholds.setdefault("setup_overrides", {})
+        overrides.setdefault(SetupType.MOMENTUM.value, {"min_confidence": 0.68, "min_score": 0.65})
+        tier1["filter_funnel"] = {}
+        tier1.setdefault("daily_signal_log", {})
+        tier1.setdefault("last_signal_ts", None)
+        tier1.setdefault("threshold_adapt", {})
+        log.info("Migrated state schema %s -> 4: min_confidence reset to %.2f, filter_funnel cleared.",
+                  version, SCHEMA_V4_MIN_CONFIDENCE_RESET)
+        data["schema_version"] = 4
 
 
 def forensic_tag(outcome: str, sig: Signal, r_realized: float, mae_r: float) -> str:
@@ -2018,7 +2090,15 @@ def update_setup_overrides(store: StateStore):
         old_conf = existing.get("min_confidence", global_min_conf)
         old_score = existing.get("min_score", global_min_score)
 
-        if wr_gap >= SETUP_OVERRIDE_WR_GAP:
+        # Task 5: PF-aware gate. WR lag alone never tightens; the setup must also have negative expectancy
+        # and PF below baseline. Per-setup PF is approximated from segment stats assuming losses are ~-1R
+        # (gross loss ~= losses, gross gain ~= sum_r + losses) since per-trade R isn't stored per setup.
+        setup_expectancy = seg["sum_r"] / seg["n"]
+        setup_gross_loss = float(seg["losses"])
+        setup_pf = ((seg["sum_r"] + setup_gross_loss) / setup_gross_loss) if setup_gross_loss > 0 else float("inf")
+        setup_underperforms = setup_expectancy < 0 and setup_pf < baseline["profit_factor"]
+
+        if wr_gap >= SETUP_OVERRIDE_WR_GAP and setup_underperforms:
 
 
             bump = min(SETUP_OVERRIDE_MAX_BUMP, wr_gap)
@@ -2064,32 +2144,103 @@ def update_baseline_from_live(store: StateStore):
     baseline["avg_rr"] = _damped_step(baseline["avg_rr"], live_avg_rr, BASELINE_ADAPT_MAX_STEP, 0.50, 5.0)
 
 
-def update_filter_thresholds(store: StateStore):
-    """Relaxes a filter that kills many candidates with no quality lift; tightens one that doesn't."""
-    funnel = store.data["tier1"]["filter_funnel"]
-    thresholds = store.data["tier1"]["filter_thresholds"]
+def _live_performance(store: StateStore) -> Tuple[int, float, float, float]:
+    """(n, win_rate, expectancy_R, profit_factor) from live stats. PF uses the rolling trade window
+    (same source as the baseline/circuit breaker); inf when the window has no losses."""
     overall = store.data["tier1"]["segment_stats"]["by_engine"]
-    total_n = sum(s["n"] for s in overall.values())
-    total_wins = sum(s["wins"] for s in overall.values())
-    if total_n < MIN_SAMPLE_SIZE:
-        return
-    realized_wr = total_wins / total_n
-    baseline_wr = store.get_effective_baseline()["win_rate"]
-
-    conf_stage = funnel.get("min_confidence", {"seen": 0, "rejected": 0})
-    if conf_stage["seen"] >= 20:
-        attrition = conf_stage["rejected"] / conf_stage["seen"]
-        old = thresholds.get("min_confidence", 0.55)
-        if realized_wr <= baseline_wr:
-            target = old + 0.05
+    n = sum(s_["n"] for s_ in overall.values())
+    wins = sum(s_["wins"] for s_ in overall.values())
+    total_r = sum(s_["sum_r"] for s_ in overall.values())
+    rolling = store.data["tier1"]["rolling_live_trades"]
+    gains = sum(t["r"] for t in rolling if t["r"] > 0)
+    losses = -sum(t["r"] for t in rolling if t["r"] < 0)
+    pf = (gains / losses) if losses > 0 else float("inf")
+    return n, ((wins / n) if n else 0.0), ((total_r / n) if n else 0.0), pf
 
 
-        elif attrition > 0.6 and realized_wr >= baseline_wr + 0.05:
-            target = old - 0.03
+def _starvation_status(store: StateStore, now_utc: Optional[datetime] = None) -> Tuple[bool, str]:
+    """Task 2: True when the rolling-7d signals/day was below the floor as of each of the last
+    STARVATION_CONSECUTIVE_DAYS completed UTC days AND >STARVATION_MIN_CANDIDATES_SEEN candidates were seen.
+    Missing days count as 0 signals / 0 seen (engine produced nothing)."""
+    now_utc = now_utc or datetime.now(timezone.utc)
+    daily = store.data["tier1"].get("daily_signal_log", {})
+    today = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
 
-        else:
-            target = old
-        thresholds["min_confidence"] = _damped_step(old, target, ADAPT_MAX_STEP, FILTER_THRESHOLD_MIN, FILTER_THRESHOLD_MAX)
+    def day_rec(offset: int) -> dict:
+        return daily.get((today - timedelta(days=offset)).strftime("%Y-%m-%d"), {})
+
+    for k in range(1, STARVATION_CONSECUTIVE_DAYS + 1):  # k=1 is yesterday (today is incomplete, excluded)
+        window = [day_rec(k + d) for d in range(STARVATION_WINDOW_DAYS)]
+        rate = sum(w.get("signals", 0) for w in window) / STARVATION_WINDOW_DAYS
+        seen = sum(w.get("seen", 0) for w in window)
+        if rate >= STARVATION_SIGNALS_PER_DAY_FLOOR:
+            return False, f"rate {rate:.2f}/day >= floor as of {k}d ago"
+        if seen <= STARVATION_MIN_CANDIDATES_SEEN:
+            return False, f"only {seen} candidates seen in 7d window as of {k}d ago"
+    return True, "below floor 3 consecutive days"
+
+
+def update_filter_thresholds(store: StateStore, now_utc: Optional[datetime] = None):
+    """Adapts global min_confidence / min_score.
+    Tighten: only when expectancy < 0 AND PF < baseline PF, and only after new resolved trades
+      (never on win rate alone; never repeatedly on the same data -> no deadlock ratchet).
+    Relax: existing attrition+WR rule, plus starvation relief (Task 2/4)."""
+    now_utc = now_utc or datetime.now(timezone.utc)
+    tier1 = store.data["tier1"]
+    funnel = tier1["filter_funnel"]
+    thresholds = tier1["filter_thresholds"]
+    adapt = tier1.setdefault("threshold_adapt", {})
+    baseline = store.get_effective_baseline()
+    total_n, realized_wr, expectancy, live_pf = _live_performance(store)
+    today_str = now_utc.strftime("%Y-%m-%d")
+
+    # Task 4: same logic for both gates. (threshold name, funnel stage name)
+    gates = (("min_confidence", "min_confidence"), ("min_score", "min_score"))
+    tightened = False
+
+    if total_n >= MIN_SAMPLE_SIZE:
+        # Task 1: PF-aware tighten gate (WR is deliberately ignored here).
+        should_tighten = expectancy < 0 and live_pf < baseline["profit_factor"]
+        new_trades_since = total_n > adapt.get("last_tighten_n", 0)
+        for name, stage in gates:
+            stage_stats = funnel.get(stage, {"seen": 0, "rejected": 0})
+            if stage_stats["seen"] < 20:
+                continue
+            attrition = stage_stats["rejected"] / stage_stats["seen"]
+            old = thresholds.get(name, 0.55)
+            if should_tighten and new_trades_since:
+                target = old + THRESHOLD_TIGHTEN_STEP
+                tightened = True
+            elif attrition > 0.6 and realized_wr >= baseline["win_rate"] + 0.05:
+                target = old - 0.03
+            else:
+                target = old
+            # DEVIATION: relax/tighten clamp lower bound is the schema floor (0.55), not FILTER_THRESHOLD_MIN (0.30);
+            # the v3 floor exists precisely to stop adaptation from drifting below it.
+            lo = SCHEMA_V3_THRESHOLD_FLOOR[name]
+            # min(old, ...) guards the hi clamp from raising a hand-set value that already exceeds the floor.
+            thresholds[name] = _damped_step(old, target, ADAPT_MAX_STEP, min(lo, old), FILTER_THRESHOLD_MAX)
+        if tightened:
+            adapt["last_tighten_n"] = total_n  # one tighten per new batch of resolved trades
+
+    # Task 2/4: starvation relief, at most once per UTC day, never on a run that tightened.
+    if not tightened and adapt.get("last_relief_date") != today_str:
+        starved, why = _starvation_status(store, now_utc)
+        if starved:
+            moved = []
+            for name, _stage in gates:
+                old = thresholds.get(name, 0.55)
+                floor = SCHEMA_V3_THRESHOLD_FLOOR[name]
+                if old > floor + 1e-9:
+                    # ADAPT_MAX_STEP is used as the codebase's damped fractional step (see _damped_step).
+                    thresholds[name] = _damped_step(old, floor, ADAPT_MAX_STEP, floor, FILTER_THRESHOLD_MAX)
+                    moved.append(f"{name} {old:.3f}->{thresholds[name]:.3f}")
+            adapt["last_relief_date"] = today_str
+            if moved:
+                log.warning("Starvation relief (%s): %s", why, ", ".join(moved))
+            else:
+                log.warning("Starvation detected (%s) but thresholds already at floor %s; "
+                             "starvation is not threshold-driven.", why, SCHEMA_V3_THRESHOLD_FLOOR)
 
 
 def evaluate_circuit_breaker(store: StateStore, telegram: "TelegramNotifier"):
@@ -2181,6 +2332,9 @@ class DecisionEngine:
         calibrated_conf = max(0.01, min(0.99, sig.confidence + calibration))
 
         min_conf = store.filter_threshold_for_setup(sig.setup_type.value, "min_confidence", 0.55)
+        # Task 6: soft direction gate (e.g. liquidity_sweep|short) -- raises the bar by +0.10, intentionally
+        # NOT clamped to FILTER_THRESHOLD_MAX so the penalty is always effective.
+        min_conf += store.direction_conf_bump(sig.setup_type.value, sig.direction)
         store.log_filter_funnel("min_confidence", rejected=calibrated_conf < min_conf)
         if calibrated_conf < min_conf:
             return None
@@ -2603,6 +2757,7 @@ class TelegramNotifier:
             f"By engine:\n{engine_lines}\n\n"
             f"Learned confluence quality:\n{conf_q_line}\n\n"
             f"Assets tracked: {len(asset_q)}\n\n"
+            f"{_format_observability_line(store)}\n\n"
             f"Circuit breaker: {'TRIPPED — ' + str(store.data['tier1']['circuit_breaker'].get('reason')) if store.is_circuit_breaker_tripped() else 'nominal'}"
         )
         self.send(text)
@@ -2628,6 +2783,40 @@ def _format_filter_funnel(store: StateStore) -> str:
         pct = (rejected / seen * 100.0) if seen else 0.0
         lines.append(f"  {stage:<20} seen={seen:<6} rejected={rejected:<6} ({pct:5.1f}% elimination)")
     return "\n".join(lines)
+
+
+def _format_observability_line(store: StateStore) -> str:
+    """Task 7: one line -- signals generated, funnel pass-rate per stage, current thresholds."""
+    tier1 = store.data["tier1"]
+    today = tier1.get("daily_signal_log", {}).get(datetime.now(timezone.utc).strftime("%Y-%m-%d"), {})
+    funnel = tier1.get("filter_funnel", {})
+    parts = []
+    for stage in FILTER_FUNNEL_STAGE_ORDER:
+        e = funnel.get(stage)
+        if e and e.get("seen"):
+            parts.append(f"{stage} {(1 - e['rejected'] / e['seen']) * 100:.1f}%")
+        else:
+            parts.append(f"{stage} n/a")
+    th = tier1["filter_thresholds"]
+    return (f"Signals: {today.get('signals', 0)} today / {tier1.get('signals_generated_total', 0)} total | "
+            f"Funnel pass-rate: {', '.join(parts)} | "
+            f"Thresholds: min_confidence={th.get('min_confidence', 0.55):.2f} min_score={th.get('min_score', 0.55):.2f}")
+
+
+def _warn_if_no_recent_signals(store: StateStore, now_ms: int):
+    """Task 7: WARNING when 0 signals passed in ZERO_SIGNAL_WARN_HOURS (throttled)."""
+    tier1 = store.data["tier1"]
+    anchor = tier1.get("last_signal_ts") or tier1.get("first_run_ts")
+    if not anchor:
+        return
+    idle_h = (now_ms - anchor) / 3_600_000.0
+    if idle_h < ZERO_SIGNAL_WARN_HOURS:
+        return
+    adapt = tier1.setdefault("threshold_adapt", {})
+    if now_ms - adapt.get("last_zero_signal_warn_ts", 0) < ZERO_SIGNAL_WARN_INTERVAL_HOURS * 3_600_000:
+        return
+    adapt["last_zero_signal_warn_ts"] = now_ms
+    log.warning("0 signals passed in the last %.0fh. %s", idle_h, _format_observability_line(store))
 
 
 def suggest_frequency_calibration(store: StateStore) -> str:
@@ -2751,6 +2940,7 @@ def run_scan(store: StateStore, client: HyperliquidClient, decision: DecisionEng
         store.data["tier1"]["signals_generated_total"] = (
             store.data["tier1"].get("signals_generated_total", 0) + len(selected)
         )
+        store.record_signals_generated(len(selected))
     else:
         log.info("No qualifying candidates this scan — producing nothing is correct.")
 
@@ -2758,6 +2948,7 @@ def run_scan(store: StateStore, client: HyperliquidClient, decision: DecisionEng
         store.data["tier1"]["first_run_ts"] = now_ms
 
     telegram = lifecycle.telegram
+    _warn_if_no_recent_signals(store, now_ms)
     run_learning_cycle(store, telegram)
     store.prune_tier2()
 
@@ -2766,6 +2957,7 @@ def run_scan(store: StateStore, client: HyperliquidClient, decision: DecisionEng
     today_str = now.strftime("%Y-%m-%d")
     if now.hour == 8 and last_summary != today_str:
         telegram.send_daily_summary(store)
+        log.info(_format_observability_line(store))
         store.data["tier1"]["last_daily_summary_date"] = today_str
 
     store.data["last_run_ts"] = int(now.timestamp() * 1000)
