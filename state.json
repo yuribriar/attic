@@ -136,20 +136,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 49,
+        "seen": 50,
         "rejected": 0
       },
       "liquidity_sanity": {
-        "seen": 49,
+        "seen": 50,
         "rejected": 2
       },
       "min_confidence": {
-        "seen": 47,
+        "seen": 48,
         "rejected": 30
       },
       "min_score": {
-        "seen": 17,
-        "rejected": 14
+        "seen": 18,
+        "rejected": 15
       }
     },
     "circuit_breaker": {
@@ -178,7 +178,7 @@
       },
       "2026-10-22": {
         "signals": 2,
-        "seen": 38
+        "seen": 39
       }
     },
     "last_signal_ts": 1792684869935,
@@ -314,5 +314,5 @@
   "symbol_cooldowns": {
     "XRP": 1792628100000
   },
-  "last_run_ts": 1792684869935
+  "last_run_ts": 1792685743032
 }
