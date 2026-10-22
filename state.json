@@ -401,8 +401,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1792689300000,
-      "bars_pending": 3,
+      "last_checked_ts": 1792690200000,
+      "bars_pending": 4,
       "telegram_message_id": 8715
     },
     {
@@ -448,5 +448,5 @@
     "HYPE": 1792694700000,
     "SUI": 1792694700000
   },
-  "last_run_ts": 1792690252871
+  "last_run_ts": 1792691139565
 }
