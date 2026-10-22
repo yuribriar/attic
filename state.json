@@ -453,9 +453,9 @@
       "status": "pending",
       "tp1_hit": false,
       "tp1_r": null,
-      "mae_r": -0.7482954680484231,
+      "mae_r": -0.8921623641157245,
       "mfe_r": 2.272909349364387,
-      "last_checked_ts": 1792700100000,
+      "last_checked_ts": 1792701000000,
       "bars_pending": 1,
       "telegram_message_id": 8726,
       "fill_ts": 1792691100000
@@ -467,5 +467,5 @@
     "SUI": 1792694700000,
     "ETH": 1792703700000
   },
-  "last_run_ts": 1792701052028
+  "last_run_ts": 1792701952740
 }
