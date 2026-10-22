@@ -176,20 +176,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 59,
+        "seen": 61,
         "rejected": 0
       },
       "liquidity_sanity": {
-        "seen": 59,
+        "seen": 61,
         "rejected": 2
       },
       "min_confidence": {
-        "seen": 57,
+        "seen": 59,
         "rejected": 33
       },
       "min_score": {
-        "seen": 24,
-        "rejected": 20
+        "seen": 26,
+        "rejected": 21
       }
     },
     "circuit_breaker": {
@@ -217,7 +217,7 @@
       "avg_rr": 1.7
     },
     "last_daily_summary_date": "2026-10-22",
-    "signals_generated_total": 4,
+    "signals_generated_total": 5,
     "first_run_ts": 1792608322422,
     "daily_signal_log": {
       "2026-10-21": {
@@ -225,11 +225,11 @@
         "seen": 9
       },
       "2026-10-22": {
-        "signals": 3,
-        "seen": 48
+        "signals": 4,
+        "seen": 50
       }
     },
-    "last_signal_ts": 1792686658441,
+    "last_signal_ts": 1792690252871,
     "threshold_adapt": {}
   },
   "tier2_trade_log": [
@@ -401,9 +401,46 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1792688400000,
-      "bars_pending": 2,
+      "last_checked_ts": 1792689300000,
+      "bars_pending": 3,
       "telegram_message_id": 8715
+    },
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "XLM",
+      "direction": "long",
+      "entry": 0.17551013040421648,
+      "sl": 0.17481504346807214,
+      "tp1": 0.1776684375,
+      "tp2": 0.17813875,
+      "confidence": 0.55,
+      "rr_tp1": 3.1050894263035453,
+      "rr_tp2": 3.7817134218699793,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1792690250483,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "f883fb3e6af1",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "B",
+      "score": 0.5813759631434686,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1792690250483,
+      "bars_pending": 0,
+      "telegram_message_id": 8726
     }
   ],
   "symbol_cooldowns": {
@@ -411,5 +448,5 @@
     "HYPE": 1792694700000,
     "SUI": 1792694700000
   },
-  "last_run_ts": 1792689337989
+  "last_run_ts": 1792690252871
 }
