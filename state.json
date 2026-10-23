@@ -192,20 +192,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 70,
+        "seen": 72,
         "rejected": 0
       },
       "liquidity_sanity": {
-        "seen": 70,
+        "seen": 72,
         "rejected": 2
       },
       "min_confidence": {
-        "seen": 68,
+        "seen": 70,
         "rejected": 39
       },
       "min_score": {
-        "seen": 29,
-        "rejected": 24
+        "seen": 31,
+        "rejected": 26
       }
     },
     "circuit_breaker": {
@@ -254,7 +254,7 @@
       },
       "2026-10-23": {
         "signals": 0,
-        "seen": 5
+        "seen": 7
       }
     },
     "last_signal_ts": 1792690252871,
@@ -487,5 +487,5 @@
     "ETH": 1792703700000,
     "XLM": 1792709100000
   },
-  "last_run_ts": 1792728946414
+  "last_run_ts": 1792729861938
 }
