@@ -49,12 +49,12 @@
     "segment_stats": {
       "by_asset": {
         "XRP": {
-          "n": 1,
-          "wins": 1,
+          "n": 2,
+          "wins": 2,
           "losses": 0,
-          "sum_r": 5.856089642314588,
-          "sum_conf": 0.65,
-          "sum_conf_correct": 1.0
+          "sum_r": 9.502153838389948,
+          "sum_conf": 1.2000000000000002,
+          "sum_conf_correct": 2.0
         },
         "HYPE": {
           "n": 1,
@@ -107,12 +107,12 @@
       },
       "by_regime": {
         "ranging": {
-          "n": 6,
-          "wins": 1,
+          "n": 7,
+          "wins": 2,
           "losses": 5,
-          "sum_r": 0.8560896423145881,
-          "sum_conf": 3.5999999999999996,
-          "sum_conf_correct": 1.0
+          "sum_r": 4.502153838389947,
+          "sum_conf": 4.1499999999999995,
+          "sum_conf_correct": 2.0
         },
         "expansion": {
           "n": 1,
@@ -125,32 +125,32 @@
       },
       "by_timeframe": {
         "15m": {
-          "n": 7,
-          "wins": 2,
+          "n": 8,
+          "wins": 3,
           "losses": 5,
-          "sum_r": 2.4534092799287537,
-          "sum_conf": 4.1499999999999995,
-          "sum_conf_correct": 2.0
+          "sum_r": 6.099473476004112,
+          "sum_conf": 4.699999999999999,
+          "sum_conf_correct": 3.0
         }
       },
       "by_engine": {
         "liquidity_sweep": {
-          "n": 7,
-          "wins": 2,
+          "n": 8,
+          "wins": 3,
           "losses": 5,
-          "sum_r": 2.4534092799287537,
-          "sum_conf": 4.1499999999999995,
-          "sum_conf_correct": 2.0
+          "sum_r": 6.099473476004112,
+          "sum_conf": 4.699999999999999,
+          "sum_conf_correct": 3.0
         }
       },
       "by_confluence": {
         "liquidity_sweep_reclaim": {
-          "n": 7,
-          "wins": 2,
+          "n": 8,
+          "wins": 3,
           "losses": 5,
-          "sum_r": 2.4534092799287537,
-          "sum_conf": 4.1499999999999995,
-          "sum_conf_correct": 2.0
+          "sum_r": 6.099473476004112,
+          "sum_conf": 4.699999999999999,
+          "sum_conf_correct": 3.0
         },
         "buy_side_pool_swept": {
           "n": 2,
@@ -169,12 +169,12 @@
           "sum_conf_correct": 1.0
         },
         "sell_side_pool_swept": {
-          "n": 5,
-          "wins": 0,
+          "n": 6,
+          "wins": 1,
           "losses": 5,
-          "sum_r": -5.0,
-          "sum_conf": 2.95,
-          "sum_conf_correct": 0.0
+          "sum_r": -1.3539358039246414,
+          "sum_conf": 3.5,
+          "sum_conf_correct": 1.0
         }
       },
       "by_direction": {
@@ -187,12 +187,12 @@
           "sum_conf_correct": 2.0
         },
         "long": {
-          "n": 5,
-          "wins": 0,
+          "n": 6,
+          "wins": 1,
           "losses": 5,
-          "sum_r": -5.0,
-          "sum_conf": 2.95,
-          "sum_conf_correct": 0.0
+          "sum_r": -1.3539358039246414,
+          "sum_conf": 3.5,
+          "sum_conf_correct": 1.0
         }
       },
       "by_setup_direction": {
@@ -205,12 +205,12 @@
           "sum_conf_correct": 2.0
         },
         "liquidity_sweep|long": {
-          "n": 5,
-          "wins": 0,
+          "n": 6,
+          "wins": 1,
           "losses": 5,
-          "sum_r": -5.0,
-          "sum_conf": 2.95,
-          "sum_conf_correct": 0.0
+          "sum_r": -1.3539358039246414,
+          "sum_conf": 3.5,
+          "sum_conf_correct": 1.0
         }
       }
     },
@@ -264,6 +264,10 @@
       },
       {
         "r": 1.5973196376141656,
+        "win": true
+      },
+      {
+        "r": 3.6460641960753586,
         "win": true
       }
     ],
@@ -610,10 +614,7 @@
       "outcome": "win",
       "r_realized": 1.5973196376141656,
       "forensic_tag": "correct_read_tp1_secured"
-    }
-  ],
-  "pending_signals": [],
-  "active_signals": [
+    },
     {
       "setup_type": "liquidity_sweep",
       "symbol": "XRP",
@@ -642,19 +643,25 @@
       },
       "tier": "A",
       "score": 0.7481079621146653,
-      "status": "pending",
+      "status": "closed_win",
       "tp1_hit": true,
       "tp1_r": 2.3009715309965917,
       "mae_r": -0.9012168136101553,
       "mfe_r": 1.5286280007255997,
-      "last_checked_ts": 1793097900000,
+      "last_checked_ts": 1793098800000,
       "bars_pending": 2,
       "telegram_message_id": 8880,
-      "fill_ts": 1793097000000
+      "fill_ts": 1793097000000,
+      "resolved_ts": 1793098800000,
+      "outcome": "win",
+      "r_realized": 3.6460641960753586,
+      "forensic_tag": "clean_read_full_extension"
     }
   ],
+  "pending_signals": [],
+  "active_signals": [],
   "symbol_cooldowns": {
-    "XRP": 1792628100000,
+    "XRP": 1793102400000,
     "HYPE": 1792694700000,
     "SUI": 1792694700000,
     "ETH": 1792703700000,
@@ -662,5 +669,5 @@
     "NEAR": 1792798200000,
     "BNB": 1793029500000
   },
-  "last_run_ts": 1793098855139
+  "last_run_ts": 1793099740873
 }
