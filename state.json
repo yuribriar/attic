@@ -216,19 +216,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 282,
+        "seen": 283,
         "rejected": 17
       },
       "liquidity_sanity": {
-        "seen": 265,
+        "seen": 266,
         "rejected": 4
       },
       "min_confidence": {
-        "seen": 261,
+        "seen": 262,
         "rejected": 166
       },
       "min_score": {
-        "seen": 95,
+        "seen": 96,
         "rejected": 88
       }
     },
@@ -273,7 +273,7 @@
       "avg_rr": 1.7
     },
     "last_daily_summary_date": "2026-10-27",
-    "signals_generated_total": 7,
+    "signals_generated_total": 8,
     "first_run_ts": 1792608322422,
     "daily_signal_log": {
       "2026-10-21": {
@@ -301,11 +301,11 @@
         "seen": 25
       },
       "2026-10-27": {
-        "signals": 0,
-        "seen": 13
+        "signals": 1,
+        "seen": 14
       }
     },
-    "last_signal_ts": 1793020545703,
+    "last_signal_ts": 1793095256290,
     "threshold_adapt": {
       "last_zero_signal_warn_ts": 1793007032989
     }
@@ -613,7 +613,45 @@
     }
   ],
   "pending_signals": [],
-  "active_signals": [],
+  "active_signals": [
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "XRP",
+      "direction": "long",
+      "entry": 1.2961962636206443,
+      "sl": 1.2933154212068816,
+      "tp1": 1.302825,
+      "tp2": 1.3067,
+      "confidence": 0.55,
+      "rr_tp1": 2.3009715309965917,
+      "rr_tp2": 3.6460641960753586,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1793095253751,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "76c5a4d4ba25",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "A",
+      "score": 0.7481079621146653,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1793095253751,
+      "bars_pending": 0,
+      "telegram_message_id": 8880
+    }
+  ],
   "symbol_cooldowns": {
     "XRP": 1792628100000,
     "HYPE": 1792694700000,
@@ -623,5 +661,5 @@
     "NEAR": 1792798200000,
     "BNB": 1793029500000
   },
-  "last_run_ts": 1793094345007
+  "last_run_ts": 1793095256290
 }
