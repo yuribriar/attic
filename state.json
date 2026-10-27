@@ -647,8 +647,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1793095253751,
-      "bars_pending": 0,
+      "last_checked_ts": 1793096100000,
+      "bars_pending": 1,
       "telegram_message_id": 8880
     }
   ],
@@ -661,5 +661,5 @@
     "NEAR": 1792798200000,
     "BNB": 1793029500000
   },
-  "last_run_ts": 1793096140565
+  "last_run_ts": 1793097048516
 }
