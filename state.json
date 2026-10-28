@@ -224,16 +224,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 350,
+        "seen": 353,
         "rejected": 17
       },
       "liquidity_sanity": {
-        "seen": 333,
+        "seen": 336,
         "rejected": 4
       },
       "min_confidence": {
-        "seen": 329,
-        "rejected": 200
+        "seen": 332,
+        "rejected": 203
       },
       "min_score": {
         "seen": 129,
@@ -322,7 +322,7 @@
       },
       "2026-10-28": {
         "signals": 1,
-        "seen": 21
+        "seen": 24
       }
     },
     "last_signal_ts": 1793159158406,
@@ -730,5 +730,5 @@
     "BNB": 1793029500000,
     "UNI": 1793169000000
   },
-  "last_run_ts": 1793164538787
+  "last_run_ts": 1793165447174
 }
