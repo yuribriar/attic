@@ -224,20 +224,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 380,
+        "seen": 383,
         "rejected": 17
       },
       "liquidity_sanity": {
-        "seen": 363,
+        "seen": 366,
         "rejected": 5
       },
       "min_confidence": {
-        "seen": 358,
-        "rejected": 216
+        "seen": 361,
+        "rejected": 218
       },
       "min_score": {
-        "seen": 142,
-        "rejected": 132
+        "seen": 143,
+        "rejected": 133
       }
     },
     "circuit_breaker": {
@@ -322,7 +322,7 @@
       },
       "2026-10-28": {
         "signals": 2,
-        "seen": 50
+        "seen": 53
       }
     },
     "last_signal_ts": 1793183450426,
@@ -755,8 +755,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1793192400000,
-      "bars_pending": 10,
+      "last_checked_ts": 1793193300000,
+      "bars_pending": 11,
       "telegram_message_id": 8935
     }
   ],
@@ -770,5 +770,5 @@
     "BNB": 1793029500000,
     "UNI": 1793169000000
   },
-  "last_run_ts": 1793193342189
+  "last_run_ts": 1793194249991
 }
