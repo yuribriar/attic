@@ -224,20 +224,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 468,
-        "rejected": 31
+        "seen": 470,
+        "rejected": 32
       },
       "liquidity_sanity": {
-        "seen": 437,
+        "seen": 438,
         "rejected": 6
       },
       "min_confidence": {
-        "seen": 431,
+        "seen": 432,
         "rejected": 276
       },
       "min_score": {
-        "seen": 155,
-        "rejected": 139
+        "seen": 156,
+        "rejected": 140
       }
     },
     "circuit_breaker": {
@@ -326,7 +326,7 @@
       },
       "2026-10-29": {
         "signals": 5,
-        "seen": 40
+        "seen": 41
       }
     },
     "last_signal_ts": 1793277064482,
@@ -870,7 +870,7 @@
       "entry_kind": "pending",
       "timeframe": "15m",
       "created_ts": 1793275253313,
-      "entry_filled": false,
+      "entry_filled": true,
       "pending_bars": 0,
       "pending_expiry_bars": 12,
       "signal_id": "e8629731ccec",
@@ -883,11 +883,12 @@
       "status": "pending",
       "tp1_hit": false,
       "tp1_r": null,
-      "mae_r": 0.0,
-      "mfe_r": 0.0,
-      "last_checked_ts": 1793276100000,
-      "bars_pending": 1,
-      "telegram_message_id": 8983
+      "mae_r": -0.3986248597000912,
+      "mfe_r": 1.670992162182041,
+      "last_checked_ts": 1793277000000,
+      "bars_pending": 2,
+      "telegram_message_id": 8983,
+      "fill_ts": 1793277000000
     },
     {
       "setup_type": "liquidity_sweep",
@@ -908,7 +909,7 @@
       "entry_kind": "pending",
       "timeframe": "15m",
       "created_ts": 1793276129383,
-      "entry_filled": false,
+      "entry_filled": true,
       "pending_bars": 0,
       "pending_expiry_bars": 12,
       "signal_id": "9483767823b8",
@@ -920,11 +921,12 @@
       "status": "pending",
       "tp1_hit": false,
       "tp1_r": null,
-      "mae_r": 0.0,
-      "mfe_r": 0.0,
-      "last_checked_ts": 1793276129383,
-      "bars_pending": 0,
-      "telegram_message_id": 8984
+      "mae_r": -0.7200161867467552,
+      "mfe_r": 0.36833332011773195,
+      "last_checked_ts": 1793277000000,
+      "bars_pending": 1,
+      "telegram_message_id": 8984,
+      "fill_ts": 1793277000000
     },
     {
       "setup_type": "liquidity_sweep",
@@ -974,5 +976,5 @@
     "BNB": 1793029500000,
     "UNI": 1793169000000
   },
-  "last_run_ts": 1793277064483
+  "last_run_ts": 1793277940488
 }
