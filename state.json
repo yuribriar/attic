@@ -801,8 +801,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1793246400000,
-      "bars_pending": 9,
+      "last_checked_ts": 1793247300000,
+      "bars_pending": 10,
       "telegram_message_id": 8960
     },
     {
@@ -840,8 +840,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1793246400000,
-      "bars_pending": 9,
+      "last_checked_ts": 1793247300000,
+      "bars_pending": 10,
       "telegram_message_id": 8961
     }
   ],
@@ -855,5 +855,5 @@
     "BNB": 1793029500000,
     "UNI": 1793169000000
   },
-  "last_run_ts": 1793247340844
+  "last_run_ts": 1793248246336
 }
