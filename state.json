@@ -224,8 +224,8 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 416,
-        "rejected": 20
+        "seen": 417,
+        "rejected": 21
       },
       "liquidity_sanity": {
         "seen": 396,
@@ -772,5 +772,5 @@
     "BNB": 1793029500000,
     "UNI": 1793169000000
   },
-  "last_run_ts": 1793232941143
+  "last_run_ts": 1793233848254
 }
