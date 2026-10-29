@@ -224,20 +224,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 459,
-        "rejected": 29
+        "seen": 462,
+        "rejected": 30
       },
       "liquidity_sanity": {
-        "seen": 430,
+        "seen": 432,
         "rejected": 6
       },
       "min_confidence": {
-        "seen": 424,
+        "seen": 426,
         "rejected": 274
       },
       "min_score": {
-        "seen": 150,
-        "rejected": 137
+        "seen": 152,
+        "rejected": 138
       }
     },
     "circuit_breaker": {
@@ -289,7 +289,7 @@
       "avg_rr": 1.7
     },
     "last_daily_summary_date": "2026-10-29",
-    "signals_generated_total": 12,
+    "signals_generated_total": 13,
     "first_run_ts": 1792608322422,
     "daily_signal_log": {
       "2026-10-21": {
@@ -325,11 +325,11 @@
         "seen": 83
       },
       "2026-10-29": {
-        "signals": 2,
-        "seen": 33
+        "signals": 3,
+        "seen": 35
       }
     },
-    "last_signal_ts": 1793238345093,
+    "last_signal_ts": 1793275260621,
     "threshold_adapt": {
       "last_zero_signal_warn_ts": 1793007032989
     }
@@ -849,7 +849,47 @@
     }
   ],
   "pending_signals": [],
-  "active_signals": [],
+  "active_signals": [
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "TAO",
+      "direction": "short",
+      "entry": 252.06064026683194,
+      "sl": 252.886880088944,
+      "tp1": 250.1925,
+      "tp2": 248.91625,
+      "confidence": 0.5888888888888837,
+      "rr_tp1": 2.261014558771266,
+      "rr_tp2": 3.805662935483028,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "buy_side_pool_swept",
+        "pure_sweep"
+      ],
+      "regime_at_signal": "expansion",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1793275253313,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "e8629731ccec",
+      "confidence_components": {
+        "base": 0.55,
+        "sweep_purity_bonus": 0.03888888888888362
+      },
+      "tier": "B",
+      "score": 0.6426734617835335,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1793275253313,
+      "bars_pending": 0,
+      "telegram_message_id": 8983
+    }
+  ],
   "symbol_cooldowns": {
     "XRP": 1793102400000,
     "HYPE": 1792694700000,
@@ -860,5 +900,5 @@
     "BNB": 1793029500000,
     "UNI": 1793169000000
   },
-  "last_run_ts": 1793274340279
+  "last_run_ts": 1793275260621
 }
