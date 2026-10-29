@@ -248,8 +248,8 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 488,
-        "rejected": 33
+        "seen": 489,
+        "rejected": 34
       },
       "liquidity_sanity": {
         "seen": 455,
@@ -1027,5 +1027,5 @@
     "TRX": 1793286000000,
     "SOL": 1793286000000
   },
-  "last_run_ts": 1793288744425
+  "last_run_ts": 1793289656844
 }
