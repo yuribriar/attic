@@ -248,20 +248,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 645,
+        "seen": 646,
         "rejected": 61
       },
       "liquidity_sanity": {
-        "seen": 584,
+        "seen": 585,
         "rejected": 6
       },
       "min_confidence": {
-        "seen": 578,
+        "seen": 579,
         "rejected": 414
       },
       "min_score": {
-        "seen": 164,
-        "rejected": 148
+        "seen": 165,
+        "rejected": 149
       }
     },
     "circuit_breaker": {
@@ -366,7 +366,7 @@
       },
       "2026-10-30": {
         "signals": 0,
-        "seen": 101
+        "seen": 102
       }
     },
     "last_signal_ts": 1793277064482,
@@ -1031,5 +1031,5 @@
     "TRX": 1793286000000,
     "SOL": 1793286000000
   },
-  "last_run_ts": 1793385943072
+  "last_run_ts": 1793386860017
 }
