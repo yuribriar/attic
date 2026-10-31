@@ -324,7 +324,7 @@
       "profit_factor": 1.35,
       "avg_rr": 1.7
     },
-    "last_daily_summary_date": "2026-10-30",
+    "last_daily_summary_date": "2026-10-31",
     "signals_generated_total": 16,
     "first_run_ts": 1792608322422,
     "daily_signal_log": {
@@ -1057,7 +1057,7 @@
       "tp1_r": 2.9303132958764677,
       "mae_r": -0.6056673658703206,
       "mfe_r": 2.8117151867246957,
-      "last_checked_ts": 1793431800000,
+      "last_checked_ts": 1793432700000,
       "bars_pending": 15,
       "telegram_message_id": 9114,
       "fill_ts": 1793419200000
@@ -1076,5 +1076,5 @@
     "TRX": 1793286000000,
     "SOL": 1793286000000
   },
-  "last_run_ts": 1793432741075
+  "last_run_ts": 1793433653524
 }
