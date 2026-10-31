@@ -248,16 +248,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 674,
+        "seen": 675,
         "rejected": 61
       },
       "liquidity_sanity": {
-        "seen": 613,
+        "seen": 614,
         "rejected": 7
       },
       "min_confidence": {
-        "seen": 606,
-        "rejected": 435
+        "seen": 607,
+        "rejected": 436
       },
       "min_score": {
         "seen": 171,
@@ -370,7 +370,7 @@
       },
       "2026-10-31": {
         "signals": 1,
-        "seen": 12
+        "seen": 13
       }
     },
     "last_signal_ts": 1793405743145,
@@ -1057,7 +1057,7 @@
       "tp1_r": 2.9303132958764677,
       "mae_r": -0.6056673658703206,
       "mfe_r": 2.8117151867246957,
-      "last_checked_ts": 1793439000000,
+      "last_checked_ts": 1793439900000,
       "bars_pending": 15,
       "telegram_message_id": 9114,
       "fill_ts": 1793419200000
@@ -1076,5 +1076,5 @@
     "TRX": 1793286000000,
     "SOL": 1793286000000
   },
-  "last_run_ts": 1793439943124
+  "last_run_ts": 1793440853131
 }
