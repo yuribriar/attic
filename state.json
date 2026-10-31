@@ -296,8 +296,8 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 719,
-        "rejected": 80
+        "seen": 720,
+        "rejected": 81
       },
       "liquidity_sanity": {
         "seen": 639,
@@ -1132,5 +1132,5 @@
     "SOL": 1793286000000,
     "AAVE": 1793449800000
   },
-  "last_run_ts": 1793483143020
+  "last_run_ts": 1793484052112
 }
