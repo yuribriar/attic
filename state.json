@@ -304,12 +304,12 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 845,
+        "seen": 847,
         "rejected": 118
       },
       "liquidity_sanity": {
-        "seen": 727,
-        "rejected": 14
+        "seen": 729,
+        "rejected": 16
       },
       "min_confidence": {
         "seen": 713,
@@ -1287,5 +1287,5 @@
     "AAVE": 1793449800000,
     "PENGU": 1793546100000
   },
-  "last_run_ts": 1793571341205
+  "last_run_ts": 1793572250446
 }
