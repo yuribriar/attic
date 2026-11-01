@@ -1258,8 +1258,8 @@
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": -0.644610170360666,
-      "mfe_r": 1.028251295687646,
-      "last_checked_ts": 1793539800000,
+      "mfe_r": 1.608176603917707,
+      "last_checked_ts": 1793540700000,
       "bars_pending": 1,
       "telegram_message_id": 9192,
       "fill_ts": 1793538900000
@@ -1280,5 +1280,5 @@
     "AAVE": 1793449800000,
     "PENGU": 1793546100000
   },
-  "last_run_ts": 1793540738297
+  "last_run_ts": 1793541652460
 }
