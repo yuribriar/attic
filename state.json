@@ -304,16 +304,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 884,
+        "seen": 885,
         "rejected": 118
       },
       "liquidity_sanity": {
-        "seen": 766,
+        "seen": 767,
         "rejected": 20
       },
       "min_confidence": {
-        "seen": 746,
-        "rejected": 560
+        "seen": 747,
+        "rejected": 561
       },
       "min_score": {
         "seen": 186,
@@ -450,7 +450,7 @@
       },
       "2026-11-02": {
         "signals": 0,
-        "seen": 31
+        "seen": 32
       }
     },
     "last_signal_ts": 1793538056859,
@@ -1291,5 +1291,5 @@
     "AAVE": 1793449800000,
     "PENGU": 1793546100000
   },
-  "last_run_ts": 1793653259572
+  "last_run_ts": 1793654145259
 }
