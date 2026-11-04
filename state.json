@@ -304,19 +304,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 960,
+        "seen": 962,
         "rejected": 121
       },
       "liquidity_sanity": {
-        "seen": 839,
+        "seen": 841,
         "rejected": 20
       },
       "min_confidence": {
-        "seen": 819,
-        "rejected": 622
+        "seen": 821,
+        "rejected": 623
       },
       "min_score": {
-        "seen": 197,
+        "seen": 198,
         "rejected": 177
       }
     },
@@ -397,7 +397,7 @@
       "avg_rr": 1.7
     },
     "last_daily_summary_date": "2026-11-03",
-    "signals_generated_total": 19,
+    "signals_generated_total": 20,
     "first_run_ts": 1792608322422,
     "daily_signal_log": {
       "2026-10-21": {
@@ -457,11 +457,11 @@
         "seen": 52
       },
       "2026-11-04": {
-        "signals": 0,
-        "seen": 10
+        "signals": 1,
+        "seen": 12
       }
     },
-    "last_signal_ts": 1793538056859,
+    "last_signal_ts": 1793759452796,
     "threshold_adapt": {
       "last_zero_signal_warn_ts": 1793755829468
     }
@@ -1283,7 +1283,47 @@
     }
   ],
   "pending_signals": [],
-  "active_signals": [],
+  "active_signals": [
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "ZEC",
+      "direction": "long",
+      "entry": 1193.1176143793682,
+      "sl": 1201.5558714597894,
+      "tp1": 1217.93125,
+      "tp2": 1229.075,
+      "confidence": 0.65,
+      "rr_tp1": 2.9406114774821908,
+      "rr_tp2": 4.261233721364304,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept",
+        "pure_sweep"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1793759438489,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "684e2e6b1796",
+      "confidence_components": {
+        "base": 0.55,
+        "sweep_purity_bonus": 0.1
+      },
+      "tier": "B",
+      "score": 0.6265929655493009,
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1793759438489,
+      "bars_pending": 0,
+      "telegram_message_id": 9329
+    }
+  ],
   "symbol_cooldowns": {
     "XRP": 1793102400000,
     "HYPE": 1793562300000,
@@ -1299,5 +1339,5 @@
     "AAVE": 1793449800000,
     "PENGU": 1793546100000
   },
-  "last_run_ts": 1793758542155
+  "last_run_ts": 1793759452796
 }
