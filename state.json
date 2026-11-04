@@ -304,16 +304,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 952,
+        "seen": 955,
         "rejected": 121
       },
       "liquidity_sanity": {
-        "seen": 831,
+        "seen": 834,
         "rejected": 20
       },
       "min_confidence": {
-        "seen": 811,
-        "rejected": 614
+        "seen": 814,
+        "rejected": 617
       },
       "min_score": {
         "seen": 197,
@@ -458,12 +458,12 @@
       },
       "2026-11-04": {
         "signals": 0,
-        "seen": 2
+        "seen": 5
       }
     },
     "last_signal_ts": 1793538056859,
     "threshold_adapt": {
-      "last_zero_signal_warn_ts": 1793733327455
+      "last_zero_signal_warn_ts": 1793755829468
     }
   },
   "tier2_trade_log": [
@@ -1299,5 +1299,5 @@
     "AAVE": 1793449800000,
     "PENGU": 1793546100000
   },
-  "last_run_ts": 1793754940902
+  "last_run_ts": 1793755859186
 }
