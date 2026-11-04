@@ -1426,9 +1426,9 @@
       "status": "pending",
       "tp1_hit": false,
       "tp1_r": null,
-      "mae_r": -0.4649517865993906,
+      "mae_r": -0.5717474350619877,
       "mfe_r": 0.8400389421753846,
-      "last_checked_ts": 1793823300000,
+      "last_checked_ts": 1793824200000,
       "bars_pending": 2,
       "telegram_message_id": 9384,
       "fill_ts": 1793821500000
@@ -1451,5 +1451,5 @@
     "ZEC": 1793772000000,
     "AVAX": 1793786400000
   },
-  "last_run_ts": 1793824248794
+  "last_run_ts": 1793825141642
 }
