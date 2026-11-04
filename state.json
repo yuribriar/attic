@@ -320,20 +320,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 990,
+        "seen": 991,
         "rejected": 121
       },
       "liquidity_sanity": {
-        "seen": 869,
+        "seen": 870,
         "rejected": 20
       },
       "min_confidence": {
-        "seen": 849,
+        "seen": 850,
         "rejected": 647
       },
       "min_score": {
-        "seen": 202,
-        "rejected": 180
+        "seen": 203,
+        "rejected": 181
       }
     },
     "circuit_breaker": {
@@ -482,7 +482,7 @@
       },
       "2026-11-04": {
         "signals": 2,
-        "seen": 40
+        "seen": 41
       }
     },
     "last_signal_ts": 1793777449858,
@@ -1411,5 +1411,5 @@
     "ZEC": 1793772000000,
     "AVAX": 1793786400000
   },
-  "last_run_ts": 1793815261658
+  "last_run_ts": 1793816146439
 }
