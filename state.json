@@ -169,11 +169,11 @@
           "sum_conf_correct": 0.0
         },
         "LTC": {
-          "n": 1,
+          "n": 2,
           "wins": 0,
-          "losses": 1,
-          "sum_r": -1.0,
-          "sum_conf": 0.55,
+          "losses": 2,
+          "sum_r": -2.0,
+          "sum_conf": 1.1158346012148301,
           "sum_conf_correct": 0.0
         },
         "BTC": {
@@ -195,11 +195,11 @@
       },
       "by_regime": {
         "ranging": {
-          "n": 17,
+          "n": 18,
           "wins": 3,
-          "losses": 14,
-          "sum_r": -0.8420871232491987,
-          "sum_conf": 10.149986036596074,
+          "losses": 15,
+          "sum_r": -1.8420871232491987,
+          "sum_conf": 10.715820637810904,
           "sum_conf_correct": 3.0
         },
         "expansion": {
@@ -221,11 +221,11 @@
       },
       "by_timeframe": {
         "15m": {
-          "n": 22,
+          "n": 23,
           "wins": 5,
-          "losses": 17,
-          "sum_r": 1.1906859047766805,
-          "sum_conf": 13.03887492548496,
+          "losses": 18,
+          "sum_r": 0.19068590477668046,
+          "sum_conf": 13.60470952669979,
           "sum_conf_correct": 5.0
         }
       },
@@ -255,11 +255,11 @@
           "sum_conf_correct": 0.0
         },
         "mean_reversion": {
-          "n": 3,
+          "n": 4,
           "wins": 0,
-          "losses": 3,
-          "sum_r": -3.0,
-          "sum_conf": 1.7499860365960744,
+          "losses": 4,
+          "sum_r": -4.0,
+          "sum_conf": 2.3158206378109045,
           "sum_conf_correct": 0.0
         }
       },
@@ -345,27 +345,27 @@
           "sum_conf_correct": 0.0
         },
         "ranging_regime": {
-          "n": 3,
+          "n": 4,
           "wins": 0,
-          "losses": 3,
-          "sum_r": -3.0,
-          "sum_conf": 1.7499860365960744,
+          "losses": 4,
+          "sum_r": -4.0,
+          "sum_conf": 2.3158206378109045,
           "sum_conf_correct": 0.0
         },
         "bollinger_band_extreme": {
-          "n": 3,
+          "n": 4,
           "wins": 0,
-          "losses": 3,
-          "sum_r": -3.0,
-          "sum_conf": 1.7499860365960744,
+          "losses": 4,
+          "sum_r": -4.0,
+          "sum_conf": 2.3158206378109045,
           "sum_conf_correct": 0.0
         },
         "deep_band_penetration": {
-          "n": 3,
+          "n": 4,
           "wins": 0,
-          "losses": 3,
-          "sum_r": -3.0,
-          "sum_conf": 1.7499860365960744,
+          "losses": 4,
+          "sum_r": -4.0,
+          "sum_conf": 2.3158206378109045,
           "sum_conf_correct": 0.0
         }
       },
@@ -379,11 +379,11 @@
           "sum_conf_correct": 3.0
         },
         "long": {
-          "n": 11,
+          "n": 12,
           "wins": 2,
-          "losses": 9,
-          "sum_r": -1.9184824135129288,
-          "sum_conf": 6.549986036596075,
+          "losses": 10,
+          "sum_r": -2.918482413512929,
+          "sum_conf": 7.115820637810906,
           "sum_conf_correct": 2.0
         }
       },
@@ -421,11 +421,11 @@
           "sum_conf_correct": 0.0
         },
         "mean_reversion|long": {
-          "n": 3,
+          "n": 4,
           "wins": 0,
-          "losses": 3,
-          "sum_r": -3.0,
-          "sum_conf": 1.7499860365960744,
+          "losses": 4,
+          "sum_r": -4.0,
+          "sum_conf": 2.3158206378109045,
           "sum_conf_correct": 0.0
         }
       }
@@ -517,6 +517,10 @@
       {
         "r": 3.655759038360855,
         "win": true
+      },
+      {
+        "r": -1.0,
+        "win": false
       },
       {
         "r": -1.0,
@@ -1693,6 +1697,50 @@
       "outcome": "loss",
       "r_realized": -1.0,
       "forensic_tag": "correct_read_poor_rr"
+    },
+    {
+      "setup_type": "mean_reversion",
+      "symbol": "LTC",
+      "direction": "long",
+      "entry": 52.626112521801126,
+      "sl": 52.05495639738202,
+      "tp1": 54.19,
+      "tp2": 54.461,
+      "confidence": 0.5658346012148301,
+      "rr_tp1": 2.7381085684574016,
+      "rr_tp2": 3.212584790305888,
+      "confluences": [
+        "bollinger_band_extreme",
+        "ranging_regime",
+        "deep_band_penetration"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1793892650354,
+      "entry_filled": true,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "9a3a129e843b",
+      "confidence_components": {
+        "base": 0.45,
+        "band_penetration_bonus": 0.11583460121483005
+      },
+      "tier": "B",
+      "score": 0.6412852094963799,
+      "status": "closed_loss",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": -0.8966244077693707,
+      "mfe_r": 0.07158721836426146,
+      "last_checked_ts": 1793896200000,
+      "bars_pending": 3,
+      "telegram_message_id": 9459,
+      "fill_ts": 1793895300000,
+      "resolved_ts": 1793896200000,
+      "outcome": "loss",
+      "r_realized": -1.0,
+      "forensic_tag": "correct_read_poor_rr"
     }
   ],
   "pending_signals": [],
@@ -1732,49 +1780,9 @@
       "tp1_r": null,
       "mae_r": -0.5873836776261785,
       "mfe_r": 0.3196022296800917,
-      "last_checked_ts": 1793895300000,
+      "last_checked_ts": 1793896200000,
       "bars_pending": 4,
       "telegram_message_id": 9450,
-      "fill_ts": 1793895300000
-    },
-    {
-      "setup_type": "mean_reversion",
-      "symbol": "LTC",
-      "direction": "long",
-      "entry": 52.626112521801126,
-      "sl": 52.05495639738202,
-      "tp1": 54.19,
-      "tp2": 54.461,
-      "confidence": 0.5658346012148301,
-      "rr_tp1": 2.7381085684574016,
-      "rr_tp2": 3.212584790305888,
-      "confluences": [
-        "bollinger_band_extreme",
-        "ranging_regime",
-        "deep_band_penetration"
-      ],
-      "regime_at_signal": "ranging",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1793892650354,
-      "entry_filled": true,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "9a3a129e843b",
-      "confidence_components": {
-        "base": 0.45,
-        "band_penetration_bonus": 0.11583460121483005
-      },
-      "tier": "B",
-      "score": 0.6412852094963799,
-      "status": "pending",
-      "tp1_hit": false,
-      "tp1_r": null,
-      "mae_r": -0.8966244077693707,
-      "mfe_r": 0.07158721836426146,
-      "last_checked_ts": 1793895300000,
-      "bars_pending": 3,
-      "telegram_message_id": 9459,
       "fill_ts": 1793895300000
     }
   ],
@@ -1794,9 +1802,9 @@
     "PENGU": 1793546100000,
     "ZEC": 1793772000000,
     "AVAX": 1793902500000,
-    "LTC": 1793836800000,
+    "LTC": 1793903400000,
     "BTC": 1793900700000,
     "LINK": 1793900700000
   },
-  "last_run_ts": 1793896254222
+  "last_run_ts": 1793897139499
 }
