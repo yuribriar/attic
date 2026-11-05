@@ -376,20 +376,20 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1018,
+        "seen": 1019,
         "rejected": 124
       },
       "liquidity_sanity": {
-        "seen": 894,
+        "seen": 895,
         "rejected": 20
       },
       "min_confidence": {
-        "seen": 874,
+        "seen": 875,
         "rejected": 669
       },
       "min_score": {
-        "seen": 205,
-        "rejected": 182
+        "seen": 206,
+        "rejected": 183
       }
     },
     "circuit_breaker": {
@@ -546,7 +546,7 @@
       },
       "2026-11-05": {
         "signals": 0,
-        "seen": 4
+        "seen": 5
       }
     },
     "last_signal_ts": 1793819744908,
@@ -1519,5 +1519,5 @@
     "AVAX": 1793786400000,
     "LTC": 1793836800000
   },
-  "last_run_ts": 1793852142150
+  "last_run_ts": 1793853050517
 }
