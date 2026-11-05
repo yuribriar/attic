@@ -1532,8 +1532,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1793891742305,
-      "bars_pending": 0,
+      "last_checked_ts": 1793892600000,
+      "bars_pending": 1,
       "telegram_message_id": 9450
     },
     {
@@ -1571,8 +1571,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1793891743083,
-      "bars_pending": 0,
+      "last_checked_ts": 1793892600000,
+      "bars_pending": 1,
       "telegram_message_id": 9451
     },
     {
@@ -1711,5 +1711,5 @@
     "AVAX": 1793786400000,
     "LTC": 1793836800000
   },
-  "last_run_ts": 1793892652618
+  "last_run_ts": 1793893541877
 }
