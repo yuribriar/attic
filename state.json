@@ -432,16 +432,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1343,
-        "rejected": 157
+        "seen": 1345,
+        "rejected": 158
       },
       "liquidity_sanity": {
-        "seen": 1186,
+        "seen": 1187,
         "rejected": 23
       },
       "min_confidence": {
-        "seen": 1163,
-        "rejected": 938
+        "seen": 1164,
+        "rejected": 939
       },
       "min_score": {
         "seen": 225,
@@ -638,7 +638,7 @@
       },
       "2026-11-10": {
         "signals": 0,
-        "seen": 56
+        "seen": 57
       }
     },
     "last_signal_ts": 1793892652618,
@@ -648,48 +648,6 @@
     }
   },
   "tier2_trade_log": [
-    {
-      "setup_type": "liquidity_sweep",
-      "symbol": "BNB",
-      "direction": "short",
-      "entry": 742.340872254135,
-      "sl": 743.7202907513783,
-      "tp1": 740.1374999999999,
-      "tp2": 738.915,
-      "confidence": 0.55,
-      "rr_tp1": 1.5973196376141656,
-      "rr_tp2": 2.483562646855391,
-      "confluences": [
-        "liquidity_sweep_reclaim",
-        "buy_side_pool_swept"
-      ],
-      "regime_at_signal": "expansion",
-      "entry_kind": "pending",
-      "timeframe": "15m",
-      "created_ts": 1793020535113,
-      "entry_filled": true,
-      "pending_bars": 0,
-      "pending_expiry_bars": 12,
-      "signal_id": "3f7308d66152",
-      "confidence_components": {
-        "base": 0.55
-      },
-      "tier": "B",
-      "score": 0.6330793585478753,
-      "status": "closed_win",
-      "tp1_hit": true,
-      "tp1_r": 1.5973196376141656,
-      "mae_r": 0.0,
-      "mfe_r": 1.8057407952066222,
-      "last_checked_ts": 1793025900000,
-      "bars_pending": 4,
-      "telegram_message_id": 8859,
-      "fill_ts": 1793024100000,
-      "resolved_ts": 1793025900000,
-      "outcome": "win",
-      "r_realized": 1.5973196376141656,
-      "forensic_tag": "correct_read_tp1_secured"
-    },
     {
       "setup_type": "liquidity_sweep",
       "symbol": "XRP",
@@ -1576,5 +1534,5 @@
     "BTC": 1793900700000,
     "LINK": 1793900700000
   },
-  "last_run_ts": 1794321050395
+  "last_run_ts": 1794321942565
 }
