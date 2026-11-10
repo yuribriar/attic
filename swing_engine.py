@@ -575,7 +575,9 @@ def validate_instruments(client: HyperliquidClient) -> None:
     for sym in WATCHLIST:
         inst = INSTRUMENTS[sym]
         names = listed.get(inst["dex"])
-        if names is not None and inst["coin"] not in names:
+        # Accept the dex-prefixed name ("xyz:GOLD") or the bare name ("GOLD"): the meta universe for a HIP-3 dex
+        # may list either form, and an exact-match-only check would wrongly flag every xyz instrument unsupported.
+        if names is not None and inst["coin"] not in names and inst["coin"].split(":", 1)[-1] not in names:
             UNSUPPORTED_INSTRUMENTS[sym] = f"'{inst['coin']}' not listed on dex '{inst['dex'] or 'core'}'"
             log.error("UNSUPPORTED instrument %s: %s -- skipped, no substitution.", sym, UNSUPPORTED_INSTRUMENTS[sym])
 
@@ -2550,6 +2552,7 @@ class TradeLifecycleManager:
             rec = asdict(sig)
             rec.update({
                 "tier": r.tier, "score": r.score,
+                "asset_class": resolve_instrument(sig.symbol)["type"],
                 "status": "pending" if sig.entry_kind == "pending" else "active",
                 "tp1_hit": False, "tp1_r": None, "mae_r": 0.0, "mfe_r": 0.0,
                 "last_checked_ts": sig.created_ts, "bars_pending": 0,
