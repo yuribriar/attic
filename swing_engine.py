@@ -1,7 +1,7 @@
 """
 ODYSSEY ADAPTIVE SIGNAL ENGINE -- v2.0.0
 ========================================
-Self-learning, multi-strategy crypto signal engine for Hyperliquid
+Self-learning, multi-strategy crypto/index/commodity signal engine for Hyperliquid
 perpetuals. Single-file, GitHub-Actions-ready.
 """
 
@@ -32,11 +32,63 @@ ENGINE_NAME = "Odyssey Adaptive Signal Engine"
 ENGINE_VERSION = "v2.0.1"
 
 
-WATCHLIST: List[str] = [
-    "BTC", "ETH", "HYPE", "ZEC", "NEAR", "ONDO", "SUI", "PENGU", "BNB", "SOL",
-    "TRX", "BCH", "DOGE", "ADA", "DOT", "TAO", "AVAX", "LINK", "AAVE", "XRP",
-    "XLM", "UNI", "LTC", "APT", "PENDLE",
+# Instrument registry. Key = display symbol used everywhere internally (state, alerts).
+# type: "crypto" -> Hyperliquid core perp dex; others -> HIP-3 builder dex "xyz" (coin prefixed "xyz:").
+# NOTE: non-crypto coin names are mapped from the trade.xyz deployment and are verified at scan start
+# via validate_instruments(); anything not listed by the exchange is reported and skipped, never substituted.
+INSTRUMENTS: Dict[str, Dict[str, str]] = {
+    "BTCUSD":    {"type": "crypto",    "coin": "BTC",  "dex": ""},
+    "ETHUSD":    {"type": "crypto",    "coin": "ETH",  "dex": ""},
+    "S&P500":    {"type": "index",     "coin": "xyz:SP500",    "dex": "xyz"},
+    "GOLD":      {"type": "commodity", "coin": "xyz:GOLD",     "dex": "xyz"},
+    "XYZ100":    {"type": "index",     "coin": "xyz:XYZ100",   "dex": "xyz"},
+    "SOLUSD":    {"type": "crypto",    "coin": "SOL",  "dex": ""},
+    "XRPUSD":    {"type": "crypto",    "coin": "XRP",  "dex": ""},
+    "ZECUSD":    {"type": "crypto",    "coin": "ZEC",  "dex": ""},
+    "LINKUSD":   {"type": "crypto",    "coin": "LINK", "dex": ""},
+    "BNBUSD":    {"type": "crypto",    "coin": "BNB",  "dex": ""},
+    "NEARUSD":   {"type": "crypto",    "coin": "NEAR", "dex": ""},
+    "HYPEUSD":   {"type": "crypto",    "coin": "HYPE", "dex": ""},
+    "AVAXUSD":   {"type": "crypto",    "coin": "AVAX", "dex": ""},
+    "SILVER":    {"type": "commodity", "coin": "xyz:SILVER",   "dex": "xyz"},
+    "COPPER":    {"type": "commodity", "coin": "xyz:COPPER",   "dex": "xyz"},
+    "BRENTOIL":  {"type": "commodity", "coin": "xyz:BRENTOIL", "dex": "xyz"},
+    "AAVEUSD":   {"type": "crypto",    "coin": "AAVE", "dex": ""},
+    "LTCUSD":    {"type": "crypto",    "coin": "LTC",  "dex": ""},
+    "DOGEUSD":   {"type": "crypto",    "coin": "DOGE", "dex": ""},
+    "TAOUSD":    {"type": "crypto",    "coin": "TAO",  "dex": ""},
+}
+
+MAIN_WATCHLIST: List[str] = [
+    "BTCUSD", "ETHUSD", "S&P500", "GOLD", "XYZ100", "SOLUSD",
+    "XRPUSD", "ZECUSD", "LINKUSD", "BNBUSD", "NEARUSD", "HYPEUSD",
 ]
+SECONDARY_WATCHLIST: List[str] = [
+    "AVAXUSD", "SILVER", "COPPER", "BRENTOIL", "AAVEUSD", "LTCUSD", "DOGEUSD", "TAOUSD",
+]
+WATCHLIST: List[str] = MAIN_WATCHLIST + SECONDARY_WATCHLIST
+assert len(MAIN_WATCHLIST) == 12 and len(SECONDARY_WATCHLIST) == 8 and len(set(WATCHLIST)) == 20
+assert all(sym in INSTRUMENTS for sym in WATCHLIST)
+
+# Legacy crypto keys (e.g. "BTC") may still exist in persisted state; resolve them transparently.
+_LEGACY_COIN_TO_SYMBOL: Dict[str, str] = {v["coin"]: k for k, v in INSTRUMENTS.items() if v["type"] == "crypto"}
+
+
+def resolve_instrument(symbol: str) -> Dict[str, str]:
+    """Display symbol (or legacy bare crypto coin from old state) -> {type, coin, dex}."""
+    inst = INSTRUMENTS.get(symbol)
+    if inst is None:
+        inst = INSTRUMENTS.get(_LEGACY_COIN_TO_SYMBOL.get(symbol, ""), {"type": "crypto", "coin": symbol, "dex": ""})
+    return inst
+
+
+def _legacy_key(symbol: str) -> str:
+    """Pre-update state key for a crypto display symbol (BTCUSD -> BTC); identity otherwise."""
+    inst = INSTRUMENTS.get(symbol)
+    return inst["coin"] if inst and inst["type"] == "crypto" else symbol
+
+
+UNSUPPORTED_INSTRUMENTS: Dict[str, str] = {}
 
 
 SECTOR_MAP: Dict[str, str] = {
@@ -50,6 +102,16 @@ SECTOR_MAP: Dict[str, str] = {
     "AAVE": "defi", "UNI": "defi",
     "ADA": "l1_alt", "HYPE": "exchange", "ZEC": "privacy",
 }
+
+# Display-symbol aliases for crypto (legacy bare keys retained for persisted active signals) + non-crypto sectors.
+for _sym, _inst in list(INSTRUMENTS.items()):
+    if _inst["type"] == "crypto" and _inst["coin"] in SECTOR_MAP:
+        SECTOR_MAP[_sym] = SECTOR_MAP[_inst["coin"]]
+SECTOR_MAP.update({
+    "S&P500": "index", "XYZ100": "index",
+    "GOLD": "precious_metals", "SILVER": "precious_metals",
+    "COPPER": "industrial_metals", "BRENTOIL": "energy",
+})
 
 
 FORBIDDEN_TIMEFRAMES = {"1m", "2m", "3m", "5m"}
@@ -444,13 +506,14 @@ class HyperliquidClient:
         if cached is not None:
             return cached
 
+        coin = resolve_instrument(symbol)["coin"]
         interval_ms = TF_MS[timeframe]
         end_time = int(time.time() * 1000)
         start_time = end_time - interval_ms * (lookback + 5)
         payload = {
             "type": "candleSnapshot",
             "req": {
-                "coin": symbol,
+                "coin": coin,
                 "interval": timeframe,
                 "startTime": start_time,
                 "endTime": end_time,
@@ -481,13 +544,40 @@ class HyperliquidClient:
 
     def get_mark_price(self, symbol: str) -> Optional[float]:
         self._throttle()
-        raw = http_post_json(self.base_url, {"type": "allMids"})
+        inst = resolve_instrument(symbol)
+        payload = {"type": "allMids"}
+        if inst["dex"]:
+            payload["dex"] = inst["dex"]
+        raw = http_post_json(self.base_url, payload)
         if not raw:
             return None
         try:
-            return float(raw.get(symbol))
+            return float(raw.get(inst["coin"]))
         except (TypeError, ValueError):
             return None
+
+
+def validate_instruments(client: HyperliquidClient) -> None:
+    """Check each watchlist instrument against the exchange's listed universe(s). Unlisted instruments
+    are recorded in UNSUPPORTED_INSTRUMENTS and skipped (never substituted). Network failure is non-fatal."""
+    UNSUPPORTED_INSTRUMENTS.clear()
+    listed: Dict[str, Optional[set]] = {}
+    for dex in sorted({INSTRUMENTS[s]["dex"] for s in WATCHLIST}):
+        payload = {"type": "meta"}
+        if dex:
+            payload["dex"] = dex
+        raw = http_post_json(client.base_url, payload)
+        try:
+            listed[dex] = {u["name"] for u in raw["universe"] if not u.get("isDelisted")}
+        except (KeyError, TypeError):
+            listed[dex] = None
+            log.warning("Could not fetch instrument universe for dex '%s'; listing check skipped.", dex or "core")
+    for sym in WATCHLIST:
+        inst = INSTRUMENTS[sym]
+        names = listed.get(inst["dex"])
+        if names is not None and inst["coin"] not in names:
+            UNSUPPORTED_INSTRUMENTS[sym] = f"'{inst['coin']}' not listed on dex '{inst['dex'] or 'core'}'"
+            log.error("UNSUPPORTED instrument %s: %s -- skipped, no substitution.", sym, UNSUPPORTED_INSTRUMENTS[sym])
 
 
 def to_arrays(candles: List[Candle]) -> Dict[str, np.ndarray]:
@@ -1773,7 +1863,8 @@ class StateStore:
     def cooldown_until(self, symbol: str) -> int:
         """Epoch-ms timestamp until which `symbol` is excluded from new
         signal generation. 0 if no cooldown is set."""
-        return self.data.setdefault("symbol_cooldowns", {}).get(symbol, 0)
+        cd = self.data.setdefault("symbol_cooldowns", {})
+        return max(cd.get(symbol, 0), cd.get(_legacy_key(symbol), 0))
 
     def set_cooldown(self, symbol: str, until_ts: int):
         self.data.setdefault("symbol_cooldowns", {})[symbol] = until_ts
@@ -1801,7 +1892,8 @@ class StateStore:
         return self.data["tier1"]["confluence_quality"].get(tag, 1.0)
 
     def asset_quality(self, symbol: str) -> float:
-        return self.data["tier1"]["asset_quality"].get(symbol, 1.0)
+        aq = self.data["tier1"]["asset_quality"]
+        return aq.get(symbol, aq.get(_legacy_key(symbol), 1.0))
 
     def setup_direction_quality(self, setup_type: str, direction: str) -> float:
         key = _setup_direction_key(setup_type, direction)
@@ -2919,8 +3011,11 @@ def run_scan(store: StateStore, client: HyperliquidClient, decision: DecisionEng
         log.info("Circuit breaker tripped and CIRCUIT_BREAKER_HALTS_SIGNALS is on — "
                   "scan continues in monitor-only mode.")
 
+    validate_instruments(client)
     scan_symbols = [s for s in WATCHLIST
-                     if s not in active_syms and store.cooldown_until(s) <= now_ms]
+                     if s not in UNSUPPORTED_INSTRUMENTS
+                     and s not in active_syms and _legacy_key(s) not in active_syms
+                     and store.cooldown_until(s) <= now_ms]
 
     if scan_symbols and not blackout and not cb_halt:
         with ThreadPoolExecutor(max_workers=min(SCAN_MAX_WORKERS, len(scan_symbols))) as pool:
