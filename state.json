@@ -432,16 +432,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 1351,
+        "seen": 1352,
         "rejected": 160
       },
       "liquidity_sanity": {
-        "seen": 1191,
+        "seen": 1192,
         "rejected": 23
       },
       "min_confidence": {
-        "seen": 1168,
-        "rejected": 943
+        "seen": 1169,
+        "rejected": 944
       },
       "min_score": {
         "seen": 225,
@@ -638,7 +638,7 @@
       },
       "2026-11-10": {
         "signals": 0,
-        "seen": 61
+        "seen": 62
       }
     },
     "last_signal_ts": 1793892652618,
@@ -1534,5 +1534,5 @@
     "BTC": 1793900700000,
     "LINK": 1793900700000
   },
-  "last_run_ts": 1794326461348
+  "last_run_ts": 1794328251720
 }
