@@ -57,19 +57,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 75,
+        "seen": 77,
         "rejected": 33
       },
       "liquidity_sanity": {
-        "seen": 42,
+        "seen": 44,
         "rejected": 1
       },
       "min_confidence": {
-        "seen": 41,
-        "rejected": 39
+        "seen": 43,
+        "rejected": 40
       },
       "min_score": {
-        "seen": 2,
+        "seen": 3,
         "rejected": 2
       }
     },
@@ -85,7 +85,7 @@
       "avg_rr": 1.7
     },
     "last_daily_summary_date": "2026-11-11",
-    "signals_generated_total": 0,
+    "signals_generated_total": 1,
     "first_run_ts": 1794336325082,
     "daily_signal_log": {
       "2026-11-10": {
@@ -93,16 +93,57 @@
         "seen": 5
       },
       "2026-11-11": {
-        "signals": 0,
-        "seen": 36
+        "signals": 1,
+        "seen": 38
       }
     },
-    "last_signal_ts": null,
+    "last_signal_ts": 1794430858172,
     "threshold_adapt": {}
   },
   "tier2_trade_log": [],
   "pending_signals": [],
-  "active_signals": [],
+  "active_signals": [
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "NEARUSD",
+      "direction": "long",
+      "entry": 3.714328900267737,
+      "sl": 3.6942929667559126,
+      "tp1": 3.7620125,
+      "tp2": 3.7712,
+      "confidence": 0.65,
+      "rr_tp1": 2.3799040710592485,
+      "rr_tp2": 2.838455203432385,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept",
+        "pure_sweep"
+      ],
+      "regime_at_signal": "expansion",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1794430851771,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "e4846a5a24ff",
+      "confidence_components": {
+        "base": 0.55,
+        "sweep_purity_bonus": 0.1
+      },
+      "tier": "A",
+      "score": 0.6919288544761317,
+      "asset_class": "crypto",
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1794430851771,
+      "bars_pending": 0,
+      "telegram_message_id": 9792
+    }
+  ],
   "symbol_cooldowns": {},
-  "last_run_ts": 1794428138741
+  "last_run_ts": 1794430858173
 }
