@@ -136,16 +136,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 79,
+        "seen": 81,
         "rejected": 33
       },
       "liquidity_sanity": {
-        "seen": 46,
+        "seen": 48,
         "rejected": 1
       },
       "min_confidence": {
-        "seen": 45,
-        "rejected": 42
+        "seen": 47,
+        "rejected": 44
       },
       "min_score": {
         "seen": 3,
@@ -178,7 +178,7 @@
       },
       "2026-11-11": {
         "signals": 1,
-        "seen": 40
+        "seen": 42
       }
     },
     "last_signal_ts": 1794430858172,
@@ -236,5 +236,5 @@
   "symbol_cooldowns": {
     "NEARUSD": 1794438900000
   },
-  "last_run_ts": 1794432965429
+  "last_run_ts": 1794433838561
 }
