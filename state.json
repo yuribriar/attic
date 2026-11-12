@@ -152,16 +152,16 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 112,
+        "seen": 113,
         "rejected": 34
       },
       "liquidity_sanity": {
-        "seen": 78,
+        "seen": 79,
         "rejected": 1
       },
       "min_confidence": {
-        "seen": 77,
-        "rejected": 68
+        "seen": 78,
+        "rejected": 69
       },
       "min_score": {
         "seen": 9,
@@ -202,7 +202,7 @@
       },
       "2026-11-12": {
         "signals": 3,
-        "seen": 17
+        "seen": 18
       }
     },
     "last_signal_ts": 1794473139326,
@@ -336,8 +336,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1794473100000,
-      "bars_pending": 1,
+      "last_checked_ts": 1794474000000,
+      "bars_pending": 2,
       "telegram_message_id": 9828
     },
     {
@@ -374,8 +374,8 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1794473136665,
-      "bars_pending": 0,
+      "last_checked_ts": 1794474000000,
+      "bars_pending": 1,
       "telegram_message_id": 9829
     }
   ],
@@ -383,5 +383,5 @@
     "NEARUSD": 1794438900000,
     "GOLD": 1794473100000
   },
-  "last_run_ts": 1794474050894
+  "last_run_ts": 1794474936716
 }
