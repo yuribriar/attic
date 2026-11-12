@@ -192,8 +192,8 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 130,
-        "rejected": 37
+        "seen": 131,
+        "rejected": 38
       },
       "liquidity_sanity": {
         "seen": 93,
@@ -442,5 +442,5 @@
     "AVAXUSD": 1794483000000,
     "SILVER": 1794489300000
   },
-  "last_run_ts": 1794505537764
+  "last_run_ts": 1794506453654
 }
