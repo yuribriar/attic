@@ -136,19 +136,19 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 101,
+        "seen": 103,
         "rejected": 34
       },
       "liquidity_sanity": {
-        "seen": 67,
+        "seen": 69,
         "rejected": 1
       },
       "min_confidence": {
-        "seen": 66,
-        "rejected": 62
+        "seen": 68,
+        "rejected": 63
       },
       "min_score": {
-        "seen": 4,
+        "seen": 5,
         "rejected": 3
       }
     },
@@ -169,7 +169,7 @@
       "avg_rr": 1.7
     },
     "last_daily_summary_date": "2026-11-11",
-    "signals_generated_total": 1,
+    "signals_generated_total": 2,
     "first_run_ts": 1794336325082,
     "daily_signal_log": {
       "2026-11-10": {
@@ -181,11 +181,11 @@
         "seen": 55
       },
       "2026-11-12": {
-        "signals": 0,
-        "seen": 6
+        "signals": 1,
+        "seen": 8
       }
     },
-    "last_signal_ts": 1794430858172,
+    "last_signal_ts": 1794451542973,
     "threshold_adapt": {}
   },
   "tier2_trade_log": [
@@ -236,9 +236,48 @@
     }
   ],
   "pending_signals": [],
-  "active_signals": [],
+  "active_signals": [
+    {
+      "setup_type": "liquidity_sweep",
+      "symbol": "GOLD",
+      "direction": "long",
+      "entry": 3975.7683984011746,
+      "sl": 3967.6946613372484,
+      "tp1": 3988.525,
+      "tp2": 3992.9375,
+      "confidence": 0.55,
+      "rr_tp1": 1.5800120189475053,
+      "rr_tp2": 2.1265371243680304,
+      "confluences": [
+        "liquidity_sweep_reclaim",
+        "sell_side_pool_swept"
+      ],
+      "regime_at_signal": "ranging",
+      "entry_kind": "pending",
+      "timeframe": "15m",
+      "created_ts": 1794451525880,
+      "entry_filled": false,
+      "pending_bars": 0,
+      "pending_expiry_bars": 12,
+      "signal_id": "70c440ef71e2",
+      "confidence_components": {
+        "base": 0.55
+      },
+      "tier": "B",
+      "score": 0.554246307355971,
+      "asset_class": "commodity",
+      "status": "pending",
+      "tp1_hit": false,
+      "tp1_r": null,
+      "mae_r": 0.0,
+      "mfe_r": 0.0,
+      "last_checked_ts": 1794451525880,
+      "bars_pending": 0,
+      "telegram_message_id": 9808
+    }
+  ],
   "symbol_cooldowns": {
     "NEARUSD": 1794438900000
   },
-  "last_run_ts": 1794450643045
+  "last_run_ts": 1794451542973
 }
