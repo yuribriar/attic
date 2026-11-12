@@ -71,6 +71,14 @@
           "sum_r": -1.0,
           "sum_conf": 0.55,
           "sum_conf_correct": 0.0
+        },
+        "SILVER": {
+          "n": 1,
+          "wins": 0,
+          "losses": 1,
+          "sum_r": -1.0,
+          "sum_conf": 0.65,
+          "sum_conf_correct": 0.0
         }
       },
       "by_regime": {
@@ -83,57 +91,57 @@
           "sum_conf_correct": 0.0
         },
         "ranging": {
-          "n": 2,
+          "n": 3,
           "wins": 0,
-          "losses": 2,
-          "sum_r": -2.0,
-          "sum_conf": 1.1,
+          "losses": 3,
+          "sum_r": -3.0,
+          "sum_conf": 1.75,
           "sum_conf_correct": 0.0
         }
       },
       "by_timeframe": {
         "15m": {
-          "n": 3,
+          "n": 4,
           "wins": 0,
-          "losses": 3,
-          "sum_r": -3.0,
-          "sum_conf": 1.7500000000000002,
+          "losses": 4,
+          "sum_r": -4.0,
+          "sum_conf": 2.4000000000000004,
           "sum_conf_correct": 0.0
         }
       },
       "by_engine": {
         "liquidity_sweep": {
-          "n": 3,
+          "n": 4,
           "wins": 0,
-          "losses": 3,
-          "sum_r": -3.0,
-          "sum_conf": 1.7500000000000002,
+          "losses": 4,
+          "sum_r": -4.0,
+          "sum_conf": 2.4000000000000004,
           "sum_conf_correct": 0.0
         }
       },
       "by_confluence": {
         "liquidity_sweep_reclaim": {
+          "n": 4,
+          "wins": 0,
+          "losses": 4,
+          "sum_r": -4.0,
+          "sum_conf": 2.4000000000000004,
+          "sum_conf_correct": 0.0
+        },
+        "sell_side_pool_swept": {
           "n": 3,
           "wins": 0,
           "losses": 3,
           "sum_r": -3.0,
-          "sum_conf": 1.7500000000000002,
+          "sum_conf": 1.85,
           "sum_conf_correct": 0.0
         },
-        "sell_side_pool_swept": {
+        "pure_sweep": {
           "n": 2,
           "wins": 0,
           "losses": 2,
           "sum_r": -2.0,
-          "sum_conf": 1.2000000000000002,
-          "sum_conf_correct": 0.0
-        },
-        "pure_sweep": {
-          "n": 1,
-          "wins": 0,
-          "losses": 1,
-          "sum_r": -1.0,
-          "sum_conf": 0.65,
+          "sum_conf": 1.3,
           "sum_conf_correct": 0.0
         },
         "buy_side_pool_swept": {
@@ -147,11 +155,11 @@
       },
       "by_direction": {
         "long": {
-          "n": 2,
+          "n": 3,
           "wins": 0,
-          "losses": 2,
-          "sum_r": -2.0,
-          "sum_conf": 1.2000000000000002,
+          "losses": 3,
+          "sum_r": -3.0,
+          "sum_conf": 1.85,
           "sum_conf_correct": 0.0
         },
         "short": {
@@ -165,11 +173,11 @@
       },
       "by_setup_direction": {
         "liquidity_sweep|long": {
-          "n": 2,
+          "n": 3,
           "wins": 0,
-          "losses": 2,
-          "sum_r": -2.0,
-          "sum_conf": 1.2000000000000002,
+          "losses": 3,
+          "sum_r": -3.0,
+          "sum_conf": 1.85,
           "sum_conf_correct": 0.0
         },
         "liquidity_sweep|short": {
@@ -206,6 +214,10 @@
       "reason": null
     },
     "rolling_live_trades": [
+      {
+        "r": -1.0,
+        "win": false
+      },
       {
         "r": -1.0,
         "win": false
@@ -375,10 +387,7 @@
       "outcome": "loss",
       "r_realized": -1.0,
       "forensic_tag": "chased_a_swept_liquidity_pool"
-    }
-  ],
-  "pending_signals": [],
-  "active_signals": [
+    },
     {
       "setup_type": "liquidity_sweep",
       "symbol": "SILVER",
@@ -410,21 +419,28 @@
       "tier": "B",
       "score": 0.5951596321317911,
       "asset_class": "commodity",
-      "status": "pending",
+      "status": "closed_loss",
       "tp1_hit": false,
       "tp1_r": null,
       "mae_r": -0.8032923499204765,
       "mfe_r": 0.01604662734903368,
-      "last_checked_ts": 1794481200000,
+      "last_checked_ts": 1794482100000,
       "bars_pending": 9,
       "telegram_message_id": 9828,
-      "fill_ts": 1794480300000
+      "fill_ts": 1794480300000,
+      "resolved_ts": 1794482100000,
+      "outcome": "loss",
+      "r_realized": -1.0,
+      "forensic_tag": "chased_a_swept_liquidity_pool"
     }
   ],
+  "pending_signals": [],
+  "active_signals": [],
   "symbol_cooldowns": {
     "NEARUSD": 1794438900000,
     "GOLD": 1794473100000,
-    "AVAXUSD": 1794483000000
+    "AVAXUSD": 1794483000000,
+    "SILVER": 1794489300000
   },
-  "last_run_ts": 1794482136623
+  "last_run_ts": 1794483046606
 }
