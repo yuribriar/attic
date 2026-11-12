@@ -271,13 +271,13 @@
       "tp1_r": null,
       "mae_r": 0.0,
       "mfe_r": 0.0,
-      "last_checked_ts": 1794455100000,
-      "bars_pending": 4,
+      "last_checked_ts": 1794456000000,
+      "bars_pending": 5,
       "telegram_message_id": 9808
     }
   ],
   "symbol_cooldowns": {
     "NEARUSD": 1794438900000
   },
-  "last_run_ts": 1794456051477
+  "last_run_ts": 1794456937977
 }
