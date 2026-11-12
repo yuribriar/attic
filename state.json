@@ -269,9 +269,9 @@
       "status": "pending",
       "tp1_hit": false,
       "tp1_r": null,
-      "mae_r": -0.08278674372009877,
+      "mae_r": -0.4172043719660703,
       "mfe_r": 0.610820188938248,
-      "last_checked_ts": 1794459600000,
+      "last_checked_ts": 1794460500000,
       "bars_pending": 7,
       "telegram_message_id": 9808,
       "fill_ts": 1794457800000
@@ -280,5 +280,5 @@
   "symbol_cooldowns": {
     "NEARUSD": 1794438900000
   },
-  "last_run_ts": 1794460561844
+  "last_run_ts": 1794461442764
 }
