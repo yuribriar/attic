@@ -358,6 +358,11 @@ def fmt_price(p: float) -> str:
     return f"{p:,.{dp}f}"
 
 
+def cp(p: float) -> str:
+    """Copy-friendly price: no thousands separators, in a code span (tap to copy in Telegram)."""
+    return f"`{fmt_price(p).replace(',', '')}`"
+
+
 def fmt_ts(ms: int) -> str:
     return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M")
 
@@ -1870,12 +1875,12 @@ def format_signal_message(sig: dict) -> str:
     L += [f"*Liquidity:* {esc(sig['liquidity'])}",
           f"*LTF trigger ({esc(sig['ltf'])}):* swept {p(lt['swept'])}, MSS close beyond {p(lt['mss_level'])}, breaker {p(lt['breaker_lo'])}–{p(lt['breaker_hi'])}",
           "",
-          f"*ENTRY (limit, 50%):* {p(sig['entry'])}  (zone {p(sig['zone_lo'])}–{p(sig['zone_hi'])})",
-          f"*SL:* {p(sig['sl'])}",
-          f"*TP1:* {p(sig['tp1'])} ({sig['rr_tp1']:.2f}R, take ~50%)",
-          f"*TP2:* {p(sig['tp2'])} ({sig['rr_tp2']:.2f}R)"]
+          f"*ENTRY (limit, 50%):* {cp(sig['entry'])}  (zone {p(sig['zone_lo'])}–{p(sig['zone_hi'])})",
+          f"*SL:* {cp(sig['sl'])}",
+          f"*TP1:* {cp(sig['tp1'])} ({sig['rr_tp1']:.2f}R, take ~50%)",
+          f"*TP2:* {cp(sig['tp2'])} ({sig['rr_tp2']:.2f}R)"]
     if sig.get("tp3"):
-        L.append(f"*TP3:* {p(sig['tp3'])}")
+        L.append(f"*TP3:* {cp(sig['tp3'])}")
     word = "below" if d == "LONG" else "above"
     L.append(f"*Invalidation:* HTF close {word} {p(sig['invalidation'])}")
     L.append(f"_Fill expires after {FILL_EXPIRY_BARS} {esc(sig['ltf'])} bars. Decision support only._")
