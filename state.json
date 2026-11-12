@@ -256,7 +256,7 @@
       "entry_kind": "pending",
       "timeframe": "15m",
       "created_ts": 1794451525880,
-      "entry_filled": false,
+      "entry_filled": true,
       "pending_bars": 0,
       "pending_expiry_bars": 12,
       "signal_id": "70c440ef71e2",
@@ -269,15 +269,16 @@
       "status": "pending",
       "tp1_hit": false,
       "tp1_r": null,
-      "mae_r": 0.0,
-      "mfe_r": 0.0,
-      "last_checked_ts": 1794456900000,
-      "bars_pending": 6,
-      "telegram_message_id": 9808
+      "mae_r": -0.08278674372009877,
+      "mfe_r": 0.3135600749418539,
+      "last_checked_ts": 1794457800000,
+      "bars_pending": 7,
+      "telegram_message_id": 9808,
+      "fill_ts": 1794457800000
     }
   ],
   "symbol_cooldowns": {
     "NEARUSD": 1794438900000
   },
-  "last_run_ts": 1794457841298
+  "last_run_ts": 1794458757166
 }
