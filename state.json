@@ -136,8 +136,8 @@
     },
     "filter_funnel": {
       "shape_validation": {
-        "seen": 99,
-        "rejected": 33
+        "seen": 100,
+        "rejected": 34
       },
       "liquidity_sanity": {
         "seen": 66,
@@ -240,5 +240,5 @@
   "symbol_cooldowns": {
     "NEARUSD": 1794438900000
   },
-  "last_run_ts": 1794446135215
+  "last_run_ts": 1794447042958
 }
