@@ -52,8 +52,6 @@ from typing import Any, Callable, Optional
 
 import requests
 
-import gold_costs as gc
-
 # =============================================================================
 # CONFIG
 # =============================================================================
@@ -1069,10 +1067,6 @@ class Plan:  # long space
     tp3: Optional[float]
     rr_tp1: float
     rr_tp2: float
-    net_rr_tp1: float = 0.0  # cost-adjusted (see gold_costs.py); rr_tp* stay GROSS
-    net_rr_tp2: float = 0.0
-    eff_risk: float = 0.0
-    cost_sl: float = 0.0
 
 
 @dataclass
@@ -1081,7 +1075,6 @@ class Analysis:
     variant: str
     status: str = "NO_SIGNAL"  # SIGNAL | WATCHING | NO_SIGNAL
     reason: str = ""
-    reject_code: str = ""  # machine-readable rejection reason ("" when not rejected)
     trace: list[str] = field(default_factory=list)
     score: float = 0.0
     signal: Optional[dict] = None
@@ -1285,26 +1278,21 @@ def find_ltf_trigger(L: list[Candle], z_lo: float, z_hi: float, mtf_zone: Option
 
 
 def build_plan(hm: HTFMap, trig: LTFTrigger) -> tuple[Optional[Plan], str]:
-    """Returns (plan, why). On rejection `why` is "CODE: detail" (machine-readable code first)."""
     entry, sl = trig.entry, trig.sl
     risk = entry - sl
     if risk <= 0:
-        return None, f"{gc.NON_POSITIVE_RISK}: non-positive risk"
+        return None, "non-positive risk"
     tp2 = hm.range_high
     rr2 = (tp2 - entry) / risk
     if rr2 < ABS_MIN_RR or rr2 < TP2_MIN_RR:
-        return None, f"{gc.NET_RR_BELOW_MIN}: gross R:R to TP2 {rr2:.2f} < {TP2_MIN_RR}"
-    # TP1 floor is NET: the nearest target that still pays TP1_MIN_R after costs
-    tp1_min = max(entry + TP1_MIN_R * risk, gc.min_tp_for_net_rr(entry, sl, max(TP1_MIN_R, gc.COSTS.min_net_rr_tp1)))
+        return None, f"R:R to TP2 {rr2:.2f} < {TP2_MIN_RR}"
+    tp1_min = entry + TP1_MIN_R * risk
     cands = [x for x in hm.irl_levels if tp1_min <= x < tp2]
     tp1 = min(cands) if cands else tp1_min
     tp3 = tp2 + TP3_EXTENSION * (hm.range_high - hm.range_low) if hm.strong else None
     if not (sl < entry < tp1 < tp2):
-        return None, f"{gc.NET_RR_BELOW_MIN}: sanity check failed (SL < entry < TP1 < TP2) after cost adjustment"
-    net = gc.evaluate_net(entry, sl, tp1, tp2)
-    if net.reject_code:
-        return None, f"{net.reject_code}: {net.reject_detail}"
-    return Plan(entry, sl, tp1, tp2, tp3, (tp1 - entry) / risk, rr2, net.net_rr_tp1, net.net_rr_tp2, net.eff_risk, net.cost_sl), ""
+        return None, "sanity check failed (SL < entry < TP1 < TP2)"
+    return Plan(entry, sl, tp1, tp2, tp3, (tp1 - entry) / risk, rr2), ""
 
 
 # --- Score -------------------------------------------------------------------
@@ -1436,7 +1424,6 @@ def analyze_setup(direction: str, variant: Variant, htf_c: list[Candle], mtf_c: 
     plan, why_p = build_plan(hm, trig)
     if plan is None:
         an.reason = f"Risk plan rejected: {why_p}"
-        an.reject_code = why_p.split(":", 1)[0] if ":" in why_p else "PLAN_REJECTED"
         tr(an.reason)
         return an
     if abs(plan.entry - cur) > ENTRY_MAX_DIST_ATR * atr_l:
@@ -1471,7 +1458,6 @@ def analyze_setup(direction: str, variant: Variant, htf_c: list[Candle], mtf_c: 
         "entry": s * plan.entry, "zone_lo": bl, "zone_hi": bh,
         "sl": s * plan.sl, "tp1": s * plan.tp1, "tp2": s * plan.tp2, "tp3": (s * plan.tp3) if plan.tp3 is not None else None,
         "rr_tp1": plan.rr_tp1, "rr_tp2": plan.rr_tp2,
-        "net_rr_tp1": plan.net_rr_tp1, "net_rr_tp2": plan.net_rr_tp2, "eff_risk": plan.eff_risk, "cost_sl": plan.cost_sl,
         "score": score, "score_breakdown": bd, "alt_score": alt_score, "weights_ver": WEIGHTS_VER,
         "mtf_mode": mtf_mode, "mtf_aligned": mtf_res.aligned, "mtf_checks": mtf_res.checks(), "mtf_zone": mz,
         "htf_map": {"trend": "uptrend" if s > 0 else "downtrend", "range_low": rl, "range_high": rh, "eq": s * hm.eq,
@@ -1535,7 +1521,7 @@ def step_signal(sig: dict, c: Candle) -> list[str]:
     if st in ("ACTIVE", "TP1_HIT"):
         if fc.l <= sl:
             if sig["tp1_hit"]:
-                _close(sig, "WIN", gc.realized_r(sig, "TP1_THEN_SL"), c.t, "TP1_THEN_SL")  # SL after TP1 -> WIN credited at TP1's R (TP1 before SL = WIN)
+                _close(sig, "WIN", float(sig["rr_tp1"]), c.t, "TP1_THEN_SL")  # SL after TP1 -> WIN credited at TP1's R (TP1 before SL = WIN)
                 ev.append("WIN")
             else:
                 _close(sig, "LOSS", -1.0, c.t)
@@ -1545,7 +1531,7 @@ def step_signal(sig: dict, c: Candle) -> list[str]:
             if not sig["tp1_hit"]:
                 sig["tp1_hit"] = True
                 ev.append("TP1")
-            _close(sig, "WIN", gc.realized_r(sig, "TP2"), c.t, "TP2")
+            _close(sig, "WIN", float(sig["rr_tp2"]), c.t, "TP2")
             ev.append("WIN")
             return ev
         if st == "ACTIVE" and fc.h >= tp1:
@@ -1889,8 +1875,8 @@ def format_signal_message(sig: dict) -> str:
           "",
           f"*ENTRY (limit, 50%):* {cp(sig['entry'])}  (zone {p(sig['zone_lo'])}–{p(sig['zone_hi'])})",
           f"*SL:* {cp(sig['sl'])}",
-          f"*TP1:* {cp(sig['tp1'])} ({sig.get('net_rr_tp1', sig['rr_tp1']):.2f}R net / {sig['rr_tp1']:.2f}R gross, take ~50%)",
-          f"*TP2:* {cp(sig['tp2'])} ({sig.get('net_rr_tp2', sig['rr_tp2']):.2f}R net / {sig['rr_tp2']:.2f}R gross)"]
+          f"*TP1:* {cp(sig['tp1'])} ({sig['rr_tp1']:.2f}R, take ~50%)",
+          f"*TP2:* {cp(sig['tp2'])} ({sig['rr_tp2']:.2f}R)"]
     if sig.get("tp3"):
         L.append(f"*TP3:* {cp(sig['tp3'])}")
     word = "below" if d == "LONG" else "above"
@@ -1903,7 +1889,7 @@ def format_lifecycle_message(sig: dict, event: str) -> str:
     p = fmt_price
     head = f"*{esc(sig['label'])}* {sig['direction']} {esc(sig['chain'])}"
     if event == "TP1":
-        return f"🎯 {head}\nTP1 hit at {p(sig['tp1'])} (+{sig.get('net_rr_tp1', sig['rr_tp1']):.2f}R net). SL unchanged at {p(sig['sl'])} — consider moving to breakeven manually."
+        return f"🎯 {head}\nTP1 hit at {p(sig['tp1'])} (+{sig['rr_tp1']:.2f}R). SL unchanged at {p(sig['sl'])} — consider moving to breakeven manually."
     if event == "WIN":
         wt = sig.get("win_type")
         how = ("TP2 hit" if wt == "TP2" else "stopped after TP1") if wt else (
