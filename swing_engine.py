@@ -15,14 +15,11 @@ Usage
   python framework_signal_engine.py --dry-run            print signals, no Telegram / no state writes
   python framework_signal_engine.py --symbol GOLD --profile SWING --explain
   python framework_signal_engine.py --mtf-mode gate|bonus|off
-  python framework_signal_engine.py --backtest 30
-  python framework_signal_engine.py --backtest 30 --compare-mtf
-  python framework_signal_engine.py --self-test
   python framework_signal_engine.py --learn-report       show what the engine has learned so far
 
 Self-learning (v2)
 ------------------
-A trade is a WIN when TP1 is hit before the SL (also if the SL is hit after TP1).  The engine learns from
+A trade is a WIN when the TP is hit before the SL.  The engine learns from
 those outcomes, slowly and inside hard bounds:
   * score-component weights  (SHADOW by default: learned, logged, compared, not used until LEARN_WEIGHTS=live)
   * per-variant MIN_SCORE    (only ever raised above your MIN_SCORE, auto-relaxes back)
@@ -33,7 +30,6 @@ Env: LEARN_MODE=on|off  LEARN_WEIGHTS=shadow|live|off  LEARN_GUARDS=on|off
 from __future__ import annotations
 
 import argparse
-import bisect
 import copy
 import fcntl
 import json
@@ -125,7 +121,6 @@ OTE_HI_RET = 0.786
 OTE_SWEET_RET = 0.705
 HTF_MSB_MAX_AGE = 60  # HTF bars: latest bullish MSB must be this recent
 ERL_FRESH_BARS = 20  # HTF bars: ERL "fresh" if the MSB is this recent
-STRONG_LOOKBACK = 30  # HTF bars for the "strong trend" (TP3) test
 HTF_TAP_BARS = 3  # HTF bars: "just tapped" window
 WATCH_NEAR_ATR = 1.5  # HTF ATRs: "near" a PD array (watching digest)
 OB_MAX_CANDLES = 3  # consecutive candles combined into one order block
@@ -141,10 +136,9 @@ ZONE_TOL_ATR = 0.25  # LTF ATRs tolerance for "inside zone"
 
 # --- risk plan --------------------------------------------------------------
 SL_ATR_BUFFER = 0.15  # x ATR(14, LTF)
-TP1_MIN_R = 1.5
-TP2_MIN_RR = 2.0
+TP_MIN_R = 1.5  # TP = nearest internal-range level at >= this R (else exactly this R)
+MIN_ROOM_RR = 2.0  # entry filter: HTF range extreme must offer at least this R (not a target)
 ABS_MIN_RR = 1.5
-TP3_EXTENSION = 0.272  # fraction of range size beyond the extreme
 ENTRY_MAX_DIST_ATR = 1.5
 
 # --- score weights (sum == 100) ---------------------------------------------
@@ -166,7 +160,7 @@ RR_BONUS_THRESHOLD = 3.0
 # --- lifecycle --------------------------------------------------------------
 FILL_EXPIRY_BARS = 16
 COOLDOWN_BARS = 6
-OPEN_STATES = ("PENDING_FILL", "ACTIVE", "TP1_HIT")
+OPEN_STATES = ("PENDING_FILL", "ACTIVE", "TP1_HIT")  # TP1_HIT = legacy status from older state files; resolved as WIN on the next candle
 TERMINAL_STATES = ("WIN", "LOSS", "EXPIRED")
 
 # --- state retention / digests ----------------------------------------------
@@ -555,15 +549,13 @@ DEFAULT_STATE: dict[str, Any] = {
 }
 
 SIGNAL_DEFAULTS: dict[str, Any] = {
-    "tp3": None,
-    "tp1_hit": False,
     "bars_waited": 0,
     "filled_ms": None,
     "closed_ms": None,
     "result_r": None,
     "tg_message_id": None,
     "mtf_mode": "bonus",
-    "win_type": None,  # "TP2" | "TP1_THEN_SL" | "SL" | "EXPIRED"
+    "win_type": None,  # "TP" | "SL" | "EXPIRED"
     "alt_score": None,  # score under the OTHER weight set (learned in shadow mode, defaults in live mode)
     "weights_ver": 0,
     "mtf_aligned": False,
@@ -582,6 +574,18 @@ def _merge_defaults(default: Any, loaded: Any) -> Any:
             out[k] = _merge_defaults(default[k], v) if k in default else v
         return out
     return loaded
+
+
+def _migrate_single_tp(r: dict) -> dict:
+    """Older state files stored tp1/tp2/tp3. The old TP1 is the single TP now; TP2/TP3 are dropped."""
+    if "tp1" in r:
+        r = dict(r)
+        r["tp"] = r.pop("tp1")
+        r["rr_tp"] = r.pop("rr_tp1", 0.0)
+        r["rr_room"] = r.pop("rr_tp2", 0.0)
+        for k in ("tp2", "tp3", "tp1_hit"):
+            r.pop(k, None)
+    return r
 
 
 class StateStore:
@@ -628,7 +632,7 @@ class StateStore:
         st = _merge_defaults(DEFAULT_STATE, loaded if isinstance(loaded, dict) else {})
         for g in BUCKET_GROUPS:
             st[g] = {k: _merge_defaults(new_bucket(), b) for k, b in st[g].items()}
-        st["signals"] = [{**SIGNAL_DEFAULTS, **r} for r in st["signals"]]
+        st["signals"] = [{**SIGNAL_DEFAULTS, **_migrate_single_tp(r)} for r in st["signals"]]
         self.state = st
         return st
 
@@ -747,7 +751,7 @@ MTF_KEYS = ("mtf_b", "mtf_c", "mtf_d", "mtf_e")
 FIXED_KEYS = ("htf_trend", "ltf_mss")  # always on -> nothing to learn, never rescaled
 LEARNABLE = ("entry_zone", "ote", "stacked", "erl_fresh", "rr3") + MTF_KEYS
 
-# Runtime weight state (set once per scan from state.json by apply_learning_to_runtime; backtests keep the defaults).
+# Runtime weight state (set once per scan from state.json by apply_learning_to_runtime).
 WEIGHT_MULT: dict[str, float] = {}  # multipliers used for the LIVE score
 ALT_MULT: dict[str, float] = {}  # multipliers for the ALT score (shadow comparison); empty = defaults
 MIN_SCORE_BY_VARIANT: dict[str, float] = {}  # learned per-variant min score (>= MIN_SCORE)
@@ -1016,7 +1020,6 @@ class HTFMap:  # all prices in long space
     stacked: int
     in_ote: bool
     atr: float
-    strong: bool
     erl_fresh: bool
     irl_levels: list[float]
     guide: str
@@ -1062,11 +1065,9 @@ class LTFTrigger:  # long space
 class Plan:  # long space
     entry: float
     sl: float
-    tp1: float
-    tp2: float
-    tp3: Optional[float]
-    rr_tp1: float
-    rr_tp2: float
+    tp: float
+    rr_tp: float
+    rr_room: float  # R:R to the HTF range extreme (entry filter + score bonus only)
 
 
 @dataclass
@@ -1152,11 +1153,10 @@ def build_htf_map(H: list[Candle]) -> tuple[Optional[HTFMap], str, list[str]]:
     best = max(cands, key=key)
     stacked = sum(1 for o in arrays if o is not best and _overlap(best, o))
     in_ote = best.hi >= ote_lo and best.lo <= ote_hi
-    strong = sum(1 for b in brks if b.kind == "MSB" and n - 1 - b.idx <= STRONG_LOOKBACK) >= 2
     irl = [eq] + [x.price for x in sw if x.kind == "H" and x.idx >= low_idx and lo < x.price < hi]
     irl += [a.lo for a in arrays if a is not best and a.lo > lo]
     lines.append(f"PD array: {best.kind} {fmt_price(best.lo)}–{fmt_price(best.hi)} stacked={stacked} in_ote={in_ote} guide={guide or '-'}")
-    hm = HTFMap(lo, hi, low_idx, H[low_idx].t, peak_idx, eq, ote_lo, ote_hi, sweet, m.idx, age, best, stacked, in_ote, atr, strong,
+    hm = HTFMap(lo, hi, low_idx, H[low_idx].t, peak_idx, eq, ote_lo, ote_hi, sweet, m.idx, age, best, stacked, in_ote, atr,
                 age <= ERL_FRESH_BARS, sorted(set(irl)), guide)
     return hm, "", lines
 
@@ -1282,17 +1282,16 @@ def build_plan(hm: HTFMap, trig: LTFTrigger) -> tuple[Optional[Plan], str]:
     risk = entry - sl
     if risk <= 0:
         return None, "non-positive risk"
-    tp2 = hm.range_high
-    rr2 = (tp2 - entry) / risk
-    if rr2 < ABS_MIN_RR or rr2 < TP2_MIN_RR:
-        return None, f"R:R to TP2 {rr2:.2f} < {TP2_MIN_RR}"
-    tp1_min = entry + TP1_MIN_R * risk
-    cands = [x for x in hm.irl_levels if tp1_min <= x < tp2]
-    tp1 = min(cands) if cands else tp1_min
-    tp3 = tp2 + TP3_EXTENSION * (hm.range_high - hm.range_low) if hm.strong else None
-    if not (sl < entry < tp1 < tp2):
-        return None, "sanity check failed (SL < entry < TP1 < TP2)"
-    return Plan(entry, sl, tp1, tp2, tp3, (tp1 - entry) / risk, rr2), ""
+    room = hm.range_high
+    rr_room = (room - entry) / risk
+    if rr_room < ABS_MIN_RR or rr_room < MIN_ROOM_RR:
+        return None, f"R:R to HTF range high {rr_room:.2f} < {MIN_ROOM_RR}"
+    tp_min = entry + TP_MIN_R * risk
+    cands = [x for x in hm.irl_levels if tp_min <= x < room]
+    tp = min(cands) if cands else tp_min
+    if not (sl < entry < tp < room):
+        return None, "sanity check failed (SL < entry < TP < range high)"
+    return Plan(entry, sl, tp, (tp - entry) / risk, rr_room), ""
 
 
 # --- Score -------------------------------------------------------------------
@@ -1309,7 +1308,7 @@ def compute_score(hm: HTFMap, plan: Plan, mtf: MTFResult, mode: str,
         "stacked": hm.stacked >= 1,
         "erl_fresh": bool(hm.erl_fresh),
         "ltf_mss": True,
-        "rr3": plan.rr_tp2 >= RR_BONUS_THRESHOLD,
+        "rr3": plan.rr_room >= RR_BONUS_THRESHOLD,
     }
     if mode != "off":
         on["mtf_b"], on["mtf_c"], on["mtf_d"], on["mtf_e"] = bool(mtf.b), bool(mtf.c), bool(mtf.d), bool(mtf.e)
@@ -1456,8 +1455,7 @@ def analyze_setup(direction: str, variant: Variant, htf_c: list[Candle], mtf_c: 
     an.signal = {
         "price": cur_price,
         "entry": s * plan.entry, "zone_lo": bl, "zone_hi": bh,
-        "sl": s * plan.sl, "tp1": s * plan.tp1, "tp2": s * plan.tp2, "tp3": (s * plan.tp3) if plan.tp3 is not None else None,
-        "rr_tp1": plan.rr_tp1, "rr_tp2": plan.rr_tp2,
+        "sl": s * plan.sl, "tp": s * plan.tp, "rr_tp": plan.rr_tp, "rr_room": plan.rr_room,
         "score": score, "score_breakdown": bd, "alt_score": alt_score, "weights_ver": WEIGHTS_VER,
         "mtf_mode": mtf_mode, "mtf_aligned": mtf_res.aligned, "mtf_checks": mtf_res.checks(), "mtf_zone": mz,
         "htf_map": {"trend": "uptrend" if s > 0 else "downtrend", "range_low": rl, "range_high": rh, "eq": s * hm.eq,
@@ -1484,7 +1482,7 @@ def make_signal_record(inst: Instrument, v: Variant, an: Analysis, mode: str, cr
         "symbol": inst.id, "label": inst.label, "asset_class": inst.asset_class, "hl_coin": inst.hl_coin, "hl_dex": inst.hl_dex,
         "direction": an.direction, "profile": v.profile, "variant": v.name, "chain": v.chain, "htf": v.htf, "mtf": v.mtf, "ltf": v.ltf,
         "mtf_mode": mode, "status": "PENDING_FILL", "created_ms": created_ms, "signal_bar_ms": an.ltf_last_t,
-        "last_checked_ms": an.ltf_last_t, "trigger_key": an.trigger_key, "tp1_hit": False, "bars_waited": 0,
+        "last_checked_ms": an.ltf_last_t, "trigger_key": an.trigger_key, "bars_waited": 0,
     }
     return rec
 
@@ -1495,11 +1493,11 @@ def _close(sig: dict, status: str, r: float, t: int, win_type: Optional[str] = N
 
 
 def step_signal(sig: dict, c: Candle) -> list[str]:
-    """Advance one signal by ONE closed LTF candle (shared by live monitor and backtest).
-    Returns events: FILLED, TP1, WIN, LOSS, EXPIRED.  If SL and TP share a candle, SL is assumed first."""
+    """Advance one signal by ONE closed LTF candle.
+    Returns events: FILLED, WIN, LOSS, EXPIRED.  If SL and TP share a candle, SL is assumed first."""
     s = sign_of(sig["direction"])
     fc = flip([c], s)[0]
-    entry, sl, tp1, tp2 = s * sig["entry"], s * sig["sl"], s * sig["tp1"], s * sig["tp2"]
+    entry, sl, tp = s * sig["entry"], s * sig["sl"], s * sig["tp"]
     ev: list[str] = []
     st = sig["status"]
     if st == "PENDING_FILL":
@@ -1511,32 +1509,23 @@ def step_signal(sig: dict, c: Candle) -> list[str]:
                 _close(sig, "LOSS", -1.0, c.t)
                 ev.append("LOSS")
             return ev
-        if fc.h >= tp1:
+        if fc.h >= tp:
             _close(sig, "EXPIRED", 0.0, c.t)
             return ["EXPIRED"]
         if sig["bars_waited"] >= FILL_EXPIRY_BARS:
             _close(sig, "EXPIRED", 0.0, c.t)
             return ["EXPIRED"]
         return ev
-    if st in ("ACTIVE", "TP1_HIT"):
+    if st == "TP1_HIT":  # legacy: the (old) TP1 was already reached -> that is the single TP now
+        _close(sig, "WIN", float(sig["rr_tp"]), c.t, "TP")
+        return ["WIN"]
+    if st == "ACTIVE":
         if fc.l <= sl:
-            if sig["tp1_hit"]:
-                _close(sig, "WIN", float(sig["rr_tp1"]), c.t, "TP1_THEN_SL")  # SL after TP1 -> WIN credited at TP1's R (TP1 before SL = WIN)
-                ev.append("WIN")
-            else:
-                _close(sig, "LOSS", -1.0, c.t)
-                ev.append("LOSS")
-            return ev
-        if fc.h >= tp2:
-            if not sig["tp1_hit"]:
-                sig["tp1_hit"] = True
-                ev.append("TP1")
-            _close(sig, "WIN", float(sig["rr_tp2"]), c.t, "TP2")
+            _close(sig, "LOSS", -1.0, c.t)
+            ev.append("LOSS")
+        elif fc.h >= tp:
+            _close(sig, "WIN", float(sig["rr_tp"]), c.t, "TP")
             ev.append("WIN")
-            return ev
-        if st == "ACTIVE" and fc.h >= tp1:
-            sig["status"], sig["tp1_hit"] = "TP1_HIT", True
-            ev.append("TP1")
     return ev
 
 
@@ -1575,7 +1564,7 @@ def monitor_active_signals(state: dict, store: CandleStore, tg: Optional["Telegr
 # =============================================================================
 # SELF-LEARNING
 # =============================================================================
-# Target: WIN = TP1 reached before the SL (or SL after TP1).  Everything is slow, bounded and reversible.
+# Target: WIN = TP reached before the SL.  Everything is slow, bounded and reversible.
 
 
 def learn_on_resolve(state: dict, sig: dict) -> None:
@@ -1875,10 +1864,7 @@ def format_signal_message(sig: dict) -> str:
           "",
           f"*ENTRY (limit, 50%):* {cp(sig['entry'])}  (zone {p(sig['zone_lo'])}–{p(sig['zone_hi'])})",
           f"*SL:* {cp(sig['sl'])}",
-          f"*TP1:* {cp(sig['tp1'])} ({sig['rr_tp1']:.2f}R, take ~50%)",
-          f"*TP2:* {cp(sig['tp2'])} ({sig['rr_tp2']:.2f}R)"]
-    if sig.get("tp3"):
-        L.append(f"*TP3:* {cp(sig['tp3'])}")
+          f"*TP:* {cp(sig['tp'])} ({sig['rr_tp']:.2f}R)"]
     word = "below" if d == "LONG" else "above"
     L.append(f"*Invalidation:* HTF close {word} {p(sig['invalidation'])}")
     L.append(f"_Fill expires after {FILL_EXPIRY_BARS} {esc(sig['ltf'])} bars. Decision support only._")
@@ -1888,16 +1874,11 @@ def format_signal_message(sig: dict) -> str:
 def format_lifecycle_message(sig: dict, event: str) -> str:
     p = fmt_price
     head = f"*{esc(sig['label'])}* {sig['direction']} {esc(sig['chain'])}"
-    if event == "TP1":
-        return f"🎯 {head}\nTP1 hit at {p(sig['tp1'])} (+{sig['rr_tp1']:.2f}R). SL unchanged at {p(sig['sl'])} — consider moving to breakeven manually."
     if event == "WIN":
-        wt = sig.get("win_type")
-        how = ("TP2 hit" if wt == "TP2" else "stopped after TP1") if wt else (
-            "TP2 hit" if sig["result_r"] and abs(sig["result_r"] - sig["rr_tp2"]) < 1e-9 and sig["tp1_hit"] and sig["closed_ms"] else "stopped after TP1")
-        return f"✅ {head}\nWIN ({how}) — {sig['result_r']:+.2f}R"
+        return f"✅ {head}\nWIN — TP hit at {p(sig['tp'])} ({sig['result_r']:+.2f}R)"
     if event == "LOSS":
         return f"❌ {head}\nLOSS — stopped out at {p(sig['sl'])} (-1.00R)"
-    return f"⌛ {head}\nEXPIRED — entry not filled (or TP1/invalid before fill). Excluded from stats."
+    return f"⌛ {head}\nEXPIRED — entry not filled (or TP reached before fill). Excluded from stats."
 
 
 def _agg(recs: list[dict]) -> dict[str, float]:
@@ -2210,323 +2191,6 @@ def run_explain(args: argparse.Namespace, mtf_mode: str, directions: tuple[str, 
     return 0
 
 
-# =============================================================================
-# BACKTEST
-# =============================================================================
-
-
-def bt_stats(trades: list[dict]) -> dict[str, float]:
-    res = [t for t in trades if t["status"] in ("WIN", "LOSS")]
-    n = len(res)
-    wins = sum(1 for t in res if t["status"] == "WIN")
-    gp = sum(t["r"] for t in res if t["r"] > 0)
-    gl = abs(sum(t["r"] for t in res if t["r"] < 0))
-    eq = peak = dd = 0.0
-    for t in sorted(res, key=lambda x: x["t_close"]):
-        eq += t["r"]
-        peak = max(peak, eq)
-        dd = max(dd, peak - eq)
-    return {"n": n, "wr": wins / n * 100 if n else 0.0, "pf": (gp / gl) if gl else (float("inf") if gp > 0 else 0.0),
-            "avg_r": eq / n if n else 0.0, "total_r": eq, "max_dd": dd}
-
-
-def _row(label: str, st: dict) -> str:
-    pf = "inf" if st["pf"] == float("inf") else f"{st['pf']:.2f}"
-    return f"{label:<26}{int(st['n']):>6}{st['wr']:>8.1f}%{pf:>8}{st['avg_r']:>+9.2f}{st['max_dd']:>9.2f}{st['total_r']:>+10.2f}"
-
-
-HEADER = f"{'':<26}{'n':>6}{'WR':>9}{'PF':>8}{'avgR':>9}{'maxDD':>9}{'totalR':>10}"
-
-
-def bt_collect(client: HyperliquidClient, insts: list[Instrument], variants: list[Variant], days: int, need_mtf: bool, now_ms: int) -> dict[tuple[str, str], list[Candle]]:
-    data: dict[tuple[str, str], list[Candle]] = {}
-    tasks: set[tuple[str, str]] = set()
-    for i in insts:
-        for v in variants:
-            tasks.update({(i.hl_coin, v.htf), (i.hl_coin, v.ltf)})
-            if need_mtf:
-                tasks.add((i.hl_coin, v.mtf))
-    start0 = now_ms - days * DAY_MS
-
-    def fetch(task: tuple[str, str]) -> tuple[tuple[str, str], list[Candle]]:
-        coin, tf = task
-        try:
-            rows = client.candles_range(coin, tf, start0 - (CANDLE_COUNTS[tf] + 2) * TF_MS[tf], now_ms)
-        except Exception as e:  # noqa: BLE001
-            log.warning("backtest fetch failed %s %s: %s", coin, tf, e)
-            rows = []
-        return task, [c for c in map(candle_from_row, rows) if is_closed(c, tf, now_ms)]
-
-    with ThreadPoolExecutor(max_workers=SCAN_WORKERS) as ex:
-        for task, cs in ex.map(fetch, sorted(tasks)):
-            data[task] = cs
-            log.info("backtest data %s %s: %d candles", task[0], task[1], len(cs))
-    return data
-
-
-def bt_run_mode(data: dict[tuple[str, str], list[Candle]], insts: list[Instrument], variants: list[Variant], directions: tuple[str, ...],
-                mode: str, days: int, now_ms: int) -> list[dict]:
-    """Bar-by-bar replay with the SAME analyze_setup(); only candles closed at each bar are visible."""
-    trades: list[dict] = []
-    t_start = now_ms - days * DAY_MS
-    for inst in insts:
-        for v in variants:
-            htf, ltf = data.get((inst.hl_coin, v.htf), []), data.get((inst.hl_coin, v.ltf), [])
-            mtf = data.get((inst.hl_coin, v.mtf), []) if mode != "off" else None
-            if len(htf) < MIN_HISTORY or len(ltf) < MIN_HISTORY:
-                log.info("backtest %s %s: insufficient history", inst.label, v.name)
-                continue
-            if mode == "gate" and (not mtf or len(mtf) < MIN_HISTORY):
-                continue
-            Th = [c.T for c in htf]
-            Tm = [c.T for c in mtf] if mtf else []
-            cache: dict = {}
-            open_sig: Optional[dict] = None
-            cooldown_until = 0
-            seen: set[str] = set()
-            ltf_ms = TF_MS[v.ltf]
-            for i, c in enumerate(ltf):
-                if c.t < t_start:
-                    continue
-                if open_sig is not None:
-                    step_signal(open_sig, c)
-                    if open_sig["status"] in TERMINAL_STATES:
-                        trades.append({"symbol": inst.label, "profile": v.profile, "variant": v.name, "direction": open_sig["direction"],
-                                       "aligned": bool(open_sig["mtf_aligned"]), "status": open_sig["status"], "r": float(open_sig["result_r"] or 0),
-                                       "t_open": open_sig["created_ms"], "t_close": c.t, "score": open_sig["score"], "win_type": open_sig.get("win_type")})
-                        cooldown_until = c.t + COOLDOWN_BARS * ltf_ms
-                        open_sig = None
-                    continue
-                if c.t < cooldown_until:
-                    continue
-                bar_close = c.T + 1
-                nh = bisect.bisect_left(Th, bar_close)
-                hs = htf[max(0, nh - CANDLE_COUNTS[v.htf]):nh]
-                ms = None
-                if mtf is not None:
-                    nm = bisect.bisect_left(Tm, bar_close)
-                    ms = mtf[max(0, nm - CANDLE_COUNTS[v.mtf]):nm]
-                    if mode == "gate" and len(ms) < MIN_HISTORY:
-                        continue
-                ls = ltf[max(0, i + 1 - CANDLE_COUNTS[v.ltf]):i + 1]
-                if len(hs) < MIN_HISTORY or len(ls) < MIN_HISTORY:
-                    continue
-                best: Optional[Analysis] = None
-                for d in directions:
-                    an = analyze_setup(d, v, hs, ms, ls, c.c, mode, cache)
-                    if an.status == "SIGNAL" and an.trigger_key not in seen and (best is None or an.score > best.score):
-                        best = an
-                if best is not None:
-                    seen.add(best.trigger_key)
-                    open_sig = make_signal_record(inst, v, best, mode, c.t)
-    # cross-variant dedup: one open signal per (symbol, profile) at a time
-    trades.sort(key=lambda t: (t["symbol"], t["profile"], t["t_open"], -t["score"]))
-    out: list[dict] = []
-    busy: dict[tuple, int] = {}
-    for t in trades:
-        k = (t["symbol"], t["profile"])
-        if t["t_open"] < busy.get(k, 0):
-            continue
-        busy[k] = t["t_close"]
-        out.append(t)
-    return out
-
-
-def print_bt_report(trades: list[dict], mode: str, days: int) -> None:
-    print(f"\n=== BACKTEST {days}d | MTF_MODE={mode} ===")
-    print(HEADER)
-    print(_row("ALL", bt_stats(trades)))
-    for title, key in (("symbol", "symbol"), ("profile", "profile"), ("direction", "direction"), ("alignment", "aligned")):
-        print(f"--- by {title}")
-        for k in sorted({t[key] for t in trades}, key=str):
-            lab = ("aligned" if k else "not aligned") if key == "aligned" else str(k)
-            print(_row(lab, bt_stats([t for t in trades if t[key] == k])))
-
-
-def run_backtest(args: argparse.Namespace, mtf_mode: str, directions: tuple[str, ...], variants: list[Variant]) -> int:
-    days = int(args.backtest)
-    client = HyperliquidClient()
-    valid, _, skipped = validate_watchlist(client)
-    for m in skipped:
-        log.warning("SKIPPED: %s", m)
-    insts = select_instruments(valid, args.symbol)
-    if args.profile:
-        variants = [v for v in variants if v.profile == args.profile.upper()]
-    now_ms = int(time.time() * 1000)
-    modes = list(VALID_MTF_MODES) if args.compare_mtf else [mtf_mode]
-    data = bt_collect(client, insts, variants, days, any(m != "off" for m in modes), now_ms)
-    results = {m: bt_run_mode(data, insts, variants, directions, m, days, now_ms) for m in modes}
-    if not args.compare_mtf:
-        print_bt_report(results[mtf_mode], mtf_mode, days)
-        return 0
-    for prof in sorted({v.profile for v in variants}):
-        print(f"\n=== MTF MODE COMPARISON | profile {prof} | {days}d (identical data) ===")
-        print(HEADER)
-        for m in modes:
-            print(_row(m, bt_stats([t for t in results[m] if t["profile"] == prof])))
-    return 0
-
-
-# =============================================================================
-# SELF-TEST
-# =============================================================================
-
-
-def _mk(rows: list[tuple[float, float, float, float]]) -> list[Candle]:
-    return [Candle(i * 900_000, o, h, l, c, 1.0, i * 900_000 + 899_999) for i, (o, h, l, c) in enumerate(rows)]
-
-
-def _inv(cs: list[Candle]) -> list[Candle]:
-    return flip(cs, -1)
-
-
-def self_test() -> int:
-    assert abs(W_NON_MTF_TOTAL + W_MTF_TOTAL - 100.0) < 1e-9, "score weights must sum to 100"
-    assert abs(W_MTF_TOTAL - 25.0) < 1e-9
-    assert normalize_score(75, "off") == 100.0 and normalize_score(0, "off") == 0.0 and abs(normalize_score(37.5, "off") - 50.0) < 1e-9
-    assert normalize_score(100, "bonus") == 100.0 and normalize_score(130, "gate") == 100.0
-    assert len(WATCHLIST) == 1
-
-    # swings (identical for both directions after inversion)
-    sw_rows = [(10, 11, 9, 10), (10, 13, 10, 12), (12, 12, 8, 9), (9, 11, 9, 10)]
-    cs = _mk(sw_rows)
-    sw = find_swings(cs)
-    assert [(s.idx, s.kind) for s in sw] == [(1, "H"), (2, "L")], sw
-    swi = find_swings(_inv(cs))
-    assert [(s.idx, s.kind) for s in swi] == [(1, "L"), (2, "H")], swi
-
-    # trend
-    up = _mk([(10, 11, 9, 10.5), (10.5, 12, 10.4, 11.5), (11.5, 11.8, 10.0, 11), (11, 13, 10.8, 12.8), (12.8, 13.1, 11.5, 12),
-              (12, 12.5, 11.4, 12.4), (12.4, 14.5, 12.3, 14.2), (14.2, 14.3, 13, 13.4), (13.4, 13.9, 12.9, 13.7)])
-    assert trend_of(up) == "uptrend" and trend_ok(up, "LONG") and not trend_ok(up, "SHORT")
-    assert trend_of(_inv(up)) == "downtrend" and trend_ok(_inv(up), "SHORT") and not trend_ok(_inv(up), "LONG")
-
-    # FVG, both directions
-    bull = _mk([(10, 11, 9, 10.5), (10.5, 14, 10.5, 13.5), (13.5, 15, 12, 14.5)])
-    f = detect_fvgs(bull, "LONG")
-    assert [(a.lo, a.hi) for a in f] == [(11, 12)], f
-    fs = detect_fvgs(_inv(bull), "SHORT")
-    assert [(a.lo, a.hi) for a in fs] == [(-12, -11)], fs
-    bear = _mk([(20, 21, 19, 19.5), (19.5, 19.5, 16, 16.5), (16.5, 17, 15, 15.5)])
-    assert [(a.lo, a.hi) for a in detect_fvgs(bear, "SHORT")] == [(17, 19)]
-    assert detect_fvgs(bear, "LONG") == []
-
-    # order block, both directions
-    obs_rows = [(10, 10.5, 9.5, 10.2), (10.2, 12, 10, 11.8), (11.8, 11.9, 10.8, 11), (11, 11.2, 9.5, 9.8), (9.8, 10.5, 9.0, 10.3),
-                (10.3, 11.5, 10.1, 11.3), (11.3, 13, 11.2, 12.8), (12.8, 13.2, 12.5, 13)]
-    ob_cs = _mk(obs_rows)
-    ob = detect_order_blocks(ob_cs, "LONG")
-    assert len(ob) == 1 and (ob[0].lo, ob[0].hi) == (9.5, 11.9) and ob[0].valid, ob
-    obs = detect_order_blocks(_inv(ob_cs), "SHORT")
-    assert len(obs) == 1 and (obs[0].lo, obs[0].hi) == (-11.9, -9.5) and obs[0].valid, obs
-    assert detect_order_blocks(_inv(ob_cs), "LONG") == []
-
-    # breaker, both directions (failed bearish OB -> bullish breaker; mirror -> bearish breaker)
-    brk_rows = [(20, 20.5, 19.5, 19.8), (19.8, 20, 18, 18.2), (18.2, 19.0, 18.1, 18.9), (18.9, 20.0, 18.8, 19.8), (19.8, 20.8, 19.7, 20.6),
-                (20.6, 20.7, 19.0, 19.2), (19.2, 19.3, 17.5, 17.7), (17.7, 18.5, 17.6, 18.4), (18.4, 19.5, 18.3, 19.4),
-                (19.4, 21.5, 19.3, 21.2), (21.2, 22, 21, 21.8)]
-    bk_cs = _mk(brk_rows)
-    bk = detect_breakers(bk_cs, "LONG")
-    assert len(bk) == 1 and (bk[0].lo, bk[0].hi) == (18.1, 20.8) and bk[0].valid, bk
-    bks = detect_breakers(_inv(bk_cs), "SHORT")
-    assert len(bks) == 1 and (bks[0].lo, bks[0].hi) == (-20.8, -18.1) and bks[0].valid, bks
-    assert detect_breakers(_inv(bk_cs), "LONG") == []
-
-    # MSB uses CLOSES, never wicks
-    wick = _mk([(10, 11, 9, 10), (10, 13, 10, 12), (12, 12.5, 11, 11.5), (11.5, 11.8, 10.5, 11), (11, 14, 10.9, 12.5), (12.5, 12.6, 12, 12.2)])
-    assert find_up_breaks(wick, find_swings(wick)) == [], "a wick above a swing high must not count as MSB"
-
-    # SHORT result must be the mirror of LONG on a price-inverted series (full pipeline on synthetic data)
-    assert set(ALL_VARIANTS) == {"SWING", "INTRADAY", "SCALP"} and [i.id for i in WATCHLIST] == ["XAUUSD"]
-    sc = ALL_VARIANTS["SCALP"]
-    assert (sc.htf, sc.mtf, sc.ltf) == ("1h", "15m", "5m") and (ALL_VARIANTS["SWING"].htf, ALL_VARIANTS["SWING"].mtf, ALL_VARIANTS["SWING"].ltf) == ("1d", "4h", "15m")
-    assert (ALL_VARIANTS["INTRADAY"].htf, ALL_VARIANTS["INTRADAY"].mtf, ALL_VARIANTS["INTRADAY"].ltf) == ("4h", "1h", "15m")
-    assert needed_frames([sc], "bonus") == {"1h", "15m", "5m"}
-    v = ALL_VARIANTS["SWING"]
-    assert analyze_setup("LONG", v, up[:5], None, up, 13.0, "off").status in ("NO_SIGNAL", "WATCHING")  # short history path is safe
-    # ---- learning layer (synthetic) ----
-    import random as _r
-    global LEARN_MODE, LEARN_WEIGHTS, LEARN_GUARDS
-    saved = (LEARN_MODE, LEARN_WEIGHTS, LEARN_GUARDS)
-    LEARN_MODE, LEARN_WEIGHTS, LEARN_GUARDS = "on", "shadow", "on"
-    try:
-        assert abs(sum(BASE_WEIGHTS.values()) - 100.0) < 1e-9
-        m0 = _rescale({k: 1.3 for k in LEARNABLE})
-        assert abs(sum(BASE_WEIGHTS[k] * m0[k] for k in LEARNABLE) - sum(BASE_WEIGHTS[k] for k in LEARNABLE)) < 0.2 and all(LEARN_MULT_MIN <= x <= LEARN_MULT_MAX for x in m0.values())
-        assert auc([1, 2, 3, 4], [0, 0, 1, 1]) == 1.0 and auc([1, 1], [0, 1]) == 0.5 and auc([1, 2], [1, 1]) is None
-        rng = _r.Random(7)
-        now = 10 * DAY_MS
-        st = {"learn": copy.deepcopy(DEFAULT_LEARN)}
-
-        def add(n: int, sym: str = "XAUUSD", var: str = "SWING", ote_edge: bool = True, base_wr: float = 0.5) -> None:
-            for i in range(n):
-                c = {k: rng.randint(0, 1) for k in LEARNABLE}
-                p = base_wr + (0.25 if (ote_edge and c["ote"]) else -0.15 if ote_edge else 0.0)  # OTE truly predictive
-                win = 1 if rng.random() < p else 0
-                st["learn"]["log"].append({"id": f"s{len(st['learn']['log'])}", "t": now, "sym": sym, "var": var, "dir": "LONG", "mode": "bonus", "score": 75.0,
-                                           "alt": None, "ver": 0, "c": c, "win": win, "r": 1.5 if win else -1.0, "wt": "TP2" if win else "SL"})
-                st["learn"]["resolved_total"] += 1
-        add(120)
-        ch1 = learning_update(st, now)  # first pass: only records pending direction
-        add(10)
-        ch2 = learning_update(st, now)  # second consecutive pass in the same direction: bounded step applied
-        add(10)
-        learning_update(st, now)
-        mu = st["learn"]["weights"]["mult"]
-        assert mu and mu["ote"] > 1.0 and mu["ote"] <= 1.0 + 2 * LEARN_STEP + 1e-6, mu  # learned the real edge, in small steps
-        assert all(LEARN_MULT_MIN <= v <= LEARN_MULT_MAX for v in mu.values())
-        assert abs(sum(BASE_WEIGHTS[k] * mu[k] for k in LEARNABLE) - sum(BASE_WEIGHTS[k] for k in LEARNABLE)) < 0.5  # budget preserved
-        # scores with learned weights stay in 0-100 and 'off' normalisation uses the learned non-MTF total
-        wv = eff_weights(mu)
-        assert 0.0 <= normalize_score(sum(wv.values()), "bonus", wv) <= 100.0 and abs(normalize_score(sum(v for k, v in wv.items() if k not in MTF_KEYS), "off", wv) - 100.0) < 1e-9
-        # per-variant min score rises on negative expectancy, never below MIN_SCORE, bounded above
-        st2 = {"learn": copy.deepcopy(DEFAULT_LEARN)}
-        st = st2
-        add(40, var="INTRADAY", ote_edge=False, base_wr=0.38)  # mildly negative expectancy (below the breaker)
-        for _ in range(12):
-            st["learn"]["resolved_total"] += LEARN_UPDATE_EVERY
-            learning_update(st, now)
-        ms = st["learn"]["min_score"].get("INTRADAY")
-        assert ms is not None and MIN_SCORE < ms <= MIN_SCORE + LEARN_MIN_SCORE_MAX_RAISE, ms
-        # throttle: only after a full trailing window of bad trades, and it expires
-        st = {"learn": copy.deepcopy(DEFAULT_LEARN)}
-        add(14, sym="XAUUSD", ote_edge=False, base_wr=0.0)
-        assert not _update_throttles(st["learn"], now)
-        add(1, sym="XAUUSD", ote_edge=False, base_wr=0.0)
-        assert _update_throttles(st["learn"], now) and "XAUUSD" in st["learn"]["throttle"]
-        learning_update(st, now + (LEARN_THROTTLE_DAYS + 1) * DAY_MS)
-        assert "XAUUSD" not in st["learn"]["throttle"], "throttle must auto-expire"
-        # breaker trips, freezes learning, auto-recovers, and cannot instantly re-trip
-        st = {"learn": copy.deepcopy(DEFAULT_LEARN)}
-        add(35, ote_edge=False, base_wr=0.0)
-        msgs = learning_update(st, now)
-        assert any("CIRCUIT BREAKER" in x for x in msgs) and breaker_active(st, now + 1)
-        apply_learning_to_runtime(st, now + 1)
-        assert SCORE_BUMP == LEARN_BREAKER_SCORE_BUMP and not WEIGHT_MULT
-        later = now + (LEARN_BREAKER_HOURS + 1) * 3_600_000
-        assert not breaker_active(st, later)
-        learning_update(st, later)
-        assert not breaker_active(st, later + 1), "no re-trip before fresh trades arrive"
-        apply_learning_to_runtime(st, later)
-        assert SCORE_BUMP == 0.0 and not THROTTLED
-        # learning must never alter signal outcome logic
-        sg = {"direction": "LONG", "status": "ACTIVE", "entry": 10.0, "sl": 9.0, "tp1": 11.5, "tp2": 13.0, "rr_tp1": 1.5, "rr_tp2": 3.0,
-              "tp1_hit": False, "bars_waited": 0, "filled_ms": 1, "closed_ms": None, "result_r": None}
-        step_signal(sg, Candle(1, 10.0, 11.6, 10.0, 11.5, 1.0, 2))  # TP1 touched
-        assert sg["status"] == "TP1_HIT" and sg["tp1_hit"]
-        step_signal(sg, Candle(2, 11.0, 11.0, 8.9, 9.0, 1.0, 3))  # then SL: still a WIN at TP1's R
-        assert sg["status"] == "WIN" and sg["result_r"] == 1.5 and sg["win_type"] == "TP1_THEN_SL"
-        sl2 = {**sg, "status": "ACTIVE", "tp1_hit": False, "win_type": None, "result_r": None}
-        step_signal(sl2, Candle(3, 10.0, 10.5, 8.9, 9.0, 1.0, 4))
-        assert sl2["status"] == "LOSS" and sl2["result_r"] == -1.0 and sl2["win_type"] == "SL"
-    finally:
-        LEARN_MODE, LEARN_WEIGHTS, LEARN_GUARDS = saved
-        apply_learning_to_runtime({"learn": copy.deepcopy(DEFAULT_LEARN)}, 0)
-    print("SELF-TEST OK: swings, trend, FVG, OB, breaker (LONG+SHORT mirror), MSB-by-close, score weights == 100, off-mode normalization, "
-          "learning (bounded weights, min-score, throttle expiry, breaker recovery, TP1-before-SL = WIN)")
-    return 0
-
-
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Top-down framework signal engine (read-only decision support)")
     p.add_argument("--dry-run", action="store_true", help="print signals; no Telegram, no state writes")
@@ -2534,9 +2198,6 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     p.add_argument("--profile", help="limit to one profile (SWING, INTRADAY, SCALP)")
     p.add_argument("--explain", action="store_true", help="step-by-step trace per direction (needs --symbol)")
     p.add_argument("--mtf-mode", choices=VALID_MTF_MODES, help="override MTF_MODE for this run")
-    p.add_argument("--backtest", type=int, metavar="DAYS", help="replay closed candles bar by bar")
-    p.add_argument("--compare-mtf", action="store_true", help="with --backtest: run gate, bonus, off side by side")
-    p.add_argument("--self-test", action="store_true", help="run built-in detector self-tests and exit")
     p.add_argument("--learn-report", action="store_true", help="print what the engine has learned (reads state.json) and exit")
     return p.parse_args(argv)
 
@@ -2544,8 +2205,6 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
 def main(argv: Optional[list[str]] = None) -> int:
     args = parse_args(argv)
     logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    if args.self_test:
-        return self_test()
     if args.learn_report:
         st = StateStore(STATE_FILE).load()
         print("\n".join(build_learning_report(st)))
@@ -2555,8 +2214,6 @@ def main(argv: Optional[list[str]] = None) -> int:
         raise SystemExit(f"MTF_MODE must be one of {VALID_MTF_MODES}, got {mode!r}")
     directions = parse_directions(_env_str("SIGNAL_DIRECTIONS", "LONG,SHORT"))
     variants = parse_enabled_variants(_env_str("ENABLED_VARIANTS", DEFAULT_ENABLED_VARIANTS))
-    if args.backtest:
-        return run_backtest(args, mode, directions, variants)
     if args.explain:
         return run_explain(args, mode, directions, variants)
     return run_scan(args, mode, directions, variants)
