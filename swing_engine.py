@@ -2,7 +2,8 @@
 """
 framework_signal_engine.py
 ==========================
-Top-down framework signal engine (HTF map -> MTF confirmation -> LTF trigger).
+Top-down framework signal engine (HTF map -> MTF confirmation -> LTF trigger) - GOLD (XAUUSD) only.
+Profiles: SWING (1d>4h>15m), INTRADAY (4h>1h>15m), SCALP (1h>15m>5m).
 
 Single file, scan-per-run (run it from an external scheduler every 5-15 min),
 closed-candle only, read-only decision support (NEVER places orders), alerts
@@ -12,7 +13,7 @@ Usage
 -----
   python framework_signal_engine.py                      one full scan
   python framework_signal_engine.py --dry-run            print signals, no Telegram / no state writes
-  python framework_signal_engine.py --symbol BTC --profile MID --explain
+  python framework_signal_engine.py --symbol GOLD --profile SWING --explain
   python framework_signal_engine.py --mtf-mode gate|bonus|off
   python framework_signal_engine.py --backtest 30
   python framework_signal_engine.py --backtest 30 --compare-mtf
@@ -89,7 +90,7 @@ MTF_MODE = _env_str("MTF_MODE", "bonus").lower()  # "gate" | "bonus" | "off"
 VALID_MTF_MODES = ("gate", "bonus", "off")
 MIN_SCORE = _env_float("MIN_SCORE", 70.0)
 ALL_DIRECTIONS = ("LONG", "SHORT")
-DEFAULT_ENABLED_VARIANTS = "INTRA-15m,MID,SWING-1w-4h"
+DEFAULT_ENABLED_VARIANTS = "SWING,INTRADAY,SCALP"
 
 # --- self-learning switches ---------------------------------------------------
 LEARN_MODE = _env_str("LEARN_MODE", "on").lower()  # "on" | "off"  (master switch)
@@ -104,16 +105,14 @@ TF_MS: dict[str, int] = {
     "1h": 3_600_000,
     "4h": 14_400_000,
     "1d": DAY_MS,
-    "1w": 7 * DAY_MS,
-    "1M": 31 * DAY_MS,  # approximation (staleness / history sizing only)
 }
-CANDLE_COUNTS: dict[str, int] = {"1M": 48, "1w": 156, "1d": 260, "4h": 260, "1h": 300, "15m": 300, "5m": 300}
+CANDLE_COUNTS: dict[str, int] = {"1d": 260, "4h": 260, "1h": 300, "15m": 300, "5m": 300}
 
-# --- profiles (HTF -> MTF -> LTF). Two-option slots become VARIANTS. --------
+# --- profiles (HTF -> MTF -> LTF). Two-option slots become VARIANTS (none at present: 1 variant per profile). ---
 PROFILES: dict[str, dict[str, Any]] = {
-    "INTRA": {"htf": ["4h"], "mtf": "1h", "ltf": ["15m", "5m"]},
-    "MID": {"htf": ["1d"], "mtf": "4h", "ltf": ["15m"]},
-    "SWING": {"htf": ["1M", "1w"], "mtf": "1d", "ltf": ["4h", "1h"]},
+    "SWING": {"htf": ["1d"], "mtf": "4h", "ltf": ["15m"]},
+    "INTRADAY": {"htf": ["4h"], "mtf": "1h", "ltf": ["15m"]},
+    "SCALP": {"htf": ["1h"], "mtf": "15m", "ltf": ["5m"]},
 }
 
 # --- structure / strategy thresholds ----------------------------------------
@@ -167,7 +166,6 @@ RR_BONUS_THRESHOLD = 3.0
 # --- lifecycle --------------------------------------------------------------
 FILL_EXPIRY_BARS = 16
 COOLDOWN_BARS = 6
-CLUSTER_CAP = 3
 OPEN_STATES = ("PENDING_FILL", "ACTIVE", "TP1_HIT")
 TERMINAL_STATES = ("WIN", "LOSS", "EXPIRED")
 
@@ -218,16 +216,10 @@ class Instrument:
     session: str
 
 
-def _crypto(coin: str) -> Instrument:
-    return Instrument(f"{coin}USDT", f"{coin}USD", "crypto", coin, "", "24x7")
-
-
 WATCHLIST: list[Instrument] = [
     Instrument("XAUUSD", "GOLD", "metal", "xyz:GOLD", "xyz", "tradfi_ref"),
-    *[_crypto(c) for c in ("BTC", "ETH", "SOL", "XRP", "ZEC", "LINK", "BNB", "NEAR", "HYPE")],
 ]
-assert len(WATCHLIST) == 10, "watchlist must contain exactly 10 instruments"
-CRYPTO_CLUSTER_IDS = {i.id for i in WATCHLIST if i.asset_class == "crypto"}  # GOLD excluded from cap
+assert len(WATCHLIST) == 1 and WATCHLIST[0].id == "XAUUSD", "this engine is GOLD-only"
 
 
 @dataclass(frozen=True)
@@ -321,13 +313,7 @@ def flip(cs: list[Candle], s: int) -> list[Candle]:
 
 
 def current_bar_open_ms(tf: str, now_ms: int) -> int:
-    if tf == "1M":
-        d = datetime.fromtimestamp(now_ms / 1000, tz=timezone.utc)
-        return int(datetime(d.year, d.month, 1, tzinfo=timezone.utc).timestamp() * 1000)
     ms = TF_MS[tf]
-    if tf == "1w":
-        off = 4 * DAY_MS  # epoch is a Thursday; weekly bars assumed to open Monday 00:00 UTC
-        return ((now_ms - off) // ms) * ms + off
     return (now_ms // ms) * ms
 
 
@@ -544,8 +530,11 @@ DEFAULT_LEARN: dict[str, Any] = {
     "breaker": {"until_ms": 0, "n_at_trip": 0, "avg_r": 0.0},
 }
 
+STATE_SCHEMA = "gold_v1"  # bump => old state is backed up and reset on next load
+
 DEFAULT_STATE: dict[str, Any] = {
     "version": 2,
+    "schema": STATE_SCHEMA,
     "learn": copy.deepcopy(DEFAULT_LEARN),
     "totals": new_bucket(),
     "by_symbol": {},
@@ -603,6 +592,7 @@ class StateStore:
         self.lock_path = path + ".lock"
         self._fh = None
         self.state: dict[str, Any] = copy.deepcopy(DEFAULT_STATE)
+        self._backup_raw: Optional[dict] = None  # old-schema state waiting to be backed up on the next save()
 
     def acquire(self) -> bool:
         os.makedirs(os.path.dirname(os.path.abspath(self.lock_path)), exist_ok=True)
@@ -630,6 +620,11 @@ class StateStore:
                 loaded = json.load(f)
         except (OSError, ValueError):
             loaded = {}
+        if isinstance(loaded, dict) and loaded and loaded.get("schema") != STATE_SCHEMA:
+            # pre-GOLD-only state (crypto symbols, old INTRA/MID/SWING names, learning from other variants): start clean, keep a backup
+            log.warning("state.json has an old schema - resetting (backup written on next save)")
+            self._backup_raw = loaded
+            loaded = {}
         st = _merge_defaults(DEFAULT_STATE, loaded if isinstance(loaded, dict) else {})
         for g in BUCKET_GROUPS:
             st[g] = {k: _merge_defaults(new_bucket(), b) for k, b in st[g].items()}
@@ -638,6 +633,9 @@ class StateStore:
         return st
 
     def save(self) -> None:
+        if self._backup_raw is not None:
+            _atomic_write_json(self.path + ".pre_gold.bak", self._backup_raw)
+            self._backup_raw = None
         prune_state(self.state)
         _atomic_write_json(self.path, self.state)
 
@@ -2183,10 +2181,6 @@ def signal_blocked(state: dict, inst: Instrument, v: Variant, an: Analysis) -> s
         return "open signal exists (same symbol/direction/profile)"
     if any(s["symbol"] == inst.id and s["profile"] == v.profile and s["direction"] != d for s in opens):
         return "opposite-direction signal open (same symbol/profile)"
-    if inst.id in CRYPTO_CLUSTER_IDS:
-        n = sum(1 for s in opens if s["direction"] == d and s["symbol"] in CRYPTO_CLUSTER_IDS)
-        if n >= CLUSTER_CAP:
-            return f"correlation cap ({n} open {d} in the crypto cluster)"
     return ""
 
 
@@ -2391,7 +2385,7 @@ def self_test() -> int:
     assert abs(W_MTF_TOTAL - 25.0) < 1e-9
     assert normalize_score(75, "off") == 100.0 and normalize_score(0, "off") == 0.0 and abs(normalize_score(37.5, "off") - 50.0) < 1e-9
     assert normalize_score(100, "bonus") == 100.0 and normalize_score(130, "gate") == 100.0
-    assert len(WATCHLIST) == 10
+    assert len(WATCHLIST) == 1
 
     # swings (identical for both directions after inversion)
     sw_rows = [(10, 11, 9, 10), (10, 13, 10, 12), (12, 12, 8, 9), (9, 11, 9, 10)]
@@ -2443,7 +2437,12 @@ def self_test() -> int:
     assert find_up_breaks(wick, find_swings(wick)) == [], "a wick above a swing high must not count as MSB"
 
     # SHORT result must be the mirror of LONG on a price-inverted series (full pipeline on synthetic data)
-    v = ALL_VARIANTS["MID"]
+    assert set(ALL_VARIANTS) == {"SWING", "INTRADAY", "SCALP"} and [i.id for i in WATCHLIST] == ["XAUUSD"]
+    sc = ALL_VARIANTS["SCALP"]
+    assert (sc.htf, sc.mtf, sc.ltf) == ("1h", "15m", "5m") and (ALL_VARIANTS["SWING"].htf, ALL_VARIANTS["SWING"].mtf, ALL_VARIANTS["SWING"].ltf) == ("1d", "4h", "15m")
+    assert (ALL_VARIANTS["INTRADAY"].htf, ALL_VARIANTS["INTRADAY"].mtf, ALL_VARIANTS["INTRADAY"].ltf) == ("4h", "1h", "15m")
+    assert needed_frames([sc], "bonus") == {"1h", "15m", "5m"}
+    v = ALL_VARIANTS["SWING"]
     assert analyze_setup("LONG", v, up[:5], None, up, 13.0, "off").status in ("NO_SIGNAL", "WATCHING")  # short history path is safe
     # ---- learning layer (synthetic) ----
     import random as _r
@@ -2459,7 +2458,7 @@ def self_test() -> int:
         now = 10 * DAY_MS
         st = {"learn": copy.deepcopy(DEFAULT_LEARN)}
 
-        def add(n: int, sym: str = "BTCUSDT", var: str = "MID", ote_edge: bool = True, base_wr: float = 0.5) -> None:
+        def add(n: int, sym: str = "XAUUSD", var: str = "SWING", ote_edge: bool = True, base_wr: float = 0.5) -> None:
             for i in range(n):
                 c = {k: rng.randint(0, 1) for k in LEARNABLE}
                 p = base_wr + (0.25 if (ote_edge and c["ote"]) else -0.15 if ote_edge else 0.0)  # OTE truly predictive
@@ -2483,20 +2482,20 @@ def self_test() -> int:
         # per-variant min score rises on negative expectancy, never below MIN_SCORE, bounded above
         st2 = {"learn": copy.deepcopy(DEFAULT_LEARN)}
         st = st2
-        add(40, var="INTRA-15m", ote_edge=False, base_wr=0.38)  # mildly negative expectancy (below the breaker)
+        add(40, var="INTRADAY", ote_edge=False, base_wr=0.38)  # mildly negative expectancy (below the breaker)
         for _ in range(12):
             st["learn"]["resolved_total"] += LEARN_UPDATE_EVERY
             learning_update(st, now)
-        ms = st["learn"]["min_score"].get("INTRA-15m")
+        ms = st["learn"]["min_score"].get("INTRADAY")
         assert ms is not None and MIN_SCORE < ms <= MIN_SCORE + LEARN_MIN_SCORE_MAX_RAISE, ms
         # throttle: only after a full trailing window of bad trades, and it expires
         st = {"learn": copy.deepcopy(DEFAULT_LEARN)}
-        add(14, sym="NEARUSDT", ote_edge=False, base_wr=0.0)
+        add(14, sym="XAUUSD", ote_edge=False, base_wr=0.0)
         assert not _update_throttles(st["learn"], now)
-        add(1, sym="NEARUSDT", ote_edge=False, base_wr=0.0)
-        assert _update_throttles(st["learn"], now) and "NEARUSDT" in st["learn"]["throttle"]
+        add(1, sym="XAUUSD", ote_edge=False, base_wr=0.0)
+        assert _update_throttles(st["learn"], now) and "XAUUSD" in st["learn"]["throttle"]
         learning_update(st, now + (LEARN_THROTTLE_DAYS + 1) * DAY_MS)
-        assert "NEARUSDT" not in st["learn"]["throttle"], "throttle must auto-expire"
+        assert "XAUUSD" not in st["learn"]["throttle"], "throttle must auto-expire"
         # breaker trips, freezes learning, auto-recovers, and cannot instantly re-trip
         st = {"learn": copy.deepcopy(DEFAULT_LEARN)}
         add(35, ote_edge=False, base_wr=0.0)
@@ -2531,8 +2530,8 @@ def self_test() -> int:
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Top-down framework signal engine (read-only decision support)")
     p.add_argument("--dry-run", action="store_true", help="print signals; no Telegram, no state writes")
-    p.add_argument("--symbol", help="limit to one symbol (BTC, ETH, GOLD, XAUUSD ...)")
-    p.add_argument("--profile", help="limit to one profile (INTRA, MID, SWING)")
+    p.add_argument("--symbol", help="limit to one symbol (GOLD / XAUUSD - the only instrument)")
+    p.add_argument("--profile", help="limit to one profile (SWING, INTRADAY, SCALP)")
     p.add_argument("--explain", action="store_true", help="step-by-step trace per direction (needs --symbol)")
     p.add_argument("--mtf-mode", choices=VALID_MTF_MODES, help="override MTF_MODE for this run")
     p.add_argument("--backtest", type=int, metavar="DAYS", help="replay closed candles bar by bar")
